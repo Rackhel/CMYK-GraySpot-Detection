@@ -1,0 +1,38 @@
+# Python virtual environments
+.venv
+venv
+
+# Git
+.git
+.gitignore
+
+# Dataset files (DVC will pull them if needed)
+data/*.zip
+data/*.tar
+data/*.gz
+data/*.7z
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode
+.idea
+
+# Build artifacts
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
