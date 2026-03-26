@@ -52,15 +52,15 @@ class ContrastiveDataset(Dataset):
 
         # 이미지 경로 수집 (labeled/ 하위 모든 레벨 포함)
         # Collect image paths (all levels under labeled/)
-        labeled_dir = Path(cfg["storage"]["labeled_dir"]) / channel
+        roi_dir = Path(cfg["storage"]["roi_dir"]) / channel
         self.image_paths = (
-            sorted(labeled_dir.rglob("*.png")) +
-            sorted(labeled_dir.rglob("*.tiff")) +
-            sorted(labeled_dir.rglob("*.jpg"))
+            sorted(roi_dir.rglob("*.png")) +
+            sorted(roi_dir.rglob("*.tiff")) +
+            sorted(roi_dir.rglob("*.jpg"))
         )
 
         if len(self.image_paths) == 0:
-            print(f"  [{channel}] 이미지 없음 / No images found: {labeled_dir}")
+            print(f"  [{channel}] 이미지 없음 / No images found: {roi_dir}")
 
     def __len__(self) -> int:
         return len(self.image_paths)
