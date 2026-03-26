@@ -14,7 +14,7 @@ tests/test_before_labeling.py
     7. config.yaml 경로 설정이 올바른지 / config.yaml path settings are correct
 
 실행 / Run:
-    python tests/test_before_labeling.py
+    python src/tests/test_before_labeling.py
 """
 
 import sys
@@ -37,7 +37,7 @@ def section(title):
 
 
 def load_config() -> dict:
-    path = Path("config/config.yaml")
+    path = Path("src/config/config.yaml")
     if not path.exists():
         fail(f"config.yaml 없음 / Not found: {path}")
         sys.exit(1)

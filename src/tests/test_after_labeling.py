@@ -40,7 +40,7 @@ def section(title):
 
 
 def load_config() -> dict:
-    path = Path("config/config.yaml")
+    path = Path("src/config/config.yaml")
     if not path.exists():
         fail(f"config.yaml 없음 / Not found: {path}")
         sys.exit(1)

@@ -1,8 +1,6 @@
 pandas
 numpy
 gdown
-torch
-torchvision
 opencv-python
 Pillow
 scikit-learn

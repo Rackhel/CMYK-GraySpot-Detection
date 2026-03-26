@@ -76,7 +76,7 @@ class Phase0Trainer:
     def train(self, loader: DataLoader) -> list[dict]:
         """전체 학습 실행 / Runs the full training loop."""
         p = self.cfg["phase0"]
-        print(f"\n🚀  Phase 0 학습 시작 / Training started — Channel: {self.channel}")
+        print(f"\n  Phase 0 학습 시작 / Training started — Channel: {self.channel}")
         print(f"    Epochs: {p['epochs']} | Batch: {p['batch_size']} | τ: {p['temperature']}")
 
         for epoch in range(1, p["epochs"] + 1):
@@ -205,7 +205,7 @@ class Phase2Trainer:
         s2_epochs    = p["stage2_epochs"]
         total_epochs = s1_epochs + s2_epochs
 
-        print(f"\n🚀  Phase 2 학습 시작 / Training started — Channel: {self.channel}")
+        print(f"\n  Phase 2 학습 시작 / Training started — Channel: {self.channel}")
         print(f"    Stage1: {s1_epochs}ep (Backbone freeze) | Stage2: {s2_epochs}ep (fine-tune)")
 
         for epoch in range(1, total_epochs + 1):

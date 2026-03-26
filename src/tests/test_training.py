@@ -14,7 +14,7 @@ Run this after test_after_labeling.py passes.
     6. 학습 이력 CSV 저장 확인 / Verify training history CSV save
 
 실행 / Run:
-    python tests/test_training.py
+    python src/tests/test_training.py
 
     # Phase 2 직행 (라벨 있을 때) / Direct to Phase 2 (when labels exist)
     python tests/test_training.py --skip-phase0
@@ -45,7 +45,7 @@ def section(title):
     print(f"{'─'*55}")
 
 
-def load_config(path: str = "config/config.yaml") -> dict:
+def load_config(path: str = "src/config/config.yaml") -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
 
@@ -298,7 +298,7 @@ def main():
                         help="Phase 0 건너뛰고 Phase 2 직행 / Skip Phase 0, go direct to Phase 2")
     parser.add_argument("--channel", type=str, default="Y",
                         help="테스트할 채널 / Channel to test (default: Y)")
-    parser.add_argument("--config",  type=str, default="config/config.yaml")
+    parser.add_argument("--config",  type=str, default="src/config/config.yaml")
     args = parser.parse_args()
 
     print("=" * 55)

@@ -149,7 +149,7 @@ def run_hpo(cfg: dict, phase: int, channel: str) -> dict:
 
     Example:
         >>> import yaml
-        >>> cfg = yaml.safe_load(open("config/config.yaml"))
+        >>> cfg = yaml.safe_load(open("src/config/config.yaml"))
         >>> result = run_hpo(cfg, phase=2, channel="Y")
         >>> print(result["best_params"])
     """

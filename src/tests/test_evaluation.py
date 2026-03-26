@@ -46,7 +46,7 @@ def section(title):
     print(f"{'─'*55}")
 
 
-def load_config(path: str = "config/config.yaml") -> dict:
+def load_config(path: str = "src/config/config.yaml") -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
 
@@ -258,7 +258,7 @@ def main():
                         help="HTML 리포트 생성 / Generate HTML report")
     parser.add_argument("--cycle",  type=int, default=1,
                         help="Swing Cycle 번호 / Swing Cycle number (default: 1)")
-    parser.add_argument("--config", type=str, default="config/config.yaml")
+    parser.add_argument("--config", type=str, default="src/config/config.yaml")
     args = parser.parse_args()
 
     print("=" * 55)

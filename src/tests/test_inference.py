@@ -43,7 +43,7 @@ def section(title):
     print(f"{'─'*55}")
 
 
-def load_config(path: str = "config/config.yaml") -> dict:
+def load_config(path: str = "src/config/config.yaml") -> dict:
     with open(path) as f:
         return yaml.safe_load(f)
 
@@ -312,7 +312,7 @@ def main():
     parser = argparse.ArgumentParser(description="Grayspot 추론 검증 / Inference Validation")
     parser.add_argument("--image",  type=str, default=None,
                         help="테스트 이미지 경로 / Test image path")
-    parser.add_argument("--config", type=str, default="config/config.yaml")
+    parser.add_argument("--config", type=str, default="src/config/config.yaml")
     args = parser.parse_args()
 
     print("=" * 55)

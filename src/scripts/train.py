@@ -34,7 +34,7 @@ from evaluation.metrics import evaluate_all_channels, print_evaluation_report, s
 CHANNELS = ["Y", "M", "C", "K"]
 
 
-def load_config(path: str = "config/config.yaml") -> dict:
+def load_config(path: str = "src/config/config.yaml") -> dict:
     """config.yaml을 로드한다. / Loads config.yaml."""
     with open(path) as f:
         return yaml.safe_load(f)
@@ -134,7 +134,7 @@ def main():
                         help="학습 채널 / Training channel (Y/M/C/K/all)")
     parser.add_argument("--skip-phase0", action="store_true",
                         help="Phase 0 없이 Phase 2 직행 / Skip Phase 0 and go directly to Phase 2 (use when labels already exist)")
-    parser.add_argument("--config",      type=str, default="config/config.yaml",
+    parser.add_argument("--config",      type=str, default="src/config/config.yaml",
                         help="config.yaml 경로 / Path to config.yaml")
     args = parser.parse_args()
 

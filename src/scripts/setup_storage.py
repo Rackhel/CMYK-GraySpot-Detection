@@ -15,7 +15,7 @@ from pathlib import Path
 import yaml
 
 
-def load_config(config_path: str = "config/config.yaml") -> dict:
+def load_config(config_path: str = "src/config/config.yaml") -> dict:
     """config.yaml을 로드한다. / Loads config.yaml."""
     with open(config_path, "r") as f:
         return yaml.safe_load(f)

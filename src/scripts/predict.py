@@ -39,7 +39,7 @@ LEVEL_DESC = {
 }
 
 
-def load_config(path: str = "config/config.yaml") -> dict:
+def load_config(path: str = "src/config/config.yaml") -> dict:
     """config.yaml을 로드한다. / Loads config.yaml."""
     with open(path) as f:
         return yaml.safe_load(f)
@@ -174,7 +174,7 @@ def main():
 
     parser.add_argument("--no-save", action="store_true",
                         help="결과를 analyzed/ 폴더에 저장하지 않음 / Do not save results to analyzed/ folder")
-    parser.add_argument("--config",  type=str, default="config/config.yaml",
+    parser.add_argument("--config",  type=str, default="src/config/config.yaml",
                         help="config.yaml 경로 / Path to config.yaml")
     args = parser.parse_args()
 
