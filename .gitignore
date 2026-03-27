@@ -1,8 +1,8 @@
 # 데이터 폴더 — 파일은 무시하되 폴더 구조(.gitkeep)는 유지 / data folder(google download images)
-data/*
-!data/images/
-data/images/*
-!data/images/.gitkeep
+data_set/*
+!data_set/images/
+data_set/images/*
+!data_set/images/.gitkeep
 
 # 압축 파일 / zip file
 *.zip
