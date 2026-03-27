@@ -65,16 +65,16 @@ docker build --build-arg TORCH_VERSION=cu118 -t cmyk-project-gpu .
 ### 2.4 Docker Run / 도커 실행
 
 ```bash
-# Create a data folder if needed (for storing the dataset)
-# 데이터셋 저장을 위한 data 폴더 생성
-mkdir -p data
+# Create a data_set folder if needed (for storing the data_set)
+# 데이터셋 저장을 위한 data_set 폴더 생성
+mkdir -p data_set
 
 # CPU (remove --rm if you want to keep container)
 # CPU (컨테이너를 유지하려면 --rm 제거)
-docker run --rm -v ${PWD}/data:/app/data cmyk-project
+docker run --rm -v ${PWD}/data_set:/app/data_set cmyk-project
 
 # GPU
-docker run --rm --gpus all -v ${PWD}/data:/app/data cmyk-project-gpu
+docker run --rm --gpus all -v ${PWD}/data_set:/app/data_set cmyk-project-gpu
 ```
 
 ---
