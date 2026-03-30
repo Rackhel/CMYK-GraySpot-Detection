@@ -1,3 +1,9 @@
 pandas
 numpy
 gdown
+opencv-python
+Pillow
+scikit-learn
+optuna
+pyyaml
+matplotlib
