@@ -1,40 +1,59 @@
-# S1_review
+# S1 Review / S1 리뷰
 
+---
 
-## Yelhas (R1)
+## 1. Yelhas (R1) — Data & Preprocessing / 데이터 및 전처리
 
-####
+### 1.1 S1 Experience / S1 경험
 
+> To be filled in. / 작성 예정.
 
-## Koshoi & Jin-Hyeong Yang (R2, R5)
+---
 
-### 1.1 Koshoi
+## 2. Koshoi & Jin-Hyeong Yang (R2, R5) — Model & Training / GUI
 
-#### 
+### 2.1 Koshoi (Team Leader)
 
-### 1.2 Jin-Hyeong Yang
+> To be filled in. / 작성 예정.
+
+### 2.2 Jin-Hyeong Yang (R2) — S1 Experience / S1 경험
 
 #### 02_model_test.ipynb
-EfficientNet-B0를 처음 로드해서 forward pass를 돌려봤을 때 출력 차원이 1280이 나오는 걸 확인했다. pretrained=True 방식이 deprecated 되어 있어서 weights=EfficientNet_B0_Weights.DEFAULT 방식으로 바꿔야 했는데, 버전마다 API가 달라질 수 있다는 걸 실감했다. Head를 nn.Identity()로 교체하는 방식이 단순하면서도 효과적이었다. ResNet-50과 비교했을 때 EfficientNet-B0가 파라미터 수는 훨씬 적지만 feature_dim도 달라서 Head를 고정 크기로 만들면 안 된다는 점을 직접 확인했다.
+> EfficientNet-B0 forward pass 확인 및 pretrained API 변경 대응. Head를 nn.Identity()로 교체하고 ResNet-50과 feature_dim 차이를 직접 확인했다.
+> Confirmed EfficientNet-B0 forward pass output and updated deprecated pretrained API. Replaced head with nn.Identity() and verified feature_dim difference from ResNet-50.
 
 #### 03_training.ipynb
-CrossEntropyLoss 안에 Softmax가 포함되어 있다는 걸 알면서도 Head에 실수로 Softmax를 붙이면 어떻게 되는지 직접 실험해봤다. 출력값이 이미 0~1 사이로 눌려있는 상태에서 다시 Softmax가 적용되면 gradient가 거의 0에 가까워져서 학습이 제대로 안 됐다. model.eval() 호출을 빠뜨렸을 때 같은 이미지를 여러 번 추론해도 결과가 달라지는 현상도 직접 겪었는데 BatchNorm과 Dropout이 train 모드에서는 확률적으로 동작한다는 걸 몸으로 느꼈다. 데이터가 적을 때 drop_last=True 설정 때문에 배치가 아예 안 만들어지는 상황도 겪었다.
+
+> CrossEntropyLoss에 Softmax 중복 적용 시 gradient 소실 현상과 model.eval() 누락 시 추론 결과 불일치 문제를 직접 실험으로 확인했다.
+> Verified gradient vanishing from double Softmax with CrossEntropyLoss, and confirmed inconsistent inference results when model.eval() was omitted.
 
 #### 05_contrastive.ipynb
-라벨 없이도 학습이 된다는 개념 자체가 처음에는 와닿지 않았다. 같은 이미지의 두 augmentation을 Positive Pair로 정의하고 InfoNCE Loss로 가깝게 당기는 방식을 직접 구현해보니까 왜 배치 크기가 클수록 좋은지 이해됐다. Negative Pair가 많아야 모델이 더 discriminative한 표현을 학습하기 때문이다. temperature τ 값을 0.5로 높였을 때와 0.1로 낮췄을 때 loss 수렴 속도가 눈에 띄게 달랐다. L2 정규화를 빠뜨렸을 때 유사도 행렬 값이 폭발적으로 커져서 loss가 nan이 되는 경험도 했다.
 
-## Habin Ham (R3)
+> Positive Pair 기반 InfoNCE Loss 구현을 통해 배치 크기와 temperature τ가 학습에 미치는 영향을 확인하고, L2 정규화 누락 시 loss NaN 발생을 경험했다.
+> Implemented InfoNCE Loss with Positive Pairs and observed the impact of batch size and temperature τ, while experiencing loss NaN when L2 normalization was omitted.
 
-####
+---
 
+## 3. Habin Ham (R3) — Evaluation & Reporting / 평가 및 리포팅
 
-## Jeahwan Lee (R4)
+### 3.1 S1 Experience / S1 경험
 
-#### I studied how to use Optuna because there is no part he was in charge of yet.
-#### 아직 그가 담당한 파트가 없어 Optuna 사용법을 공부하였습니다.
+> To be filled in. / 작성 예정.
 
+---
 
-## Rackhel (R6)
+## 4. Jeahwan Lee (R4) — Tuning & Optimization / 튜닝 및 최적화
 
-#### I made github repository for the team, and built the project structure
-#### 팀을 위해 깃허브 저장소를 만들고 프로젝트 구조를 구축했습니다
+### 4.1 S1 Experience / S1 경험
+
+> Since there was no assigned part yet, I studied how to use Optuna.
+> 아직 담당한 파트가 없어 Optuna 사용법을 공부하였습니다.
+
+---
+
+## 5. Rackhel (R6) — Integration & Infrastructure / 통합 및 인프라
+
+### 5.1 S1 Experience / S1 경험
+
+> I created the GitHub repository for the team and built the project structure.
+> 팀을 위해 깃허브 저장소를 만들고 프로젝트 구조를 구축했습니다.
