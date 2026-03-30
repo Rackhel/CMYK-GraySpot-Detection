@@ -2,6 +2,10 @@
 # CMYK 프린터 프로젝트
 
 ---
+## 0. Python version
+
+Python version의 경우 GPU 사용을 위해 3.11.5 버전을 사용합니다.
+For Python version, use version 3.11.5 for GPU use.
 
 ## 1. PyTorch Installation / PyTorch 설치
 
@@ -27,9 +31,6 @@ pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorc
 # Windows / Linux — CPU only / Windows / Linux — CPU만 사용
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 ```
-
-> Currently the project runs on CPU only. GPU support will be added in Stage 3.
-> 현재 프로젝트는 CPU 전용으로 동작합니다. GPU 지원은 Stage 3에서 추가됩니다.
 
 ---
 
