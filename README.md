@@ -86,7 +86,7 @@ docker run --rm --gpus all -v ${PWD}/data_set:/app/data_set cmyk-project-gpu
 
 - OS: macOS (primary) / Windows (secondary) / OS: macOS (주 개발 환경) / Windows (보조 개발 환경)
 - IDE: VS Code
-- Extensions / 확장 프로그램: Container Tools, Prettier - Code Formatter, Prettier ESLint, Pylance, Python Debugger, Python, Jupyter
+- Extensions / 확장 프로그램: Container Tools, Prettier - Code Formatter, Prettier ESLint, Pylance, Python Debugger, Python, Jupyter, Live Preview
 
 > Because the primary laptop is macOS, path installation or folder locations may differ from Windows.
 > 주 개발 환경이 macOS이므로 경로 설치 또는 폴더 위치가 Windows와 다를 수 있습니다.
