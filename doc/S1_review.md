@@ -38,7 +38,9 @@
 
 ### 3.1 S1 Experience / S1 경험
 
-> To be filled in. / 작성 예정.
+> 이번에 Confusion Matrix와 Accuracy를 출력하는 Notebook과 t-SNE/UMAP 임베딩 시각화 Notebook을 담당하면서 코딩을 진행했다. 이전까지 관련 경험이 많지 않았고 지식도 부족해서 프로젝트를 따라가는 것이 솔직히 쉽지 않았다. 하지만 하나하나 오류를 수정하고 결과값이 정상적으로 나올 때마다 큰 만족감을 느꼈고, 점점 재미를 느끼며 작업을 이어갈 수 있었다.
+
+> This time, I worked on implementing notebooks for Confusion Matrix and Accuracy output and t-SNE/UMAP embedding visualization. Since I had limited prior experience and knowledge in this area, it was honestly challenging to keep up with the project. However, as I fixed errors step by step and started getting proper results, I felt a strong sense of accomplishment, which made the process increasingly enjoyable.
 
 ---
 
