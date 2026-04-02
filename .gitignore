@@ -28,3 +28,4 @@ env/
 # IDE
 .vscode/
 .idea/
+*.jpeg
