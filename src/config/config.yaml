@@ -1,2 +1,55 @@
+# ──────────────────────────────────────────────────────────────
+# Grayspot Detection System — Configuration / 설정 파일
+# ──────────────────────────────────────────────────────────────
 
+# ── 데이터 설정 / Data settings ───────────────────────────────
+data:
+  channels: ["Y", "M", "C", "K"]   # CMYK 채널 / Channels
+  num_levels: 6                     # Level 0 ~ 5
+  image_size: 128                   # 모델 입력 크기 / Model input size
 
+# ── 경로 설정 / Path settings ─────────────────────────────────
+storage:
+  labeled_dir:  "data_set/labeled"  # 라벨링 폴더 / Labeled folder
+  raw_dir:      "data_set/raw"      # 원본 이미지 / Raw images
+  models_dir:   "data_set/models"   # 모델 저장 / Model save
+  reports_dir:  "data_set/reports"  # 리포트 / Reports
+
+# ── 모델 설정 / Model settings ────────────────────────────────
+model:
+  backbone: "efficientnet_b0"       # "efficientnet_b0" | "resnet50"
+  # feature_dim: backbone마다 자동으로 결정됨 / Determined automatically per backbone
+  # efficientnet_b0: 1280 / resnet50: 2048
+
+# ── Phase 0 설정 (Contrastive Learning) ───────────────────────
+phase0:
+  epochs:         10                # 학습 에폭 / Training epochs
+  batch_size:     16                # 배치 크기 / Batch size
+  learning_rate:  1.0e-3            # 초기 학습률 / Initial learning rate
+  temperature:    0.1               # InfoNCE τ
+  projection_dim: 128               # Projection Head 출력 차원 / Output dim
+
+# ── Phase 2 설정 (Supervised Classification) ──────────────────
+phase2:
+  epochs:         30                # 학습 에폭 / Training epochs
+  batch_size:     16                # 배치 크기 / Batch size
+  learning_rate:  1.0e-4            # 초기 학습률 / Initial learning rate
+  weight_decay:   1.0e-4            # L2 정규화 / L2 regularization
+  dropout:        0.3               # Dropout 비율 / Dropout rate
+  hidden_dim:     256               # Classifier Head 은닉층 차원 / Hidden dim
+  oversample:     true              # Oversampling 적용 여부 / Apply oversampling
+  class_weights:  "balanced"        # "balanced" | "none"
+
+# ── 학습 공통 설정 / Common training settings ─────────────────
+train:
+  seed:           42                # 재현성 시드 / Reproducibility seed
+  num_workers:    0                 # DataLoader workers
+  eta_min:        1.0e-6            # CosineAnnealingLR 최소 LR / Min LR
+
+# ── 평가 목표 / Evaluation targets ────────────────────────────
+evaluation:
+  targets:
+    overall_accuracy:   0.90        # 전체 정확도 목표 / Overall accuracy target
+    per_color_accuracy: 0.85        # 채널별 정확도 목표 / Per-color accuracy target
+    per_class_f1:       0.80        # 클래스별 F1 목표 / Per-class F1 target
+    mae:                0.50        # MAE 목표 / MAE target
