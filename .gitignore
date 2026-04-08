@@ -4,6 +4,10 @@ data_set/*
 data_set/images/*
 !data_set/images/.gitkeep
 
+# 출력 폴더 - 파일은 무시하되 폴더 구조(.gitkeep)는 유지 / data folder(google download images)
+outputs/*
+!outputs/reports
+
 # 압축 파일 / zip file
 *.zip
 
