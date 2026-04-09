@@ -5,7 +5,6 @@ import optuna
 # -------------------------
 def train_model(learning_rate, batch_size, optimizer_name, dropout):
 
-  
     score = 0.7
 
     if 0.0005 <= learning_rate <= 0.005:
