@@ -1,2 +1,23 @@
 
+<<<<<<< Updated upstream
+=======
+# ── 시스템 설정 / System Settings ──────────────────────────────────────────
+system:
+  project_name: "grayspot"              # 프로젝트명 / Project name
+  version: "0.1.0"                      # 버전 / Version
+  device: "auto"                        # "cuda" | "cpu" | "auto" (auto-detect; macOS MPS treated as GPU engine)
+  mixed_precision: false                # AMP 사용 여부 / Enable mixed precision training
+  
+# ── 데이터 설정 / Data Settings ───────────────────────────────────────────
+data:
+  channels: ["Y", "M", "C", "K"]        # CMYK 채널 / CMYK Channels
+  num_levels: 6                         # 결함 수준: Level 0~5 / Defect levels: 0~5
+  image_size: 128                       # 모델 입력 크기 / Model input size (pixels)
+  
+  # 데이터 분할 비율 / Data split ratios
+  split_ratios:
+    train: 0.7                          # 학습 데이터 / Training data
+    val: 0.15                           # 검증 데이터 / Validation data
+    test: 0.15                          # 실험 데이터 / Test data
+>>>>>>> Stashed changes
 
