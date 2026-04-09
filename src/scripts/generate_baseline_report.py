@@ -73,30 +73,12 @@ from PIL import Image
 # ── Internal / 내부 ───────────────────────────────────────────────────────
 from evaluation.evaluator import GrayspotEvaluator, EvaluatorConfig
 from reporting.html_report import generate_baseline_report
+from config.config_manager import ConfigManager
 from utils import setup_logging, get_logger
 
 # Setup logging / 로깅 설정
 setup_logging()
 logger = get_logger(__name__)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 0. Device selection — identical to 04_evaluation.ipynb Cell 0-B
-#    디바이스 선택 — 04_evaluation.ipynb Cell 0-B와 동일
-# ─────────────────────────────────────────────────────────────────────────────
-
-def get_device() -> torch.device:
-    """
-    Auto-select compute device: CUDA → MPS → CPU.
-    컴퓨팅 디바이스 자동 선택: CUDA → MPS → CPU.
-
-    Windows: CUDA → CPU  /  macOS Apple Silicon: MPS → CPU
-    """
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return torch.device("mps")   # Apple Silicon / 애플 실리콘
-    return torch.device("cpu")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -326,13 +308,18 @@ def main(args: argparse.Namespace) -> None:
     #     data_set/labels_v0.csv    <- labels_csv
     #     outputs/reports/baseline.html  <- output_path (auto-created)
     root_dir    = Path(args.root_dir).resolve()          # CMYK_MAIN/
-    labeled_dir = root_dir / "data_set" / "labeled"      # data_set/labeled/
-    labels_csv  = root_dir / "data_set" / "labels_v0.csv"
-    output_path = root_dir / "outputs" / "reports" / "baseline.html"
+    
+    # Load config / 설정 로드
+    config_manager = ConfigManager(root_dir=root_dir)
+    config = config_manager.config
+    
+    labeled_dir = Path(config["storage"]["labeled_dir"])
+    labels_csv  = Path(config["storage"]["data_root"]) / "labels_v0.csv"
+    output_path = Path(config["storage"]["outputs_dir"]) / "reports" / "baseline.html"
 
-    channels   = ["Y", "M", "C", "K"]
-    num_levels = 6
-    image_size = 224
+    channels   = config["data"]["channels"]
+    num_levels = config["data"]["num_levels"]
+    image_size = config["data"]["image_size"]
     batch_size = 32
 
     # ── Random seed / 랜덤 시드 ──────────────────────────────────────────
@@ -344,7 +331,7 @@ def main(args: argparse.Namespace) -> None:
         torch.cuda.manual_seed_all(seed)
 
     # ── Device / 디바이스 ────────────────────────────────────────────────
-    device = get_device()
+    device = torch.device(config["system"]["device"])
     logger.info(f"⚙️  Device / 디바이스: {device}")
 
     # ── Labels / 라벨 ────────────────────────────────────────────────────
