@@ -10,3 +10,5 @@ matplotlib
 plotly
 seaborn
 pytest
+torch
+torchvision

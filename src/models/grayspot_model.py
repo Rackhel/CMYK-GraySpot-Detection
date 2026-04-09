@@ -15,9 +15,10 @@ from pathlib import Path
 from models.backbone        import build_backbone
 from models.projection_head import ProjectionHead
 from models.classifier      import ClassifierHead
+from utils import LoggerMixin
 
 
-class GrayspotModel(nn.Module):
+class GrayspotModel(nn.Module, LoggerMixin):
     """
     Grayspot Level 0~5 분류 모델.
     Grayspot Level 0~5 classification model.
@@ -93,9 +94,9 @@ class GrayspotModel(nn.Module):
 
         if backbone_state:
             self.backbone.load_state_dict(backbone_state, strict=False)
-            print(f"[PASS] Phase 0 backbone 로드 / Loaded: {Path(backbone_path).name}")
+            self.logger.info(f"[PASS] Phase 0 backbone 로드 / Loaded: {Path(backbone_path).name}")
         else:
-            print("[WARN] backbone 키 없음 — pretrained weights 유지 / No backbone keys found")
+            self.logger.info("[WARN] backbone 키 없음 — pretrained weights 유지 / No backbone keys found")
 
         # Head를 ClassifierHead로 교체 / Replace head with ClassifierHead
         self.head  = ClassifierHead(
@@ -105,4 +106,4 @@ class GrayspotModel(nn.Module):
             dropout=cfg["phase2"]["dropout"],
         )
         self.phase = 2
-        print("[PASS] Head 교체 완료 / Head replaced: ProjectionHead → ClassifierHead")
+        self.logger.info("[PASS] Head 교체 완료 / Head replaced: ProjectionHead → ClassifierHead")

@@ -53,29 +53,175 @@ pip install -r requirements.txt
 
 ### 2.3 Docker Build / 도커 빌드
 
-```bash
-# CPU (macOS / Windows / Linux without GPU)
-# CPU (macOS / GPU 없는 Windows / Linux)
-docker build -t cmyk-project .
+The Docker image uses an optimized layer strategy for efficient caching and minimal image size.
+Docker 이미지는 효율적인 캐싱과 최소 이미지 크기를 위해 최적화된 계층 전략을 사용합니다.
 
-# GPU (Windows / Linux + CUDA 11.8)
-# GPU (Windows / Linux + CUDA 11.8)
-docker build --build-arg TORCH_VERSION=cu118 -t cmyk-project-gpu .
+#### 2.3.1 Build for CPU / CPU용 빌드
+
+```bash
+# Standard build (CPU, default TORCH_VERSION)
+# 표준 빌드 (CPU, 기본 TORCH_VERSION)
+docker build -t cmyk-project:latest .
+
+# Alternative: specify version explicitly / 대안: 버전을 명시적으로 지정
+docker build --build-arg TORCH_VERSION=cpu -t cmyk-project:cpu .
 ```
+
+#### 2.3.2 Build for GPU / GPU용 빌드
+
+```bash
+# Build with CUDA 11.8 support (Windows / Linux)
+# CUDA 11.8 지원 빌드 (Windows / Linux)
+docker build --build-arg TORCH_VERSION=cu118 -t cmyk-project:gpu .
+
+# Build with latest CUDA support / 최신 CUDA 지원 빌드
+docker build --build-arg TORCH_VERSION=cu121 -t cmyk-project:gpu-latest .
+```
+
+#### 2.3.3 Build Options / 빌드 옵션
+
+```bash
+# Build with progress display / 진행 상황을 표시하며 빌드
+docker build --progress=plain -t cmyk-project:latest .
+
+# Build without cache (force full rebuild) / 캐시 없이 빌드 (전체 재빌드)
+docker build --no-cache -t cmyk-project:latest .
+
+# Build with label / 라벨과 함께 빌드
+docker build -t cmyk-project:v0.1.0 .
+```
+
+---
 
 ### 2.4 Docker Run / 도커 실행
 
+The container includes pre-configured volumes for data_set and outputs directories.
+컨테이너는 data_set 및 outputs 디렉토리에 대해 미리 구성된 볼륨을 포함합니다.
+
+#### 2.4.1 Preparation / 준비
+
 ```bash
-# Create a data_set folder if needed (for storing the data_set)
-# 데이터셋 저장을 위한 data_set 폴더 생성
-mkdir -p data_set
+# Create data directories on host machine / 호스트 머신에 데이터 디렉토리 생성
+mkdir -p data_set outputs
+```
 
-# CPU (remove --rm if you want to keep container)
-# CPU (컨테이너를 유지하려면 --rm 제거)
-docker run --rm -v ${PWD}/data_set:/app/data_set cmyk-project
+#### 2.4.2 Run Default Command (Baseline Training) / 기본 명령어 실행 (기준선 훈련)
 
-# GPU
-docker run --rm --gpus all -v ${PWD}/data_set:/app/data_set cmyk-project-gpu
+```bash
+# CPU: Run baseline training
+# CPU: 기준선 훈련 실행
+docker run --rm \
+  -v ${PWD}/data_set:/app/data_set \
+  -v ${PWD}/outputs:/app/outputs \
+  cmyk-project:latest
+
+# GPU: Run baseline training with GPU support
+# GPU: GPU 지원으로 기준선 훈련 실행
+docker run --rm --gpus all \
+  -v ${PWD}/data_set:/app/data_set \
+  -v ${PWD}/outputs:/app/outputs \
+  cmyk-project:gpu
+```
+
+#### 2.4.3 Run Custom Commands / 사용자 정의 명령어 실행
+
+```bash
+# Run specific channel training (e.g., Channel C)
+# 특정 채널 훈련 실행 (예: 채널 C)
+docker run --rm \
+  -v ${PWD}/data_set:/app/data_set \
+  -v ${PWD}/outputs:/app/outputs \
+  cmyk-project:latest \
+  python -m src.scripts.run_baseline --channel C
+
+# Run all channels / 모든 채널 실행
+docker run --rm \
+  -v ${PWD}/data_set:/app/data_set \
+  -v ${PWD}/outputs:/app/outputs \
+  cmyk-project:latest \
+  python -m src.scripts.run_baseline --channel all
+
+# Interactive shell / 대화형 셸
+docker run --rm -it \
+  -v ${PWD}/data_set:/app/data_set \
+  -v ${PWD}/outputs:/app/outputs \
+  cmyk-project:latest \
+  /bin/bash
+
+# Run evaluation / 평가 실행
+docker run --rm \
+  -v ${PWD}/data_set:/app/data_set \
+  -v ${PWD}/outputs:/app/outputs \
+  cmyk-project:latest \
+  python -m src.scripts.generate_baseline_report
+```
+
+#### 2.4.4 Run Options / 실행 옵션
+
+```bash
+# Keep container after execution (don't use --rm) / 실행 후 컨테이너 유지
+docker run -d \
+  -v ${PWD}/data_set:/app/data_set \
+  -v ${PWD}/outputs:/app/outputs \
+  --name cmyk-training \
+  cmyk-project:latest
+
+# View logs of running container / 실행 중인 컨테이너의 로그 보기
+docker logs -f cmyk-training
+
+# Stop container / 컨테이너 중지
+docker stop cmyk-training
+
+# Limit memory and CPU usage / 메모리 및 CPU 사용량 제한
+docker run --rm \
+  --memory=4g --cpus=2 \
+  -v ${PWD}/data_set:/app/data_set \
+  -v ${PWD}/outputs:/app/outputs \
+  cmyk-project:latest
+```
+
+#### 2.4.5 Docker Compose (Optional) / Docker Compose (선택 사항)
+
+Create a `docker-compose.yml` file for easier management:
+쉬운 관리를 위해 `docker-compose.yml` 파일을 작성하세요:
+
+```yaml
+version: '3.8'
+
+services:
+  cmyk-cpu:
+    image: cmyk-project:latest
+    build:
+      context: .
+      args:
+        TORCH_VERSION: cpu
+    volumes:
+      - ./data_set:/app/data_set
+      - ./outputs:/app/outputs
+    working_dir: /app
+
+  cmyk-gpu:
+    image: cmyk-project:gpu
+    build:
+      context: .
+      args:
+        TORCH_VERSION: cu118
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ./data_set:/app/data_set
+      - ./outputs:/app/outputs
+    working_dir: /app
+```
+
+Then use:
+```bash
+# Build and run CPU version / CPU 버전 빌드 및 실행
+docker-compose up cmyk-cpu
+
+# Build and run GPU version / GPU 버전 빌드 및 실행
+docker-compose up cmyk-gpu
 ```
 
 ---

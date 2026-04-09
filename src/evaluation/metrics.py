@@ -490,6 +490,7 @@ def save_metrics_json(
 def print_summary(
     summary: EvaluationSummary,
     channels: list[str] = CHANNELS,
+    logger = None,
 ) -> None:
     """
     Print a formatted performance summary table to stdout.
@@ -503,13 +504,14 @@ def print_summary(
         channels : CMYK channels to display / 표시할 CMYK 채널
     """
     targets = summary.targets
-    print("\n=== Performance Summary / 성능 요약 ===")
+    log_func = logger.info if logger else print
+    log_func("\n=== Performance Summary / 성능 요약 ===")
     header = (
         f"{'Channel':>10}  {'Accuracy':>10}  {'Macro F1':>10}"
         f"  {'MAE':>8}  {'Acc':>4}  {'F1':>4}  {'MAE':>4}"
     )
-    print(header)
-    print("-" * len(header))
+    log_func(header)
+    log_func("-" * len(header))
 
     for ch in channels + ["overall"]:
         if ch == "overall":
@@ -521,7 +523,7 @@ def print_summary(
                 continue
             tgt_acc = targets["per_color_accuracy"]
 
-        print(
+        log_func(
             f"{cm.channel:>10}  {cm.accuracy:>10.4f}  {cm.macro_f1:>10.4f}"
             f"  {cm.mae:>8.4f}  "
             f"{'✅' if cm.accuracy >= tgt_acc else '❌':>4}  "
@@ -529,17 +531,17 @@ def print_summary(
             f"{'✅' if cm.mae <= targets['mae'] else '❌':>4}"
         )
 
-    print()
-    print("Targets (PRD §1.4):")
-    print(f"  Overall Accuracy ≥ {targets['overall_accuracy']:.0%}")
-    print(f"  Per-color Acc    ≥ {targets['per_color_accuracy']:.0%}")
-    print(f"  Per-class F1     ≥ {targets['per_class_f1']:.2f}")
-    print(f"  MAE              ≤ {targets['mae']:.2f}")
+    log_func("")
+    log_func("Targets (PRD §1.4):")
+    log_func(f"  Overall Accuracy ≥ {targets['overall_accuracy']:.0%}")
+    log_func(f"  Per-color Acc    ≥ {targets['per_color_accuracy']:.0%}")
+    log_func(f"  Per-class F1     ≥ {targets['per_class_f1']:.2f}")
+    log_func(f"  MAE              ≤ {targets['mae']:.2f}")
 
-    print("\n=== Per-Class Performance (Overall) / 클래스별 성능 (전체) ===")
+    log_func("\n=== Per-Class Performance (Overall) / 클래스별 성능 (전체) ===")
     for pc in summary.overall.per_class:
         flag = "✅" if pc.f1 >= targets["per_class_f1"] else "❌"
-        print(
+        log_func(
             f"  Level {pc.level}  "
             f"Prec={pc.precision:.4f}  "
             f"Recall={pc.recall:.4f}  "
