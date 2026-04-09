@@ -1,4 +1,4 @@
-"""
+﻿"""
 scripts/run_baseline.py
 
 Naive Baseline: Supervised-only (Phase 2만) 학습 → 성능 기록
@@ -18,16 +18,18 @@ Runs Phase 2 training directly from pretrained weights without Phase 0.
     └── baseline_summary.json         ← 전체 채널 성능 요약 / Performance summary
 
 실행 / Run:
-    python src/scripts/run_baseline.py
-    python src/scripts/run_baseline.py --channel C
-    python src/scripts/run_baseline.py --channel all
+    python -m src.scripts.run_baseline
+    python -m src.scripts.run_baseline --channel C
+    python -m src.scripts.run_baseline --channel all
 """
 
-import sys
+import copy
 import json
-import yaml
+import os
 import random
 import argparse
+import warnings
+import sys
 import numpy as np
 import torch
 from pathlib import Path
@@ -35,27 +37,47 @@ from torch.utils.data import DataLoader
 
 # CMYK_MAIN 루트와 src/ 를 sys.path에 추가
 # Add CMYK_MAIN root and src/ to sys.path
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent  # CMYK_MAIN/
-SRC_DIR  = ROOT_DIR / "src"
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
+from src.config import get_config
+from src.utils import setup_logging, get_logger, log_training_config
 from models.grayspot_model import GrayspotModel
-from training.trainer      import CMYKDataset, Phase2Trainer
+from training.trainer import CMYKDataset, Phase2Trainer
+
+warnings.filterwarnings("ignore")
+logger = get_logger(__name__)
 
 CHANNELS = ["Y", "M", "C", "K"]
 
 
-def load_config() -> dict:
-    config_path = SRC_DIR / "config" / "config.yaml"
-    with open(config_path) as f:
-        return yaml.safe_load(f)
+def load_config() -> object:
+    return get_config(config_path=SRC_DIR / "config" / "config.yaml", root_dir=ROOT_DIR)
 
 
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+
+
+def create_dataloader(dataset, cfg: dict, shuffle: bool = False) -> DataLoader:
+    num_workers = min(int(cfg["train"].get("num_workers", 0)), os.cpu_count() or 1)
+    persistent_workers = bool(cfg["train"].get("persistent_workers", False) and num_workers > 0)
+    batch_size = min(cfg["phase2"]["batch_size"], max(len(dataset), 1))
+
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        drop_last=cfg["train"].get("drop_last", True) if shuffle else False,
+        num_workers=num_workers,
+        pin_memory=bool(cfg["train"].get("pin_memory", False)),
+        persistent_workers=persistent_workers,
+        prefetch_factor=cfg["train"].get("prefetch_factor", 2) if num_workers > 0 else 2,
+    )
 
 
 def run_baseline(cfg: dict, channel: str, device: torch.device) -> dict:
@@ -66,65 +88,54 @@ def run_baseline(cfg: dict, channel: str, device: torch.device) -> dict:
     Returns:
         result dict: {channel, test_acc, mae, best_val_acc, n_train, n_test}
     """
-    # baseline 저장 폴더 / Baseline save folder
-    baseline_dir = ROOT_DIR / "data_set" / "baseline"
+    baseline_dir = Path(cfg["storage"]["data_root"]) / "baseline"
     baseline_dir.mkdir(parents=True, exist_ok=True)
 
-    # config 에서 모델 저장 경로를 baseline/ 으로 임시 변경
-    # Temporarily redirect model save path to baseline/
-    import copy
     bcfg = copy.deepcopy(cfg)
-    bcfg["storage"]["models_dir"]  = str(baseline_dir)
+    bcfg["storage"]["models_dir"] = str(baseline_dir)
     bcfg["storage"]["reports_dir"] = str(baseline_dir)
 
-    print(f"\n{'='*60}")
-    print(f"  Baseline Training — Channel: [{channel}]")
-    print(f"  Mode: Supervised-only (Phase 2, no Phase 0)")
-    print(f"  Backbone: {cfg['model']['backbone']}")
-    print(f"  Epochs: {cfg['phase2']['epochs']} | LR: {cfg['phase2']['learning_rate']}")
-    print(f"{'='*60}")
+    train_ds = CMYKDataset(bcfg, channel, split="train", augment=True, oversample=True)
+    val_ds = CMYKDataset(bcfg, channel, split="val", augment=False, oversample=False)
+    test_ds = CMYKDataset(bcfg, channel, split="test", augment=False, oversample=False)
 
-    # 데이터셋 구성 / Build datasets
-    train_ds = CMYKDataset(bcfg, channel, split="train", augment=True,  oversample=True)
-    val_ds   = CMYKDataset(bcfg, channel, split="val",   augment=False, oversample=False)
-    test_ds  = CMYKDataset(bcfg, channel, split="test",  augment=False, oversample=False)
-
-    print(f"  [{channel}] Train: {len(train_ds)} | Val: {len(val_ds)} | Test: {len(test_ds)}")
+    logger.info("\n" + "=" * 60)
+    logger.info(f"  Baseline Training — Channel: [{channel}]")
+    logger.info("  Mode: Supervised-only (Phase 2, no Phase 0)")
+    logger.info(f"  Backbone: {cfg['model']['backbone']}")
+    logger.info(f"  Epochs: {cfg['phase2']['epochs']} | LR: {cfg['phase2']['learning_rate']}")
+    logger.info("=" * 60)
+    logger.info(f"  [{channel}] Train: {len(train_ds)} | Val: {len(val_ds)} | Test: {len(test_ds)}")
 
     if len(train_ds) == 0:
-        print(f"  [WARN] 학습 데이터 없음 — 건너뜀 / No training data — skipping [{channel}]")
-        return {"channel": channel, "skipped": True}
+        logger.warning(f"  [WARN] 학습 데이터 없음 — 건너뜀 / No training data — skipping [{channel}]")
+        return {
+            "channel": channel,
+            "skipped": True,
+            "test_acc": 0.0,
+            "mae": 0.0,
+            "best_val_acc": 0.0,
+            "n_train": 0,
+            "n_val": len(val_ds),
+            "n_test": len(test_ds),
+            "epochs": cfg["phase2"]["epochs"],
+            "backbone": cfg["model"]["backbone"],
+            "pass_acc": False,
+            "pass_mae": False,
+        }
 
-    train_loader = DataLoader(
-        train_ds,
-        batch_size=min(bcfg["phase2"]["batch_size"], len(train_ds)),
-        shuffle=True,
-        drop_last=True,
-        num_workers=bcfg["train"]["num_workers"],
-    )
-    val_loader = DataLoader(
-        val_ds,
-        batch_size=min(bcfg["phase2"]["batch_size"], max(len(val_ds), 1)),
-        shuffle=False,
-        num_workers=bcfg["train"]["num_workers"],
-    )
-    test_loader = DataLoader(
-        test_ds,
-        batch_size=min(bcfg["phase2"]["batch_size"], max(len(test_ds), 1)),
-        shuffle=False,
-        num_workers=bcfg["train"]["num_workers"],
-    )
+    train_loader = create_dataloader(train_ds, bcfg, shuffle=True)
+    val_loader = create_dataloader(val_ds, bcfg, shuffle=False)
+    test_loader = create_dataloader(test_ds, bcfg, shuffle=False)
 
-    # Phase 0 없이 pretrained weights 로 바로 Phase 2 시작
-    # Start Phase 2 directly from pretrained weights without Phase 0
-    model   = GrayspotModel(bcfg, phase=2).to(device)
+    model = GrayspotModel(bcfg, phase=2).to(device)
     trainer = Phase2Trainer(model, bcfg, channel, device, train_ds)
     history = trainer.train(train_loader, val_loader)
     trainer.save_history(history)
 
-    # 최적 모델 로드 후 테스트셋 평가 / Load best model and evaluate on test set
     best_path = baseline_dir / f"best_{channel}.pt"
-    model.load_state_dict(torch.load(best_path, map_location=device))
+    if best_path.exists():
+        model.load_state_dict(torch.load(best_path, map_location=device))
     model.eval()
 
     correct, total = 0, 0
@@ -133,42 +144,42 @@ def run_baseline(cfg: dict, channel: str, device: torch.device) -> dict:
     with torch.no_grad():
         for x, labels in test_loader:
             x, labels = x.to(device), labels.to(device)
-            preds     = model(x).argmax(1)
-            correct  += (preds == labels).sum().item()
-            total    += len(labels)
+            preds = model(x).argmax(1)
+            correct += (preds == labels).sum().item()
+            total += len(labels)
             y_true.extend(labels.cpu().tolist())
             y_pred.extend(preds.cpu().tolist())
 
-    test_acc     = correct / max(total, 1)
-    mae          = sum(abs(t - p) for t, p in zip(y_true, y_pred)) / max(len(y_true), 1)
+    test_acc = correct / max(total, 1)
+    mae = sum(abs(t - p) for t, p in zip(y_true, y_pred)) / max(len(y_true), 1)
     best_val_acc = max(r["val_acc"] for r in history)
 
-    # 성능 목표 대비 출력 / Print vs performance targets
-    target_acc = cfg["evaluation"]["targets"]["per_color_accuracy"]
-    target_mae = cfg["evaluation"]["targets"]["mae"]
-
-    print(f"\n  [{channel}] 테스트셋 결과 / Test Set Results")
-    print(f"  {'─'*40}")
-    print(f"  Test Accuracy : {test_acc:.4f}  (target >= {target_acc}) "
-          f"{'[PASS]' if test_acc >= target_acc else '[FAIL]'}")
-    print(f"  MAE           : {mae:.4f}  (target <= {target_mae}) "
-          f"{'[PASS]' if mae <= target_mae else '[FAIL]'}")
-    print(f"  Best Val Acc  : {best_val_acc:.4f}")
-    print(f"  Test Samples  : {total}개")
+    logger.info(f"\n  [{channel}] 테스트셋 결과 / Test Set Results")
+    logger.info(f"  {'─' * 40}")
+    logger.info(
+        f"  Test Accuracy : {test_acc:.4f}  (target >= {cfg['evaluation']['targets']['per_color_accuracy']}) "
+        f"{'[PASS]' if test_acc >= cfg['evaluation']['targets']['per_color_accuracy'] else '[FAIL]'}"
+    )
+    logger.info(
+        f"  MAE           : {mae:.4f}  (target <= {cfg['evaluation']['targets']['mae']}) "
+        f"{'[PASS]' if mae <= cfg['evaluation']['targets']['mae'] else '[FAIL]'}"
+    )
+    logger.info(f"  Best Val Acc  : {best_val_acc:.4f}")
+    logger.info(f"  Test Samples  : {total}개")
 
     return {
-        "channel":      channel,
-        "skipped":      False,
-        "test_acc":     round(test_acc, 4),
-        "mae":          round(mae, 4),
+        "channel": channel,
+        "skipped": False,
+        "test_acc": round(test_acc, 4),
+        "mae": round(mae, 4),
         "best_val_acc": round(best_val_acc, 4),
-        "n_train":      len(train_ds),
-        "n_val":        len(val_ds),
-        "n_test":       len(test_ds),
-        "epochs":       cfg["phase2"]["epochs"],
-        "backbone":     cfg["model"]["backbone"],
-        "pass_acc":     test_acc >= target_acc,
-        "pass_mae":     mae <= target_mae,
+        "n_train": len(train_ds),
+        "n_val": len(val_ds),
+        "n_test": len(test_ds),
+        "epochs": cfg["phase2"]["epochs"],
+        "backbone": cfg["model"]["backbone"],
+        "pass_acc": test_acc >= cfg["evaluation"]["targets"]["per_color_accuracy"],
+        "pass_mae": mae <= cfg["evaluation"]["targets"]["mae"],
     }
 
 
@@ -176,63 +187,76 @@ def main():
     parser = argparse.ArgumentParser(
         description="Naive Baseline 학습 / Naive Baseline Training"
     )
-    parser.add_argument("--channel", type=str, default="all",
-                        help="학습할 채널 / Channel to train (Y/M/C/K/all, default: all)")
+    parser.add_argument(
+        "--channel",
+        type=str,
+        default="all",
+        help="학습할 채널 / Channel to train (Y/M/C/K/all, default: all)",
+    )
     args = parser.parse_args()
 
     target_channels = CHANNELS if args.channel == "all" else [args.channel.upper()]
 
-    print("=" * 60)
-    print("  Grayspot — Naive Baseline (Supervised-only)")
-    print(f"  Channels: {target_channels}")
-    print("=" * 60)
+    config = load_config()
+    if not config.validate():
+        logger.error("Configuration validation failed. Fix config.yaml and retry.")
+        raise SystemExit(1)
 
-    cfg = load_config()
-    set_seed(cfg["train"]["seed"])
-
-    device = torch.device(
-        "cuda" if torch.cuda.is_available() else
-        "mps"  if torch.backends.mps.is_available() else
-        "cpu"
+    config.create_necessary_directories()
+    setup_logging(
+        log_dir=Path(config.get("storage.logs_dir")),
+        level=config.get("logging.level") or "INFO",
+        format_style=config.get("logging.format") or "detailed",
+        console=config.get("logging.console_output"),
+        file=config.get("logging.file_output"),
     )
-    print(f"  Device: {device}")
+    log_training_config(config.config, logger=logger)
 
-    # 채널별 학습 실행 / Run training per channel
+    logger.info("=" * 60)
+    logger.info("  Grayspot — Naive Baseline (Supervised-only)")
+    logger.info(f"  Channels: {target_channels}")
+    logger.info("=" * 60)
+
+    set_seed(config.get("train.seed") or 42)
+
+    device = torch.device(config.get("system.device"))
+    logger.info(f"  Device: {device}")
+
     results = []
     for ch in target_channels:
-        result = run_baseline(cfg, ch, device)
-        results.append(result)
+        results.append(run_baseline(config.config, ch, device))
 
-    # 전체 요약 출력 / Print overall summary
-    print(f"\n{'='*60}")
-    print("  Baseline 성능 요약 / Baseline Performance Summary")
-    print(f"{'='*60}")
-    print(f"  {'Channel':<10} {'Test Acc':<12} {'MAE':<10} {'Val Acc':<10} Acc Pass")
-    print(f"  {'─'*50}")
+    logger.info("\n" + "=" * 60)
+    logger.info("  Baseline 성능 요약 / Baseline Performance Summary")
+    logger.info("=" * 60)
+    logger.info(f"  {'Channel':<10} {'Test Acc':<12} {'MAE':<10} {'Val Acc':<10} Acc Pass")
+    logger.info(f"  {'─' * 50}")
 
     for r in results:
         if r.get("skipped"):
-            print(f"  {r['channel']:<10} {'SKIPPED':<12}")
+            logger.info(f"  {r['channel']:<10} {'SKIPPED':<12}")
             continue
         acc_mark = "[PASS]" if r["pass_acc"] else "[FAIL]"
-        print(f"  {r['channel']:<10} {r['test_acc']:<12.4f} {r['mae']:<10.4f} "
-              f"{r['best_val_acc']:<10.4f} {acc_mark}")
+        logger.info(
+            f"  {r['channel']:<10} {r['test_acc']:<12.4f} {r['mae']:<10.4f} "
+            f"{r['best_val_acc']:<10.4f} {acc_mark}"
+        )
 
-    # 요약 JSON 저장 / Save summary JSON
-    baseline_dir  = ROOT_DIR / "data_set" / "baseline"
-    summary_path  = baseline_dir / "baseline_summary.json"
-    summary       = {
-        "mode":     "Naive Baseline (Supervised-only, no Phase 0)",
-        "backbone": cfg["model"]["backbone"],
-        "epochs":   cfg["phase2"]["epochs"],
-        "results":  results,
+    baseline_dir = Path(config.get("storage.data_root")) / "baseline"
+    summary_path = baseline_dir / "baseline_summary.json"
+    summary = {
+        "mode": "Naive Baseline (Supervised-only, no Phase 0)",
+        "backbone": config.get("model.backbone"),
+        "epochs": config.get("phase2.epochs"),
+        "results": results,
     }
+    baseline_dir.mkdir(parents=True, exist_ok=True)
     with open(summary_path, "w", encoding="utf-8") as f:
-        json.dump(summary, f, ensure_ascii=False, indent=2)
+        json.dump(summary, f, indent=2, ensure_ascii=False)
 
-    print(f"\n  Summary saved / 요약 저장: {summary_path}")
-    print(f"  Baseline outputs / 산출물: {baseline_dir}")
-    print()
+    logger.info(f"\n  Summary saved / 요약 저장: {summary_path}")
+    logger.info(f"  Baseline outputs / 산출물: {baseline_dir}")
+    logger.info("")
 
 
 if __name__ == "__main__":

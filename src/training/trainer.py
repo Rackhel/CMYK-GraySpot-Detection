@@ -21,8 +21,11 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import Dataset, DataLoader
 
+from src.utils import get_logger
 from models.grayspot_model import GrayspotModel
-from training.losses       import get_loss
+from training.losses import get_loss
+
+logger = get_logger(__name__)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -191,9 +194,9 @@ class Phase0Trainer:
         epochs  = self.cfg["phase0"]["epochs"]
         history = []
 
-        print(f"{'='*55}\n  Phase 0 Training — Channel: [{self.channel}]\n{'='*55}")
-        print(f"  {'Epoch':<8} {'Loss':<14} {'LR':<14} Elapsed")
-        print(f"  {'-'*50}")
+        logger.info(f"{'='*55}\n  Phase 0 Training — Channel: [{self.channel}]\n{'='*55}")
+        logger.info(f"  {'Epoch':<8} {'Loss':<14} {'LR':<14} Elapsed")
+        logger.info(f"  {'-'*50}")
 
         for epoch in range(1, epochs + 1):
             t0 = time.time()
@@ -215,9 +218,9 @@ class Phase0Trainer:
 
             history.append({"epoch": epoch, "loss": round(avg_loss, 6),
                             "lr": round(lr, 8), "elapsed": round(elapsed, 2)})
-            print(f"  {epoch:<8} {avg_loss:<14.4f} {lr:<14.2e} {elapsed:.1f}s")
+            logger.info(f"  {epoch:<8} {avg_loss:<14.4f} {lr:<14.2e} {elapsed:.1f}s")
 
-        print(f"  {'-'*50}\n  Done — Loss: {history[0]['loss']:.4f} → {history[-1]['loss']:.4f}")
+        logger.info(f"  {'-'*50}\n  Done — Loss: {history[0]['loss']:.4f} → {history[-1]['loss']:.4f}")
         return history
 
     def save_backbone(self) -> Path:
@@ -226,7 +229,7 @@ class Phase0Trainer:
         models_dir.mkdir(parents=True, exist_ok=True)
         save_path  = models_dir / f"phase0_backbone_{self.channel}.pt"
         torch.save(self.model.state_dict(), save_path)
-        print(f"  Backbone saved / 저장: {save_path}")
+        logger.info(f"  Backbone saved / 저장: {save_path}")
         return save_path
 
 
@@ -271,9 +274,9 @@ class Phase2Trainer:
 
         history, best_val_acc, best_epoch = [], 0.0, 0
 
-        print(f"{'='*65}\n  Phase 2 Training — Channel: [{self.channel}]\n{'='*65}")
-        print(f"  {'Epoch':<8} {'Train Loss':<14} {'Train Acc':<12} {'Val Loss':<12} {'Val Acc':<10} LR")
-        print(f"  {'-'*60}")
+        logger.info(f"{'='*65}\n  Phase 2 Training — Channel: [{self.channel}]\n{'='*65}")
+        logger.info(f"  {'Epoch':<8} {'Train Loss':<14} {'Train Acc':<12} {'Val Loss':<12} {'Val Acc':<10} LR")
+        logger.info(f"  {'-'*60}")
 
         for epoch in range(1, epochs + 1):
             t0 = time.time()
@@ -324,12 +327,12 @@ class Phase2Trainer:
                 best_val_acc, best_epoch = val_acc, epoch
                 torch.save(self.model.state_dict(), best_path)
 
-            print(f"  {epoch:<8} {train_loss_avg:<14.4f} {train_acc:<12.4f} "
-                  f"{val_loss_avg:<12.4f} {val_acc:<10.4f} {lr:.2e}")
+            logger.info(f"  {epoch:<8} {train_loss_avg:<14.4f} {train_acc:<12.4f} "
+                        f"{val_loss_avg:<12.4f} {val_acc:<10.4f} {lr:.2e}")
 
-        print(f"  {'-'*60}")
-        print(f"  Best Val Acc: {best_val_acc:.4f} (Epoch {best_epoch})")
-        print(f"  Model saved / 저장: {best_path}\n{'='*65}")
+        logger.info(f"  {'-'*60}")
+        logger.info(f"  Best Val Acc: {best_val_acc:.4f} (Epoch {best_epoch})")
+        logger.info(f"  Model saved / 저장: {best_path}\n{'='*65}")
         return history
 
     def save_history(self, history: list[dict]) -> Path:
@@ -341,5 +344,5 @@ class Phase2Trainer:
             writer = csv.DictWriter(f, fieldnames=history[0].keys())
             writer.writeheader()
             writer.writerows(history)
-        print(f"  History saved / 저장: {csv_path}")
+        logger.info(f"  History saved / 저장: {csv_path}")
         return csv_path

@@ -36,6 +36,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # ── Internal modules / 내부 모듈 ──────────────────────────────────────────
+from src.utils import get_logger, LoggerMixin
 from .metrics import (
     NUM_LEVELS,
     CHANNELS,
@@ -63,6 +64,8 @@ from .confusion import (
 )
 
 warnings.filterwarnings("ignore")
+
+logger = get_logger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -144,7 +147,7 @@ class EvaluatorConfig:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-class GrayspotEvaluator:
+class GrayspotEvaluator(LoggerMixin):
     """
     Full evaluation pipeline orchestrator.
     전체 평가 파이프라인 오케스트레이터.
@@ -238,7 +241,7 @@ class GrayspotEvaluator:
         channels = cfg.channels
 
         # ── Step 1: Compute metrics / 지표 계산 ──────────────────────────
-        print("📊 Computing metrics / 지표 계산 중...")
+        logger.info("📊 Computing metrics / 지표 계산 중...")
         by_channel: dict[str, ChannelMetrics] = {}
         for ch in channels:
             yt = results[ch]["y_true"]
@@ -286,10 +289,10 @@ class GrayspotEvaluator:
         )
 
         # ── Step 3: Print summary / 요약 출력 ────────────────────────────
-        print_summary(self.summary, channels=channels)
+        print_summary(self.summary, channels=channels, logger=self.logger)
 
         # ── Step 4: Confusion matrices / 혼동 행렬 ───────────────────────
-        print("\n📐 Saving confusion matrices / 혼동 행렬 저장 중...")
+        logger.info("\n📐 Saving confusion matrices / 혼동 행렬 저장 중...")
         save_all_confusion_matrices(
             results=results,
             metrics={**by_channel, "overall": overall_cm},
@@ -298,10 +301,11 @@ class GrayspotEvaluator:
             num_classes=cfg.num_levels,
             normalize=cfg.normalize_cm,
             open_browser=cfg.open_browser,
+            logger=self.logger,
         )
 
         # ── Step 5: MAE heatmap / MAE 히트맵 ─────────────────────────────
-        print("\n🌡️  Saving MAE heatmap / MAE 히트맵 저장 중...")
+        logger.info("\n🌡️  Saving MAE heatmap / MAE 히트맵 저장 중...")
         save_mae_heatmap(
             results=results,
             output_dir=self.output_dir,
@@ -309,37 +313,38 @@ class GrayspotEvaluator:
             num_classes=cfg.num_levels,
             target_mae=cfg.target_mae,
             open_browser=cfg.open_browser,
+            logger=self.logger,
         )
 
         # ── Step 6: Evaluation dashboard / 평가 대시보드 ─────────────────
-        print("\n📈 Saving evaluation dashboard / 평가 대시보드 저장 중...")
+        logger.info("\n📈 Saving evaluation dashboard / 평가 대시보드 저장 중...")
         self._save_eval_dashboard(by_channel, overall_cm)
 
         # ── Step 7: Per-class metrics chart / 클래스별 지표 차트 ──────────
-        print("\n📊 Saving per-class metrics chart / 클래스별 지표 차트 저장 중...")
+        logger.info("\n📊 Saving per-class metrics chart / 클래스별 지표 차트 저장 중...")
         self._save_per_class_chart(overall_cm)
 
         # ── Step 8: Misclassified samples / 오분류 샘플 ───────────────────
-        print("\n⚠️  Collecting misclassified samples / 오분류 샘플 수집 중...")
+        logger.info("\n⚠️  Collecting misclassified samples / 오분류 샘플 수집 중...")
         self.df_miss = self._collect_misclassified(results, channels)
         self._save_misclassified(self.df_miss)
 
         # ── Step 9: Confidence distribution / 신뢰도 분포 ────────────────
-        print("\n🔵 Saving confidence distribution / 신뢰도 분포 저장 중...")
+        self.logger.info("\n🔵 Saving confidence distribution / 신뢰도 분포 저장 중...")
         self._save_confidence_distribution(results, channels)
 
         # ── Step 10: Export CSV + JSON / CSV + JSON 내보내기 ──────────────
-        print("\n💾 Exporting CSV & JSON / CSV & JSON 내보내기...")
+        self.logger.info("\n💾 Exporting CSV & JSON / CSV & JSON 내보내기...")
         self.df_eval = self._build_eval_df(results, channels)
         self._export_csv(self.df_eval)
         save_metrics_json(self.summary, self.output_dir / "metrics_summary.json")
-        print(f"[저장 / Saved] {self.output_dir / 'metrics_summary.json'}")
+        self.logger.info(f"[저장 / Saved] {self.output_dir / 'metrics_summary.json'}")
 
         # ── Step 11: Phase 3 feedback / Phase 3 피드백 판단 ──────────────
-        print("\n🔄 Phase 3 Feedback Decision / Phase 3 피드백 복귀 판단...")
+        self.logger.info("\n🔄 Phase 3 Feedback Decision / Phase 3 피드백 복귀 판단...")
         self._print_feedback_decision(channels)
 
-        print(f"\n✅ 평가 완료 / Evaluation complete → {self.output_dir}")
+        self.logger.info(f"\n✅ 평가 완료 / Evaluation complete → {self.output_dir}")
         return self.summary
 
     # ── Private chart builders ────────────────────────────────────────────
@@ -493,7 +498,7 @@ class GrayspotEvaluator:
 
         html_path = self.output_dir / "eval_dashboard.html"
         fig.write_html(str(html_path), include_plotlyjs="cdn")
-        print(f"[저장 / Saved] {html_path}")
+        self.logger.info(f"[저장 / Saved] {html_path}")
 
         if self.cfg.open_browser:
             _open_in_browser(html_path)
@@ -561,7 +566,7 @@ class GrayspotEvaluator:
 
         html_path = self.output_dir / "per_class_metrics.html"
         fig.write_html(str(html_path), include_plotlyjs="cdn")
-        print(f"[저장 / Saved] {html_path}")
+        self.logger.info(f"[저장 / Saved] {html_path}")
 
         if self.cfg.open_browser:
             _open_in_browser(html_path)
@@ -607,12 +612,12 @@ class GrayspotEvaluator:
             df = df.sort_values(
                 ["error_gap", "confidence"], ascending=[False, True]
             )
-            print(f"⚠️   오분류 샘플 수 / Misclassified: {len(df)}")
-            print(f"    최대 오류 간격 / Max error gap: {df['error_gap'].max()}")
-            print("\n[색상별 오분류 수 / Per-color mismatch]")
-            print(df.groupby("color").size().to_string())
+            self.logger.info(f"⚠️   오분류 샘플 수 / Misclassified: {len(df)}")
+            self.logger.info(f"    최대 오류 간격 / Max error gap: {df['error_gap'].max()}")
+            self.logger.info("\n[색상별 오분류 수 / Per-color mismatch]")
+            self.logger.info(df.groupby("color").size().to_string())
         else:
-            print("✅  오분류 없음 / No misclassifications")
+            self.logger.info("✅  오분류 없음 / No misclassifications")
         return df
 
     def _save_misclassified(self, df_miss: pd.DataFrame) -> None:
@@ -626,11 +631,11 @@ class GrayspotEvaluator:
         # Save CSV / CSV 저장
         csv_path = self.output_dir / "misclassified_samples.csv"
         df_miss.to_csv(str(csv_path), index=False, encoding="utf-8-sig")
-        print(f"\n[저장 / Saved] {csv_path}")
+        self.logger.info(f"\n[저장 / Saved] {csv_path}")
 
         # Save scatter chart / scatter 차트 저장
         if len(df_miss) == 0:
-            print("ℹ️   오분류 없음 — scatter 건너뜀 / No misclassified — skipping scatter")
+            self.logger.info("ℹ️   오분류 없음 — scatter 건너뜀 / No misclassified — skipping scatter")
             return
 
         fig = px.scatter(
@@ -676,7 +681,7 @@ class GrayspotEvaluator:
 
         html_path = self.output_dir / "misclassified_scatter.html"
         fig.write_html(str(html_path), include_plotlyjs="cdn")
-        print(f"[저장 / Saved] {html_path}")
+        self.logger.info(f"[저장 / Saved] {html_path}")
 
         if self.cfg.open_browser:
             _open_in_browser(html_path)
@@ -775,7 +780,7 @@ class GrayspotEvaluator:
 
         html_path = self.output_dir / "confidence_distribution.html"
         fig.write_html(str(html_path), include_plotlyjs="cdn")
-        print(f"[저장 / Saved] {html_path}")
+        self.logger.info(f"[저장 / Saved] {html_path}")
 
         if self.cfg.open_browser:
             _open_in_browser(html_path)
@@ -783,11 +788,11 @@ class GrayspotEvaluator:
         # Coverage table / 커버리지 테이블
         all_confs = np.concatenate([results[c]["confidences"] for c in channels])
         total = len(all_confs)
-        print("\n=== Confidence-Driven Coverage (PRD §14.2) / 신뢰도 기반 커버리지 ===")
-        print(
+        self.logger.info("\n=== Confidence-Driven Coverage (PRD §14.2) / 신뢰도 기반 커버리지 ===")
+        self.logger.info(
             f"{'Policy':30s} {'Threshold':>12s} {'Samples':>10s} {'Coverage':>10s}"
         )
-        print("-" * 68)
+        self.logger.info("-" * 68)
         for name, thresh in [
             ("Auto judgment / 자동 판정", self.cfg.conf_thresh_auto),
             ("Warn + auto  / 경고 포함 자동", self.cfg.conf_thresh_warn),
@@ -795,8 +800,8 @@ class GrayspotEvaluator:
         ]:
             n = int((all_confs >= thresh).sum())
             pct = n / total * 100 if total > 0 else 0.0
-            print(f"{name:30s} {'≥ ' + str(thresh):>12s} {n:>10d} {pct:>9.1f}%")
-        print(f"{'Total / 전체':30s} {'—':>12s} {total:>10d} {'100.0':>9s}%")
+            self.logger.info(f"{name:30s} {'≥ ' + str(thresh):>12s} {n:>10d} {pct:>9.1f}%")
+        self.logger.info(f"{'Total / 전체':30s} {'—':>12s} {total:>10d} {'100.0':>9s}%")
 
     def _build_eval_df(
         self,
@@ -840,7 +845,7 @@ class GrayspotEvaluator:
         """
         csv_path = self.output_dir / "evaluation_results.csv"
         df_eval.to_csv(str(csv_path), index=False, encoding="utf-8-sig")
-        print(f"[저장 / Saved] {csv_path}  ({len(df_eval)} rows)")
+        self.logger.info(f"[저장 / Saved] {csv_path}  ({len(df_eval)} rows)")
 
     def _print_feedback_decision(self, channels: list[str]) -> None:
         """
@@ -859,36 +864,36 @@ class GrayspotEvaluator:
         )
 
         sep = "=" * 65
-        print(sep)
-        print("  Phase 3 Feedback Decision / Phase 3 피드백 복귀 판단")
-        print(sep)
+        self.logger.info(sep)
+        self.logger.info("  Phase 3 Feedback Decision / Phase 3 피드백 복귀 판단")
+        self.logger.info(sep)
 
         if decision["terminate"]:
-            print("\n  🎉 모든 목표 달성 → Swing 종료 / All targets met — TERMINATE Swing")
-            print(f"     Overall Accuracy : {decision['overall_accuracy']:.4f}")
-            print(f"     Macro F1         : {decision['overall_macro_f1']:.4f}")
-            print(f"     MAE              : {decision['overall_mae']:.4f}")
+            self.logger.info("\n  🎉 모든 목표 달성 → Swing 종료 / All targets met — TERMINATE Swing")
+            self.logger.info(f"     Overall Accuracy : {decision['overall_accuracy']:.4f}")
+            self.logger.info(f"     Macro F1         : {decision['overall_macro_f1']:.4f}")
+            self.logger.info(f"     Overall MAE      : {decision['overall_mae']:.4f}")
         elif decision["decisions"]:
-            print("\n  ⚠️  조치 필요 / Action required:")
+            self.logger.info("\n  ⚠️  조치 필요 / Action required:")
             for d in decision["decisions"]:
-                print(f"  ⮕ {d}")
+                self.logger.info(f"  ⮕ {d}")
         else:
-            print("\n  ✅  심각한 실패 없음 / No critical failures — continue or next cycle")
+            self.logger.info("\n  ✅  심각한 실패 없음 / No critical failures — continue or next cycle")
 
-        print()
-        print(
+        self.logger.info("")
+        self.logger.info(
             f"  Overall Accuracy : {decision['overall_accuracy']:.4f}"
             f"  (target ≥ {self.summary.targets['overall_accuracy']})"
         )
-        print(
+        self.logger.info(
             f"  Overall Macro F1 : {decision['overall_macro_f1']:.4f}"
             f"  (target ≥ {self.summary.targets['per_class_f1']})"
         )
-        print(
+        self.logger.info(
             f"  Overall MAE      : {decision['overall_mae']:.4f}"
             f"  (target ≤ {self.summary.targets['mae']})"
         )
-        print(sep)
+        self.logger.info(sep)
 
     # ── Convenience helpers for GUI / scripts ─────────────────────────────
 
@@ -918,13 +923,13 @@ class GrayspotEvaluator:
             ("metrics_summary.json",        "Aggregated metrics JSON / 성능 요약 JSON"),
         ]
 
-        print("=" * 65)
-        print("Generated Outputs / 생성된 산출물 목록")
-        print("=" * 65)
+        self.logger.info("=" * 65)
+        self.logger.info("Generated Outputs / 생성된 산출물 목록")
+        self.logger.info("=" * 65)
         for fname, desc in output_files:
             full_path = self.output_dir / fname
             exists = "[OK]" if full_path.exists() else "[  ]"
-            print(f"  {exists}  {fname:<45} {desc}")
+            self.logger.info(f"  {exists}  {fname:<45} {desc}")
 
     def get_summary_dict(self) -> Optional[dict]:
         """

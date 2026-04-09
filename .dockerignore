@@ -1,78 +1,162 @@
-# Git
+# ====================================
+# .dockerignore - CMYK Printer Project
+# Excludes unnecessary files from Docker image build context
+# ====================================
+
+# ============ Git & Version Control ============
 .git
 .gitignore
 .gitattributes
+.github/
 
-# Python virtual environments
+# ============ Python Virtual Environments ============
 .venv
 venv
 env/
 ENV/
 env.bak/
 venv.bak/
+*.venv
 
-# Python cache
+# ============ Python Cache & Compiled Files ============
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.so
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
 .mypy_cache/
 .ruff_cache/
-
-# Dataset (don't copy large data into image - mount at runtime)
-data/
-*.zip
-*.tar
-*.gz
-*.7z
-*.rar
-
-# Logs
-*.log
-logs/
-
-# OS files
-.DS_Store
-Thumbs.db
-desktop.ini
-*.swp
-*.swo
-
-# IDE files
-.vscode/
-.idea/
-*.sublime-*
-
-# Notebooks (usually too large for Docker image)
-*.ipynb
-.ipynb_checkpoints/
-
-# Build artifacts
-dist/
-build/
 *.egg-info/
 *.egg
+dist/
+build/
 
-# Docker files (don't need in image)
+# ============ Data & Datasets ============
+# Don't copy large data into image - mount via volume at runtime
+# 런타임에 볼륨으로 마운트 - 큰 데이터는 이미지에 포함하지 말 것
+data/
+data_set/
+dataset/
+*.zip
+*.tar
+*.tar.gz
+*.tar.bz2
+*.7z
+*.rar
+*.gzip
+
+# ============ Output & Results ============
+# Mount at runtime via volume / 런타임에 볼륨으로 마운트
+outputs/
+results/
+reports/
+*.csv
+*.json
+
+# ============ Logs ============
+*.log
+logs/
+debug_logs/
+
+# ============ OS & Editor Files ============
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+desktop.ini
+ehthumbs.db
+*.swp
+*.swo
+*.swn
+*~
+.tmp
+
+# ============ IDE & Editor Configuration ============
+.vscode/
+.idea/
+.sublime-text-*
+*.sublime-project
+*.sublime-workspace
+.eclipseproject
+.project
+.pydevproject
+
+# ============ Notebooks ============
+# Notebook files are usually large - exclude from image build
+# 노트북 파일은 크므로 이미지 빌드에서 제외
+notebooks/
+*.ipynb
+.ipynb_checkpoints/
+*.nbdime
+
+# ============ Testing ============
+# Tests not needed in production image / 프로덕션 이미지에는 테스트 불필요
+tests/
+test_*.py
+*_test.py
+pytest.ini
+tox.ini
+coverage.xml
+
+# ============ Development & Linting ============
+.pre-commit-config.yaml
+.flake8
+.pylintrc
+pyproject.toml
+setup.py
+setup.cfg
+MANIFEST.in
+
+# ============ Docker & Docker Compose ============
 Dockerfile
-.dockerignore
 docker-compose.yml
+docker-compose.*.yml
+.dockerignore
 
-# Config files (if they contain secrets)
+# ============ Configuration & Secrets ============
+# Exclude local config and secret files
+# 로컬 설정 및 시크릿 파일 제외
 .env
-*.env
+.env.local
+.env.*.local
 config.local.yaml
+*.key
+*.pem
+*.cert
 
-# Temporary files
+# ============ Documentation ============
+# Keep doc/ but exclude MD_guide and similar
+doc/
+*.md
+!README.md
+Markdown_guide.md
+LICENSE
+
+# ============ Temporary & Backup Files ============
 tmp/
 temp/
 *.bak
-*.tmp
+*.backup
+*.orig
+.~*
 
-# Project specific
-notebooks/  # If you have notebooks folder
-tests/      # Tests don't need to be in production image
+# ============ CI/CD ============
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+.circleci/
+
+# ============ Node/Frontend (if any) ============
+node_modules/
+.npm
+*.tgz
+
+# ============ Misc ============
+__MACOSX/
+*.pickle
+*.pkl
+.vscode-server/
