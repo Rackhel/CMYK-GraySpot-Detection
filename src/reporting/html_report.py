@@ -982,6 +982,7 @@ def generate_baseline_report(
     output_path: str | Path = "outputs/reports/baseline.html",
     channels: list[str] = CHANNELS,
     open_browser: bool = False,
+    logger = None,
 ) -> Path:
     """
     Generate outputs/reports/baseline.html from an EvaluationSummary.
@@ -1153,7 +1154,8 @@ def generate_baseline_report(
     # ── Write file (UTF-8) ────────────────────────────────────────────────
     # 파일 쓰기 (UTF-8)
     output_path.write_text(html, encoding="utf-8")
-    print(f"[저장 / Saved] {output_path.resolve()}")
+    log_func = logger.info if logger else print
+    log_func(f"[저장 / Saved] {output_path.resolve()}")
 
     if open_browser:
         # Use file:// URI for reliable cross-platform browser opening

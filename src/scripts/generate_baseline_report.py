@@ -73,6 +73,11 @@ from PIL import Image
 # ── Internal / 내부 ───────────────────────────────────────────────────────
 from evaluation.evaluator import GrayspotEvaluator, EvaluatorConfig
 from reporting.html_report import generate_baseline_report
+from utils import setup_logging, get_logger
+
+# Setup logging / 로깅 설정
+setup_logging()
+logger = get_logger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -167,7 +172,7 @@ def load_labels(
     Long format (output): filename, color, level, confidence
     """
     df = pd.read_csv(labels_csv)
-    print(f"[CSV 로드 / Loaded] rows={len(df)}, columns={list(df.columns)}")
+    logger.info(f"[CSV 로드 / Loaded] rows={len(df)}, columns={list(df.columns)}")
 
     records = []
     for _, row in df.iterrows():
@@ -182,7 +187,7 @@ def load_labels(
             })
 
     long_df = pd.DataFrame(records)
-    print(f"[변환 완료 / Converted] long-format rows={len(long_df)}")
+    logger.info(f"[변환 완료 / Converted] long-format rows={len(long_df)}")
     return long_df
 
 
@@ -198,7 +203,7 @@ def create_dummy_labels(
     Mirrors create_dummy_labels() from 04_evaluation.ipynb Cell 2.
     04_evaluation.ipynb Cell 2의 create_dummy_labels()를 반영합니다.
     """
-    print("[더미 데이터 / Dummy] 실제 CSV 없음 → 더미 생성 / CSV not found → generating dummy")
+    logger.info("[더미 데이터 / Dummy] 실제 CSV 없음 → 더미 생성 / CSV not found → generating dummy")
     records = []
     idx = 0
     for c in channels:
@@ -251,12 +256,12 @@ def build_classifier(
         if isinstance(state, dict) and "model_state_dict" in state:
             state = state["model_state_dict"]
         model.load_state_dict(state, strict=False)
-        print(f"✅  체크포인트 로드 / Checkpoint loaded: {checkpoint}")
+        logger.info(f"✅  체크포인트 로드 / Checkpoint loaded: {checkpoint}")
     else:
         if checkpoint is not None:
-            print(f"⚠️   체크포인트 없음 → 랜덤 가중치 / Not found → random weights: {checkpoint}")
+            logger.info(f"⚠️   체크포인트 없음 → 랜덤 가중치 / Not found → random weights: {checkpoint}")
         else:
-            print("ℹ️   체크포인트 미설정 → 랜덤 가중치 (프로토타입 모드 / prototype mode)")
+            logger.info("ℹ️   체크포인트 미설정 → 랜덤 가중치 (프로토타입 모드 / prototype mode)")
 
     return model.to(device).eval()
 
@@ -340,7 +345,7 @@ def main(args: argparse.Namespace) -> None:
 
     # ── Device / 디바이스 ────────────────────────────────────────────────
     device = get_device()
-    print(f"⚙️  Device / 디바이스: {device}")
+    logger.info(f"⚙️  Device / 디바이스: {device}")
 
     # ── Labels / 라벨 ────────────────────────────────────────────────────
     if labels_csv.exists():
@@ -391,7 +396,7 @@ def main(args: argparse.Namespace) -> None:
         }
         from sklearn.metrics import accuracy_score
         acc = accuracy_score(y_true, y_pred)
-        print(f"  [{color}] {len(y_true):5,} samples | Accuracy: {acc:.4f}")
+        logger.info(f"  [{color}] {len(y_true):5,} samples | Accuracy: {acc:.4f}")
 
     # ── Evaluate / 평가 ───────────────────────────────────────────────────
     cfg = EvaluatorConfig(
@@ -411,18 +416,19 @@ def main(args: argparse.Namespace) -> None:
     })
 
     # ── Generate baseline.html / baseline.html 생성 ───────────────────────
-    print("\n📄 Generating baseline.html / baseline.html 생성 중...")
+    logger.info("\n📄 Generating baseline.html / baseline.html 생성 중...")
     generate_baseline_report(
         summary=summary,
         results=results,
         output_path=output_path,
         channels=channels,
         open_browser=args.open_browser,
+        logger=evaluator.logger,
     )
 
     # ── Output checklist / 출력물 체크리스트 ─────────────────────────────
     evaluator.print_output_checklist()
-    print(f"\n✅ 완료 / Done → {output_path.resolve()}")
+    logger.info(f"\n✅ 완료 / Done → {output_path.resolve()}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

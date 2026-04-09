@@ -199,6 +199,7 @@ def save_confusion_matrix(
     num_classes: int = NUM_LEVELS,
     normalize: bool = True,
     open_browser: bool = False,
+    logger = None,
 ) -> Path:
     """
     Build a confusion matrix figure and save it as an HTML file.
@@ -242,7 +243,8 @@ def save_confusion_matrix(
     # include_plotlyjs='cdn' keeps file size small
     # include_plotlyjs='cdn' 파일 크기를 줄임
     fig.write_html(str(html_path), include_plotlyjs="cdn")
-    print(f"[저장 / Saved] {html_path}")
+    log_func = logger.info if logger else print
+    log_func(f"[저장 / Saved] {html_path}")
 
     if open_browser:
         _open_in_browser(html_path)
@@ -258,6 +260,7 @@ def save_all_confusion_matrices(
     num_classes: int = NUM_LEVELS,
     normalize: bool = True,
     open_browser: bool = False,
+    logger = None,
 ) -> dict[str, Path]:
     """
     Generate and save confusion matrices for all channels plus overall.
@@ -311,9 +314,11 @@ def save_all_confusion_matrices(
             num_classes=num_classes,
             normalize=normalize,
             open_browser=open_browser,
+            logger=logger,
         )
 
-    print("\n✅  모든 혼동 행렬 저장 완료 / All confusion matrices saved")
+    log_func = logger.info if logger else print
+    log_func("\n✅  모든 혼동 행렬 저장 완료 / All confusion matrices saved")
     return saved
 
 
@@ -415,6 +420,7 @@ def save_mae_heatmap(
     num_classes: int = NUM_LEVELS,
     target_mae: float = DEFAULT_TARGET_MAE,
     open_browser: bool = False,
+    logger = None,
 ) -> Path:
     """
     Build and save the MAE heatmap to HTML.
@@ -444,7 +450,8 @@ def save_mae_heatmap(
 
     html_path = output_dir / "mae_heatmap.html"
     fig.write_html(str(html_path), include_plotlyjs="cdn")
-    print(f"[저장 / Saved] {html_path}")
+    log_func = logger.info if logger else print
+    log_func(f"[저장 / Saved] {html_path}")
 
     if open_browser:
         _open_in_browser(html_path)
