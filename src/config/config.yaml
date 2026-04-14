@@ -7,7 +7,7 @@
 system:
   project_name: "grayspot"              # 프로젝트명 / Project name
   version: "0.1.0"                      # 버전 / Version
-  device: "auto"                        # "cuda" | "cpu" | "auto" (auto-detect; macOS MPS treated as GPU engine)
+  device: "auto"                        # "cuda" | "cpu" | "auto" (자동 감지)
   mixed_precision: false                # AMP 사용 여부 / Enable mixed precision training
   
 # ── 데이터 설정 / Data Settings ───────────────────────────────────────────
@@ -40,9 +40,9 @@ storage:
 
 # ── 모델 설정 / Model Settings ─────────────────────────────────────────────
 model:
-  backbone: "efficientnet_b0"           # "efficientnet_b0" | "resnet50" | "resnet18"
+  backbone: "efficientnet_b0"           # "efficientnet_b0" | "resnet50"
   # feature_dim은 백본에 따라 자동 결정됨 / Auto-determined by backbone
-  # efficientnet_b0: 1280 / resnet50: 2048 / resnet18: 512
+  # efficientnet_b0: 1280 / resnet50: 2048
   
   weights: null                         # 사전 학습 가중치 경로 / Pretrained weights path
   frozen_backbone: false                # 백본 고정 여부 / Freeze backbone weights

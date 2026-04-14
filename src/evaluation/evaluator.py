@@ -36,7 +36,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # ── Internal modules / 내부 모듈 ──────────────────────────────────────────
-from src.utils import get_logger, LoggerMixin
+from utils import get_logger, LoggerMixin
 from .metrics import (
     NUM_LEVELS,
     CHANNELS,
