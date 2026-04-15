@@ -4,6 +4,19 @@ data_set/*
 data_set/images/*
 !data_set/images/.gitkeep
 
+# 출력 폴더 - 파일은 무시하되 폴더 구조(.gitkeep)는 유지 / output folder
+outputs/*
+!outputs/reports
+!outputs/baseline
+!outputs/optuna
+outputs/reports/*
+outputs/baseline/*
+outputs/optuna/*
+!outputs/reports/.gitkeep
+!outputs/baseline/.gitkeep
+!outputs/optuna/.gitkeep
+
+
 # 압축 파일 / zip file
 *.zip
 

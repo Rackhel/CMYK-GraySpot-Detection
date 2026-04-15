@@ -7,3 +7,8 @@ scikit-learn
 optuna
 pyyaml
 matplotlib
+plotly
+seaborn
+pytest
+torch
+torchvision

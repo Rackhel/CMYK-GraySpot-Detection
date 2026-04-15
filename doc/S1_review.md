@@ -60,9 +60,29 @@
 
 ### 3.1 S1 Experience / S1 경험
 
-> 이번에 Confusion Matrix와 Accuracy를 출력하는 Notebook과 t-SNE/UMAP 임베딩 시각화 Notebook을 담당하면서 코딩을 진행했다. 이전까지 관련 경험이 많지 않았고 지식도 부족해서 프로젝트를 따라가는 것이 솔직히 쉽지 않았다. 하지만 하나하나 오류를 수정하고 결과값이 정상적으로 나올 때마다 큰 만족감을 느꼈고, 점점 재미를 느끼며 작업을 이어갈 수 있었다.
+> 이번 Stage 1을 진행하면서 외부적으로는 관련 문서 작성과 위클리 리포트 작성을 담당했고, 내부적으로는 R3: Evaluation & Reporting (Metrics, Confusion Matrix, HTML 리포트, 실험 추적) 역할을 맡았습니다.
 
-> This time, I worked on implementing notebooks for Confusion Matrix and Accuracy output and t-SNE/UMAP embedding visualization. Since I had limited prior experience and knowledge in this area, it was honestly challenging to keep up with the project. However, as I fixed errors step by step and started getting proper results, I felt a strong sense of accomplishment, which made the process increasingly enjoyable.
+> 이전에 이렇게 큰 프로젝트를 경험해본 적이 없고 관련 지식도 부족하여, 초반에는 팀의 진행 속도를 따라가기 어려워 다소 혼란스러웠습니다. 그러나 점차 이해하려고 노력하면서 현재는 전체적인 흐름을 어느 정도 이해했다고 말할 수 있는 단계까지 왔다고 생각합니다.
+
+> 다른 팀원들에 비해 부족한 부분이 많다고 느꼈기 때문에, 프로젝트 프로포절 작성, 아키텍처 다이어그램 정리, 그리고 매주 팀원들에게 이번 주와 다음 주 계획을 확인하며 위클리 리포트를 작성하는 등 제가 할 수 있는 역할을 적극적으로 찾아 수행했습니다.
+
+> 또한 Stage 1에서 Confusion Matrix + Accuracy 출력과 t-SNE/UMAP embedding 시각화 관련 노트북 코드를 구현하게 되었습니다. 이 과정에서 다양한 변수 설정과 환경 구성 등 이전에 경험하지 못했던 새로운 영역을 접하게 되었습니다. 다행히 팀원인 양진형 님이 많은 도움을 주어 비교적 원활하게 진행할 수 있었습니다.
+
+> 코드 작업을 진행하면서 오류를 수정하고, 다른 팀원들의 구조에 맞게 데이터셋을 조정하는 과정에서 많은 것을 배울 수 있었습니다. 쉽지는 않았지만 그만큼 얻어가는 것도 많은 시간이었습니다.
+
+> 아직 부족한 점이 많지만, 꾸준히 노력하여 다음 단계에서는 더 발전된 모습으로 프로젝트와 팀원들에게 도움이 될 수 있도록 하겠습니다.
+
+> During Stage 1, I was responsible externally for preparing related documents and weekly reports, and internally for the role of R3: Evaluation & Reporting (Metrics, Confusion Matrix, HTML reports, and experiment tracking).
+
+> As I had no prior experience with a project of this scale and lacked sufficient background knowledge, I initially found it difficult to keep up with the team’s pace and felt quite overwhelmed. However, by making a continuous effort to understand the process, I believe I have now reached a stage where I can grasp the overall workflow to some extent.
+
+> Since I was aware that my knowledge was more limited compared to other team members, I focused on contributing in ways I could. This included working on the project proposal, organizing the architecture diagram, and preparing weekly reports by regularly checking each team member’s progress and plans.
+
+> In Stage 1, I also worked on implementing code for Confusion Matrix and Accuracy outputs, as well as t-SNE/UMAP embedding visualizations. During this process, I encountered new areas such as parameter configuration and environment setup, which I had not experienced before. Fortunately, my teammate 양진형 provided clear guidance, which helped me progress more smoothly than expected.
+
+> While working on the code, I resolved various errors and adjusted the dataset to align with the structure used by other team members. Although the process was challenging, it was also a valuable learning experience.
+
+> Although I still have much to improve, I will continue to put in consistent effort so that I can contribute more effectively to the project and support my team better in the next stage.
 
 ---
 
