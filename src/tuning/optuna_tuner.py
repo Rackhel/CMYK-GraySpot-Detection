@@ -1,7 +1,50 @@
+"""
+tuning/optuna_tuner.py
+
+Optuna 기반 하이퍼파라미터 튜닝 모듈
+Optuna-based hyperparameter tuning module
+
+Baseline 학습 파이프라인(run_baseline)을 재사용하여
+Phase 2 하이퍼파라미터를 자동 탐색한다.
+Reuses the baseline training pipeline (run_baseline)
+to automatically search Phase 2 hyperparameters.
+
+지원 모드 / Supported modes:
+    - 단일 채널 튜닝 / Single-channel tuning
+      (Y / M / C / K)
+    - 전체 채널 평균 튜닝 / All-channel average tuning
+      (Y + M + C + K)
+
+탐색 대상 / Search targets:
+    - learning_rate
+    - batch_size
+    - weight_decay
+    - epochs
+
+목적 / Purpose:
+    Baseline 대비 성능 향상을 위한 최적의 하이퍼파라미터 탐색
+    Find optimal hyperparameters to improve performance over the baseline
+
+    단일 채널 또는 전체 채널 기준으로 유연한 실험 수행
+    Perform flexible experiments for a single channel or all channels
+
+출력 / Outputs:
+    outputs/optuna/
+    ├── study_{channel}.db            ← Optuna 실험 데이터베이스 / Optuna study database
+    ├── best_params_{channel}.json    ← 최적 하이퍼파라미터 / Best hyperparameters
+    └── trials_summary_{channel}.json ← 전체 trial 결과 요약 / All trial results summary
+
+실행 / Run:
+    python -m src.scripts.run_optuna
+    python -m src.scripts.run_optuna --channel C
+    python -m src.scripts.run_optuna --channel all
+    python -m src.scripts.run_optuna --trials 10 --channel M
+"""
 import json
 import sys
 import types
 import importlib
+from functools import partial
 from pathlib import Path
 
 import optuna
@@ -33,13 +76,13 @@ sys.modules["utils"] = utils_shim
 from src.scripts.run_baseline import load_config, run_baseline
 
 
-def objective(trial: optuna.Trial) -> float:
+def objective(trial: optuna.Trial, channel: str) -> float:
     """
     Optuna objective function
-    Runs baseline training for each trial and returns best validation accuracy
+    Runs baseline training and returns validation accuracy
 
     Optuna 목적 함수
-    각 trial마다 baseline 학습을 실행하고 최고 validation accuracy를 반환
+    Baseline 학습을 실행하고 validation accuracy를 반환
     """
     # Load configuration
     # 설정 불러오기
@@ -61,26 +104,53 @@ def objective(trial: optuna.Trial) -> float:
     # 디바이스 설정
     device = torch.device(config.get("system.device"))
 
-    # Tune one channel first for speed
-    # 속도를 위해 C 채널만 먼저 튜닝
-    result = run_baseline(cfg, channel="C", device=device)
+    # Single-channel tuning
+    # 단일 채널 튜닝
+    if channel != "all":
+        result = run_baseline(cfg, channel=channel.upper(), device=device)
 
-    # Skip handling
-    # 데이터가 없어서 skip된 경우 낮은 점수 반환
-    if result.get("skipped", False):
+        # Skip handling
+        # 데이터가 없어서 skip된 경우 낮은 점수 반환
+        if result.get("skipped", False):
+            return 0.0
+
+        return float(result["best_val_acc"])
+
+    # All-channel tuning
+    # 전체 채널 튜닝
+    channels = ["Y", "M", "C", "K"]
+    scores = []
+
+    for ch in channels:
+        result = run_baseline(cfg, channel=ch, device=device)
+
+        # Skip channels with no training data
+        # 학습 데이터가 없는 채널은 건너뜀
+        if result.get("skipped", False):
+            continue
+
+        scores.append(result["best_val_acc"])
+
+    # If all channels were skipped, return 0.0
+    # 모든 채널이 skip되면 0.0 반환
+    if len(scores) == 0:
         return 0.0
 
-    # Maximize best validation accuracy
-    # 최고 validation accuracy 최대화
-    return float(result["best_val_acc"])
+    # Return average validation accuracy across channels
+    # 전체 채널 평균 validation accuracy 반환
+    return float(sum(scores) / len(scores))
 
 
-def run_optuna(n_trials: int | None = None) -> None:
+def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     """
     Run Optuna hyperparameter optimization
 
     Optuna 하이퍼파라미터 튜닝 실행
     """
+    # Normalize channel
+    # 채널명 정규화
+    channel = channel.lower()
+
     # Load config once for global settings
     # 전역 설정 확인을 위해 config 1회 로드
     config = load_config()
@@ -101,30 +171,42 @@ def run_optuna(n_trials: int | None = None) -> None:
     sampler = optuna.samplers.TPESampler(seed=cfg["train"].get("seed", 42))
     pruner = optuna.pruners.MedianPruner()
 
+    # Study name / DB path
+    # 채널별로 study 분리
+    study_suffix = channel if channel != "all" else "all"
+    study_name = f"phase2_tuning_{study_suffix}"
+    storage_path = f"sqlite:///outputs/optuna/study_{study_suffix}.db"
+
     # Create or load study
     # study 생성 또는 불러오기
     study = optuna.create_study(
         direction="maximize",
-        study_name="phase2_tuning",
-        storage="sqlite:///outputs/optuna/study.db",
+        study_name=study_name,
+        storage=storage_path,
         load_if_exists=True,
         sampler=sampler,
         pruner=pruner,
     )
 
+    # Bind channel to objective
+    # objective에 channel 고정 전달
+    objective_fn = partial(objective, channel=channel)
+
     # Run optimization
     # 최적화 실행
-    study.optimize(objective, n_trials=n_trials)
+    study.optimize(objective_fn, n_trials=n_trials)
 
     # Print best result
     # 최적 결과 출력
     print("\nBest Trial")
+    print("Target Channel:", channel.upper())
     print("Best Value (Val Acc):", study.best_value)
     print("Best Params:", study.best_trial.params)
 
     # Save best params
     # 최적 파라미터 저장
-    with open(output_dir / "best_params.json", "w", encoding="utf-8") as f:
+    best_params_path = output_dir / f"best_params_{study_suffix}.json"
+    with open(best_params_path, "w", encoding="utf-8") as f:
         json.dump(study.best_trial.params, f, indent=2, ensure_ascii=False)
 
     # Save trial summary
@@ -138,7 +220,8 @@ def run_optuna(n_trials: int | None = None) -> None:
             "params": t.params,
         })
 
-    with open(output_dir / "trials_summary.json", "w", encoding="utf-8") as f:
+    trials_summary_path = output_dir / f"trials_summary_{study_suffix}.json"
+    with open(trials_summary_path, "w", encoding="utf-8") as f:
         json.dump(trials_summary, f, indent=2, ensure_ascii=False)
 
 
