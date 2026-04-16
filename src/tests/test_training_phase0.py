@@ -53,7 +53,7 @@ def load_config() -> dict:
     config.yaml 로드 / Load config.yaml
     """
     config_path = ROOT_DIR / "src" / "config" / "config.yaml"
-    with open(config_path) as f:
+    with open(config_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
