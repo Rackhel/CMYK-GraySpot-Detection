@@ -16,6 +16,7 @@ Provides centralized logger for use throughout the project.
 import logging
 import logging.handlers
 import sys
+import platform
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
@@ -41,13 +42,14 @@ class ColoredFormatter(logging.Formatter):
     def format(self, record):
         """로그 기록 포맷 / Format log record."""
         if sys.platform == 'win32':
-            # Windows doesn't support ANSI colors in console
-            return super().format(record)
-        
-        elif sys.platform == 'win64':
-            log_color = self.COLORS.get(record.levelname, self.RESET)
-            record.levelname_colored = f"{log_color}{record.levelname}{self.RESET}"
-            return super().format(record)
+            if platform.architecture()[0] == '64bit':
+                # Windows 64bit
+                log_color = self.COLORS.get(record.levelname, self.RESET)
+                record.levelname_colored = f"{log_color}{record.levelname}{self.RESET}"
+                return super().format(record)
+            else:
+                # Windows 32bit → Can't Supporting ANSI 
+                return super().format(record)
         
         else:
             log_color = self.COLORS.get(record.levelname, self.RESET)
