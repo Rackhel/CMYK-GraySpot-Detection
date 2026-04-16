@@ -48,6 +48,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from plotly.subplots import make_subplots
+
+# ── Internal modules / 내부 모듈 ──────────────────────────────────────────
+from utils import get_logger, LoggerMixin
+from .metrics import (
 from torch.utils.data import Dataset, DataLoader
 
 # utils/logger.py 연동 / Integration with utils/logger.py
