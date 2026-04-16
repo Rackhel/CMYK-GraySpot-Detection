@@ -63,17 +63,41 @@ def objective(trial: optuna.Trial) -> float:
 
     # Tune one channel first for speed
     # 속도를 위해 C 채널만 먼저 튜닝
-    result = run_baseline(cfg, channel="C", device=device)
+    #result = run_baseline(cfg, channel="C", device=device)
 
     # Skip handling
     # 데이터가 없어서 skip된 경우 낮은 점수 반환
-    if result.get("skipped", False):
-        return 0.0
+    #if result.get("skipped", False):
+    #   return 0.0
 
     # Maximize best validation accuracy
     # 최고 validation accuracy 최대화
-    return float(result["best_val_acc"])
+    #return float(result["best_val_acc"])
+ 
+     # Tune all CMYK channels
+    # CMYK 전체 채널 튜닝
+    channels = ["Y", "M", "C", "K"]
+    scores = []
 
+    for ch in channels:
+        result = run_baseline(cfg, channel=ch, device=device)
+
+        # Skip channels with no training data
+        # 학습 데이터가 없는 채널은 건너뜀
+        if result.get("skipped", False):
+            continue
+
+        scores.append(result["best_val_acc"])
+
+    # If all channels were skipped, return 0.0
+    # 모든 채널이 skip되면 0.0 반환
+    if len(scores) == 0:
+        return 0.0
+
+    # Return average validation accuracy across channels
+    # 전체 채널 평균 validation accuracy 반환
+    return float(sum(scores) / len(scores))
+    
 
 def run_optuna(n_trials: int | None = None) -> None:
     """
