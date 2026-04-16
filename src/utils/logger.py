@@ -44,9 +44,15 @@ class ColoredFormatter(logging.Formatter):
             # Windows doesn't support ANSI colors in console
             return super().format(record)
         
-        log_color = self.COLORS.get(record.levelname, self.RESET)
-        record.levelname_colored = f"{log_color}{record.levelname}{self.RESET}"
-        return super().format(record)
+        elif sys.platform == 'win64':
+            log_color = self.COLORS.get(record.levelname, self.RESET)
+            record.levelname_colored = f"{log_color}{record.levelname}{self.RESET}"
+            return super().format(record)
+        
+        else:
+            log_color = self.COLORS.get(record.levelname, self.RESET)
+            record.levelname_colored = f"{log_color}{record.levelname}{self.RESET}"
+            return super().format(record)
 
 
 class LoggerConfig:
