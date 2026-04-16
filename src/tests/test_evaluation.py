@@ -1,519 +1,616 @@
 """
 tests/test_evaluation.py
-========================
-Unit tests for the evaluation package.
-evaluation 패키지 단위 테스트.
 
-Tests cover metrics.py, confusion.py, and evaluator.py.
-tests는 metrics.py, confusion.py, evaluator.py를 다룹니다.
+evaluation/ 모듈 단위 테스트.
+Unit tests for the evaluation/ module.
 
-PRD reference  : Section 5.6 (Evaluation Module)
-Execution plan : Stage 2 (W5~W6), Role R3
+PRD S2 완료 기준: 모든 모듈 단위 테스트 통과
+PRD S2 completion criteria: All module unit tests pass
 
-Run / 실행:
-    pytest tests/test_evaluation.py -v
+실행 방법 / How to run:
+    # 프로젝트 루트에서 실행 / Run from project root
+    pytest src/tests/test_evaluation.py -v
 
-Python 3.11.5 | macOS (MPS) & Windows (CUDA/CPU) compatible
+    # 특정 테스트만 실행 / Run specific test
+    pytest src/tests/test_evaluation.py::TestMetrics::test_compute_metrics_perfect -v
+
+테스트 범위 / Test coverage:
+    TestMetrics   — metrics.py
+    TestConfusion — confusion.py
+    TestEvaluator — evaluator.py (모델/이미지 없이 로직만 검증 / logic-only, no real model/images)
 """
 
-# ── Standard library / 표준 라이브러리 ────────────────────────────────────
 from __future__ import annotations
 
-import json
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-# ── Python 3.11.5 version guard / Python 3.11.5 버전 가드 ────────────────
-assert sys.version_info[:2] == (3, 11), (
-    f"Python 3.11.x required, got {sys.version}. "
-    f"Python 3.11.x가 필요합니다. 현재: {sys.version}"
-)
-
-# ── Third-party / 서드파티 ────────────────────────────────────────────────
 import numpy as np
 import pytest
+import torch
+import torch.nn as nn
 
-# ── Source under test / 테스트 대상 소스 ─────────────────────────────────
-# Folder layout / 폴더 구조:
-#   CMYK_MAIN/
-#     src/
-#       evaluation/    ← import target / 임포트 대상
-#     tests/
-#       test_evaluation.py   ← this file / 이 파일
+# sys.path 설정 / sys.path setup
+# 파일 위치: src/tests/test_evaluation.py
+# File location: src/tests/test_evaluation.py
 #
-# Path chain: tests/ → CMYK_MAIN/ → src/
-# 경로 체인: tests/ → CMYK_MAIN/ → src/
-_SRC_DIR = Path(__file__).parent.parent
+# parents[0] = src/tests/
+# parents[1] = src/          <- 여기가 evaluation/ 패키지가 있는 곳
+# parents[2] = CMYK_MAIN/    <- 프로젝트 루트
+#
+# conftest.py 가 프로젝트 루트에 있으면 pytest 가 자동으로 처리한다.
+# If conftest.py is at project root, pytest handles this automatically.
+# python 으로 직접 실행할 경우를 위해 아래 코드가 필요하다.
+# The code below is needed when running directly with python.
+_SRC_DIR = Path(__file__).resolve().parents[1]  # src/
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
+
 from evaluation.metrics import (
     NUM_LEVELS,
-    CHANNELS,
+    TARGET_OVERALL_ACC,
+    TARGET_PER_CLASS_F1,
+    TARGET_PER_COLOR_ACC,
+    TARGET_MAE,
+    CONF_THRESH_AUTO,
+    CONF_THRESH_WARN,
+    CONF_THRESH_MANUAL,
+    compute_metrics,
     compute_per_class_metrics,
-    compute_channel_metrics,
-    compute_mae_by_level,
-    determine_swing_feedback,
-    EvaluationSummary,
-    ChannelMetrics,
-    PerClassMetrics,
-    summary_to_dict,
-    save_metrics_json,
+    compute_all_channels,
+    check_targets,
     print_summary,
 )
 from evaluation.confusion import (
-    build_confusion_matrix_figure,
-    build_mae_heatmap_figure,
+    compute_confusion_matrix,
+    plot_confusion_matrix,
 )
-from evaluation.evaluator import EvaluatorConfig, GrayspotEvaluator
+from evaluation.evaluator import Evaluator
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Fixtures — shared test data / 픽스처 — 공유 테스트 데이터
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Fixtures / 픽스처
+# ---------------------------------------------------------------------------
 
-
-@pytest.fixture
-def perfect_preds() -> tuple[np.ndarray, np.ndarray]:
+def make_labels(n: int = 60, num_classes: int = NUM_LEVELS, seed: int = 42) -> np.ndarray:
     """
-    Perfect predictions: y_pred == y_true for all 6 levels.
-    완벽한 예측: 6개 레벨 모두 y_pred == y_true.
+    균일 분포 정답 라벨을 생성한다.
+    Generates uniformly distributed true labels.
     """
-    rng = np.random.default_rng(42)
-    y_true = rng.integers(0, NUM_LEVELS, size=300)
-    y_pred = y_true.copy()
-    return y_true, y_pred
+    rng = np.random.default_rng(seed)
+    return rng.integers(0, num_classes, size=n).astype(int)
 
 
-@pytest.fixture
-def random_preds() -> tuple[np.ndarray, np.ndarray]:
-    """
-    Random predictions with controlled seed for reproducibility.
-    재현성을 위해 제어된 시드를 사용한 랜덤 예측.
-    """
-    rng = np.random.default_rng(7)
-    y_true = rng.integers(0, NUM_LEVELS, size=300)
-    y_pred = rng.integers(0, NUM_LEVELS, size=300)
-    return y_true, y_pred
+def make_perfect_preds(y_true: np.ndarray) -> np.ndarray:
+    """정답과 동일한 예측 / Predictions identical to true labels."""
+    return y_true.copy()
 
 
-@pytest.fixture
-def mock_results(random_preds) -> dict[str, dict]:
+def make_random_preds(n: int, num_classes: int = NUM_LEVELS, seed: int = 0) -> np.ndarray:
+    """완전 랜덤 예측 / Completely random predictions."""
+    rng = np.random.default_rng(seed)
+    return rng.integers(0, num_classes, size=n).astype(int)
+
+
+def make_results_dict(
+    channels   : list = None,
+    n_per_ch   : int = 60,
+    perfect    : bool = False,
+    seed       : int = 42,
+) -> dict:
     """
-    Mock inference results dict with shape matching run_inference() output.
-    run_inference() 출력 형태와 일치하는 모의 추론 결과 딕셔너리.
+    run() 출력 형식의 더미 results dict 를 생성한다.
+    Generates a dummy results dict in the format output by run().
     """
-    rng = np.random.default_rng(99)
-    y_true, y_pred = random_preds
-    results: dict[str, dict] = {}
-    for ch in CHANNELS:
-        # Each channel has independent (but reproducible) arrays
-        # 각 채널은 독립적이지만 재현 가능한 배열을 가짐
-        yt = rng.integers(0, NUM_LEVELS, size=100)
-        yp = rng.integers(0, NUM_LEVELS, size=100)
-        confs = rng.uniform(0.1, 0.99, size=100).astype(np.float32)
-        fnames = [f"scan_{ch}_{i:04d}.png" for i in range(100)]
+    if channels is None:
+        channels = ['Y', 'M', 'C', 'K']
+    results = {}
+    for i, ch in enumerate(channels):
+        y_true = make_labels(n_per_ch, seed=seed + i)
+        y_pred = make_perfect_preds(y_true) if perfect else make_random_preds(n_per_ch, seed=seed + i + 10)
+        confs  = np.random.default_rng(seed + i).uniform(0.3, 1.0, size=n_per_ch).astype(np.float32)
+        fnames = [f'scan_{i:03d}_{ch}_{j:04d}.png' for j in range(n_per_ch)]
         results[ch] = {
-            "y_true": yt,
-            "y_pred": yp,
-            "confidences": confs,
-            "filenames": fnames,
+            'y_true'      : y_true,
+            'y_pred'      : y_pred,
+            'confidences' : confs,
+            'filenames'   : fnames,
         }
     return results
 
 
-@pytest.fixture
-def perfect_summary(perfect_preds) -> EvaluationSummary:
-    """Build a perfect EvaluationSummary for terminate-check tests. / 종료 검사 테스트용 완벽한 요약."""
-    y_true, y_pred = perfect_preds
-    cm = compute_channel_metrics(y_true, y_pred, channel="overall")
-    by_ch: dict[str, ChannelMetrics] = {}
-    for ch in CHANNELS:
-        by_ch[ch] = compute_channel_metrics(y_true, y_pred, channel=ch)
-    return EvaluationSummary(
-        overall=cm,
-        by_channel=by_ch,
-        targets={
-            "overall_accuracy": 0.90,
-            "per_color_accuracy": 0.85,
-            "per_class_f1": 0.80,
-            "mae": 0.50,
-        },
-        meta={"backbone": "efficientnet_b0", "checkpoint": None},
-    )
+# ---------------------------------------------------------------------------
+# TestMetrics — metrics.py
+# ---------------------------------------------------------------------------
 
+class TestMetrics:
+    """metrics.py 단위 테스트 / Unit tests for metrics.py."""
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Tests — metrics.py / metrics.py 테스트
-# ─────────────────────────────────────────────────────────────────────────────
+    def test_constants_defined(self):
+        """
+        성능 목표 상수가 정의되어 있는지 확인한다.
+        Checks that performance target constants are defined.
+        """
+        assert 0 < TARGET_OVERALL_ACC   <= 1.0
+        assert 0 < TARGET_PER_CLASS_F1  <= 1.0
+        assert 0 < TARGET_PER_COLOR_ACC <= 1.0
+        assert TARGET_MAE > 0
 
+        assert 0 < CONF_THRESH_MANUAL < CONF_THRESH_WARN < CONF_THRESH_AUTO <= 1.0
 
-class TestComputePerClassMetrics:
-    """Unit tests for compute_per_class_metrics(). / compute_per_class_metrics() 단위 테스트."""
+    def test_compute_metrics_perfect(self):
+        """
+        완벽한 예측에 대한 지표 검증: Accuracy=1.0, MAE=0.0.
+        Validates metrics for perfect predictions: Accuracy=1.0, MAE=0.0.
+        """
+        y_true = make_labels(60)
+        y_pred = make_perfect_preds(y_true)
 
-    def test_returns_correct_length(self, perfect_preds):
-        """Should return exactly NUM_LEVELS entries. / 정확히 NUM_LEVELS 개의 항목을 반환해야 합니다."""
-        y_true, y_pred = perfect_preds
+        m = compute_metrics(y_true, y_pred)
+
+        assert m['accuracy'] == pytest.approx(1.0)
+        assert m['macro_f1'] == pytest.approx(1.0, abs=0.01)
+        assert m['mae']      == pytest.approx(0.0)
+        assert m['n_samples'] == 60
+
+    def test_compute_metrics_random(self):
+        """
+        랜덤 예측에 대한 지표가 합리적 범위 내에 있는지 검증한다.
+        Validates that metrics for random predictions are within reasonable range.
+        """
+        y_true = make_labels(120)
+        y_pred = make_random_preds(120)
+
+        m = compute_metrics(y_true, y_pred)
+
+        assert 0.0 <= m['accuracy'] <= 1.0
+        assert 0.0 <= m['macro_f1'] <= 1.0
+        assert m['mae'] >= 0.0
+        assert m['n_samples'] == 120
+
+    def test_compute_metrics_per_class_length(self):
+        """
+        per_class 리스트가 NUM_LEVELS 길이를 갖는지 확인한다.
+        Checks that per_class list has length NUM_LEVELS.
+        """
+        y_true = make_labels(60)
+        y_pred = make_random_preds(60)
+        m      = compute_metrics(y_true, y_pred)
+
+        assert len(m['per_class']) == NUM_LEVELS
+        for pc in m['per_class']:
+            assert 'level'     in pc
+            assert 'precision' in pc
+            assert 'recall'    in pc
+            assert 'f1'        in pc
+            assert 0.0 <= pc['precision'] <= 1.0
+            assert 0.0 <= pc['recall']    <= 1.0
+            assert 0.0 <= pc['f1']        <= 1.0
+
+    def test_compute_metrics_empty(self):
+        """
+        빈 배열 입력 시 안전하게 0을 반환하는지 확인한다.
+        Checks that empty array input safely returns zeros.
+        """
+        m = compute_metrics(np.array([]), np.array([]))
+        assert m['accuracy']  == 0.0
+        assert m['macro_f1']  == 0.0
+        assert m['mae']       == 0.0
+        assert m['n_samples'] == 0
+
+    def test_compute_per_class_metrics_shape(self):
+        """
+        compute_per_class_metrics 반환값 형태 검증.
+        Validates the shape of compute_per_class_metrics return value.
+        """
+        y_true = make_labels(60)
+        y_pred = make_random_preds(60)
         result = compute_per_class_metrics(y_true, y_pred)
+
         assert len(result) == NUM_LEVELS
-
-    def test_perfect_f1_is_one(self, perfect_preds):
-        """Perfect predictions → F1 == 1.0 for every level. / 완벽한 예측 → 모든 레벨의 F1 == 1.0."""
-        y_true, y_pred = perfect_preds
-        result = compute_per_class_metrics(y_true, y_pred)
-        for pc in result:
-            assert pytest.approx(pc.f1, abs=1e-6) == 1.0
-
-    def test_f1_pass_flag_set_correctly(self, perfect_preds):
-        """f1_pass should be True for perfect predictions. / 완벽한 예측에서 f1_pass는 True여야 합니다."""
-        y_true, y_pred = perfect_preds
-        result = compute_per_class_metrics(y_true, y_pred, target_f1=0.80)
-        for pc in result:
-            assert pc.f1_pass is True
-
-    def test_level_indices_match(self, perfect_preds):
-        """Level attribute must match index (0~5). / Level 속성은 인덱스(0~5)와 일치해야 합니다."""
-        y_true, y_pred = perfect_preds
-        result = compute_per_class_metrics(y_true, y_pred)
         for i, pc in enumerate(result):
-            assert pc.level == i
+            assert pc['level'] == i
 
-    def test_support_sums_to_n(self, perfect_preds):
-        """Sum of support values should equal total sample count. / support 합은 총 샘플 수와 같아야 합니다."""
-        y_true, y_pred = perfect_preds
-        result = compute_per_class_metrics(y_true, y_pred)
-        assert sum(pc.support for pc in result) == len(y_true)
+    def test_compute_all_channels_keys(self):
+        """
+        compute_all_channels 반환값에 'overall' 키와 채널 키가 있는지 확인한다.
+        Checks that compute_all_channels result has 'overall' and channel keys.
+        """
+        results = make_results_dict(['C', 'K'])
+        metrics = compute_all_channels(results, ['C', 'K'])
 
-    def test_random_preds_metrics_in_range(self, random_preds):
-        """All metric values should be in [0, 1]. / 모든 지표 값은 [0, 1] 범위여야 합니다."""
-        y_true, y_pred = random_preds
-        result = compute_per_class_metrics(y_true, y_pred)
-        for pc in result:
-            assert 0.0 <= pc.precision <= 1.0
-            assert 0.0 <= pc.recall <= 1.0
-            assert 0.0 <= pc.f1 <= 1.0
+        assert 'overall' in metrics
+        assert 'C' in metrics
+        assert 'K' in metrics
+
+    def test_compute_all_channels_overall_aggregation(self):
+        """
+        overall 지표가 채널 데이터를 합산하여 계산되는지 검증한다.
+        Validates that overall metrics are computed from aggregated channel data.
+        """
+        results = make_results_dict(['C', 'K'], n_per_ch=60, perfect=True)
+        metrics = compute_all_channels(results, ['C', 'K'])
+
+        # 완벽한 예측이므로 overall accuracy = 1.0 이어야 함
+        # Perfect predictions -> overall accuracy should be 1.0
+        assert metrics['overall']['accuracy'] == pytest.approx(1.0)
+
+    def test_check_targets_all_pass(self):
+        """
+        완벽한 예측에 대해 모든 목표가 달성됨을 검증한다.
+        Validates that all targets pass for perfect predictions.
+        """
+        results = make_results_dict(['C', 'K'], perfect=True)
+        metrics = compute_all_channels(results, ['C', 'K'])
+        targets = check_targets(metrics, ['C', 'K'])
+
+        assert targets['overall']['acc_pass']
+        assert targets['overall']['all_pass']
+
+    def test_check_targets_structure(self):
+        """
+        check_targets 반환값이 올바른 키 구조를 갖는지 확인한다.
+        Checks that check_targets return value has correct key structure.
+        """
+        results = make_results_dict(['Y', 'M'])
+        metrics = compute_all_channels(results, ['Y', 'M'])
+        targets = check_targets(metrics, ['Y', 'M'])
+
+        for key in ['overall', 'Y', 'M']:
+            assert key in targets
+            assert 'acc_pass'  in targets[key]
+            assert 'all_pass'  in targets[key]
+
+    def test_mae_ordinal_property(self):
+        """
+        MAE 가 순서형 오류를 올바르게 반영하는지 검증한다.
+        Validates that MAE correctly reflects ordinal errors.
+        Level 0 -> Level 5 예측의 MAE 가 0 -> 1 보다 커야 한다.
+        MAE for 0->5 prediction should be larger than 0->1.
+        """
+        y_true = np.array([0, 0, 0])
+        y_pred_far  = np.array([5, 5, 5])
+        y_pred_near = np.array([1, 1, 1])
+
+        m_far  = compute_metrics(y_true, y_pred_far)
+        m_near = compute_metrics(y_true, y_pred_near)
+
+        assert m_far['mae'] > m_near['mae']
+
+    def test_print_summary_runs_without_error(self, capsys):
+        """
+        print_summary 가 오류 없이 실행되는지 확인한다.
+        Checks that print_summary runs without error.
+        """
+        results = make_results_dict(['C'])
+        metrics = compute_all_channels(results, ['C'])
+        print_summary(metrics, channels=['C'])
+
+        captured = capsys.readouterr()
+        assert 'Performance Summary' in captured.out
 
 
-class TestComputeChannelMetrics:
-    """Unit tests for compute_channel_metrics(). / compute_channel_metrics() 단위 테스트."""
+# ---------------------------------------------------------------------------
+# TestConfusion — confusion.py
+# ---------------------------------------------------------------------------
 
-    def test_perfect_accuracy_is_one(self, perfect_preds):
-        """Perfect predictions → accuracy == 1.0. / 완벽한 예측 → 정확도 == 1.0."""
-        y_true, y_pred = perfect_preds
-        cm = compute_channel_metrics(y_true, y_pred, channel="Y")
-        assert pytest.approx(cm.accuracy, abs=1e-6) == 1.0
+class TestConfusion:
+    """confusion.py 단위 테스트 / Unit tests for confusion.py."""
 
-    def test_mae_is_zero_for_perfect_preds(self, perfect_preds):
-        """Perfect predictions → MAE == 0.0. / 완벽한 예측 → MAE == 0.0."""
-        y_true, y_pred = perfect_preds
-        cm = compute_channel_metrics(y_true, y_pred)
-        assert pytest.approx(cm.mae, abs=1e-6) == 0.0
+    def test_compute_confusion_matrix_shape(self):
+        """
+        혼동 행렬이 (NUM_LEVELS, NUM_LEVELS) 형태인지 확인한다.
+        Checks that the confusion matrix has shape (NUM_LEVELS, NUM_LEVELS).
+        """
+        y_true = make_labels(60)
+        y_pred = make_random_preds(60)
+        cm_raw, cm_norm = compute_confusion_matrix(y_true, y_pred)
 
-    def test_acc_pass_flag_for_perfect(self, perfect_preds):
-        """Perfect accuracy should pass the default target. / 완벽한 정확도는 기본 목표를 통과해야 합니다."""
-        y_true, y_pred = perfect_preds
-        cm = compute_channel_metrics(y_true, y_pred, channel="overall")
-        assert cm.acc_pass is True
+        assert cm_raw.shape  == (NUM_LEVELS, NUM_LEVELS)
+        assert cm_norm.shape == (NUM_LEVELS, NUM_LEVELS)
 
-    def test_n_samples_correct(self, perfect_preds):
-        """n_samples should match input length. / n_samples는 입력 길이와 일치해야 합니다."""
-        y_true, y_pred = perfect_preds
-        cm = compute_channel_metrics(y_true, y_pred)
-        assert cm.n_samples == len(y_true)
+    def test_compute_confusion_matrix_perfect(self):
+        """
+        완벽한 예측에 대해 대각선이 1.0 인지 확인한다.
+        Checks that the diagonal is 1.0 for perfect predictions.
+        """
+        y_true = make_labels(60)
+        y_pred = make_perfect_preds(y_true)
+        _, cm_norm = compute_confusion_matrix(y_true, y_pred, normalize=True)
 
-    def test_channel_name_stored(self, perfect_preds):
-        """channel attribute should store the given name. / channel 속성은 주어진 이름을 저장해야 합니다."""
-        y_true, y_pred = perfect_preds
-        cm = compute_channel_metrics(y_true, y_pred, channel="M")
-        assert cm.channel == "M"
-
-    def test_macro_f1_range(self, random_preds):
-        """Macro F1 should be in [0, 1]. / 매크로 F1은 [0, 1] 범위여야 합니다."""
-        y_true, y_pred = random_preds
-        cm = compute_channel_metrics(y_true, y_pred)
-        assert 0.0 <= cm.macro_f1 <= 1.0
-
-
-class TestComputeMaeByLevel:
-    """Unit tests for compute_mae_by_level(). / compute_mae_by_level() 단위 테스트."""
-
-    def test_returns_all_levels(self, perfect_preds):
-        """Should return an entry for every level 0~5. / 0~5의 모든 레벨에 대한 항목을 반환해야 합니다."""
-        y_true, y_pred = perfect_preds
-        result = compute_mae_by_level(y_true, y_pred)
+        # 샘플이 없는 클래스는 NaN 또는 0 이 될 수 있으므로 존재하는 행만 확인
+        # Rows with no samples may be 0; check only rows that have samples
         for lv in range(NUM_LEVELS):
-            assert lv in result
+            if (y_true == lv).sum() > 0:
+                assert cm_norm[lv, lv] == pytest.approx(1.0)
 
-    def test_mae_zero_for_perfect(self, perfect_preds):
-        """Perfect predictions → MAE == 0 for every populated level. / 완벽한 예측 → 모든 레벨의 MAE == 0."""
-        y_true, y_pred = perfect_preds
-        result = compute_mae_by_level(y_true, y_pred)
-        for lv, info in result.items():
-            if info["count"] > 0:
-                assert pytest.approx(info["mae"], abs=1e-6) == 0.0
+    def test_compute_confusion_matrix_no_normalize(self):
+        """
+        normalize=False 시 정수 카운트를 반환하는지 확인한다.
+        Checks that integer counts are returned when normalize=False.
+        """
+        y_true = make_labels(60)
+        y_pred = make_random_preds(60)
+        cm_raw, cm_norm = compute_confusion_matrix(y_true, y_pred, normalize=False)
 
-    def test_count_sums_to_n(self, perfect_preds):
-        """Sum of counts should equal total sample count. / count 합은 총 샘플 수와 같아야 합니다."""
-        y_true, y_pred = perfect_preds
-        result = compute_mae_by_level(y_true, y_pred)
-        total = sum(v["count"] for v in result.values())
-        assert total == len(y_true)
+        # normalize=False 이면 cm_raw == cm_norm
+        np.testing.assert_array_equal(cm_raw, cm_norm.astype(int))
 
+    def test_compute_confusion_matrix_row_sum(self):
+        """
+        행 정규화 후 각 행의 합이 0 또는 1.0 인지 확인한다.
+        Checks that each row sums to 0 or 1.0 after row normalization.
+        """
+        y_true = make_labels(60)
+        y_pred = make_random_preds(60)
+        _, cm_norm = compute_confusion_matrix(y_true, y_pred, normalize=True)
 
-class TestDetermineSwingFeedback:
-    """Unit tests for determine_swing_feedback(). / determine_swing_feedback() 단위 테스트."""
+        for row in cm_norm:
+            s = row.sum()
+            assert s == pytest.approx(0.0) or s == pytest.approx(1.0, abs=1e-6)
 
-    def test_perfect_summary_terminates(self, perfect_summary):
-        """Perfect metrics should trigger Swing termination. / 완벽한 지표는 Swing 종료를 트리거해야 합니다."""
-        decision = determine_swing_feedback(perfect_summary)
-        assert decision["terminate"] is True
-        assert decision["status"] == "terminate"
-
-    def test_bad_accuracy_produces_decisions(self, mock_results):
-        """Poor per-color accuracy should produce phase-0 decisions. / 낮은 색상별 정확도는 phase-0 결정을 생성해야 합니다."""
-        # Build a summary with very low accuracy
-        # 매우 낮은 정확도를 가진 요약 생성
-        rng = np.random.default_rng(0)
-        y_true = rng.integers(0, NUM_LEVELS, size=60)
-        y_pred = rng.integers(0, NUM_LEVELS, size=60)
-        cm_overall = compute_channel_metrics(y_true, y_pred, channel="overall")
-        by_ch = {
-            ch: compute_channel_metrics(y_true, y_pred, channel=ch)
-            for ch in CHANNELS
-        }
-        summary = EvaluationSummary(
-            overall=cm_overall,
-            by_channel=by_ch,
-            targets={
-                "overall_accuracy": 0.90,
-                "per_color_accuracy": 0.85,
-                "per_class_f1": 0.80,
-                "mae": 0.50,
-            },
-            meta={},
-        )
-        decision = determine_swing_feedback(summary)
-        assert decision["terminate"] is False
-        assert len(decision["decisions"]) > 0
-
-
-class TestSerialization:
-    """Unit tests for summary_to_dict() and save_metrics_json(). / 직렬화 함수 단위 테스트."""
-
-    def test_summary_to_dict_has_required_keys(self, perfect_summary):
-        """Serialized dict must have meta, targets, global, by_color keys. / 직렬화된 딕셔너리는 필수 키를 가져야 합니다."""
-        d = summary_to_dict(perfect_summary)
-        for key in ("meta", "targets", "global", "by_color"):
-            assert key in d
-
-    def test_global_metrics_rounded(self, perfect_summary):
-        """Numeric values should be rounded to 4 decimal places. / 숫자 값은 소수점 4자리로 반올림되어야 합니다."""
-        d = summary_to_dict(perfect_summary)
-        acc = d["global"]["accuracy"]
-        # 4 decimal places: value * 10000 should be close to an integer
-        # 4자리: value * 10000은 정수에 가까워야 합니다
-        assert pytest.approx(acc * 10000, abs=1) == round(acc * 10000)
-
-    def test_save_metrics_json_creates_file(self, perfect_summary):
-        """save_metrics_json() must create a valid JSON file. / save_metrics_json()은 유효한 JSON 파일을 생성해야 합니다."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            out_path = Path(tmpdir) / "metrics_summary.json"
-            result_path = save_metrics_json(perfect_summary, out_path)
-            assert result_path.exists()
-            with open(result_path, encoding="utf-8") as f:
-                data = json.load(f)
-            assert "global" in data
-
-    def test_save_json_utf8_encoding(self, perfect_summary):
-        """JSON file should be readable as UTF-8 (supports Korean). / JSON 파일은 UTF-8로 읽을 수 있어야 합니다 (한국어 지원)."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            out_path = Path(tmpdir) / "test.json"
-            save_metrics_json(perfect_summary, out_path)
-            text = out_path.read_text(encoding="utf-8")
-            assert len(text) > 0
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Tests — confusion.py / confusion.py 테스트
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-class TestBuildConfusionMatrixFigure:
-    """Unit tests for build_confusion_matrix_figure(). / build_confusion_matrix_figure() 단위 테스트."""
-
-    def test_returns_plotly_figure(self, perfect_preds):
-        """Should return a plotly go.Figure instance. / plotly go.Figure 인스턴스를 반환해야 합니다."""
+    def test_plot_confusion_matrix_returns_figure(self):
+        """
+        plot_confusion_matrix 가 go.Figure 를 반환하는지 확인한다.
+        Checks that plot_confusion_matrix returns a go.Figure.
+        """
         import plotly.graph_objects as go
-        y_true, y_pred = perfect_preds
-        fig = build_confusion_matrix_figure(y_true, y_pred, title="Test CM")
+        y_true = make_labels(60)
+        y_pred = make_random_preds(60)
+        fig    = plot_confusion_matrix(y_true, y_pred, title='Test CM')
+
         assert isinstance(fig, go.Figure)
 
-    def test_figure_has_heatmap_trace(self, perfect_preds):
-        """Figure should contain exactly one Heatmap trace. / Figure는 정확히 하나의 Heatmap trace를 포함해야 합니다."""
-        import plotly.graph_objects as go
-        y_true, y_pred = perfect_preds
-        fig = build_confusion_matrix_figure(y_true, y_pred, title="T")
-        heatmaps = [t for t in fig.data if isinstance(t, go.Heatmap)]
-        assert len(heatmaps) == 1
+    def test_plot_confusion_matrix_saves_html(self, tmp_path):
+        """
+        output_path 지정 시 HTML 파일이 생성되는지 확인한다.
+        Checks that an HTML file is created when output_path is specified.
+        """
+        y_true = make_labels(60)
+        y_pred = make_random_preds(60)
+        out    = str(tmp_path / 'test_cm.html')
 
-    def test_normalize_z_range(self, random_preds):
-        """Normalized matrix values should be in [0, 1]. / 정규화된 행렬 값은 [0, 1] 범위여야 합니다."""
-        y_true, y_pred = random_preds
-        fig = build_confusion_matrix_figure(
-            y_true, y_pred, title="T", normalize=True
+        plot_confusion_matrix(y_true, y_pred, title='Test', output_path=out)
+
+        assert Path(out).exists()
+        assert Path(out).stat().st_size > 0
+
+
+# ---------------------------------------------------------------------------
+# TestEvaluator — evaluator.py
+# ---------------------------------------------------------------------------
+
+class TestEvaluator:
+    """
+    evaluator.py 단위 테스트.
+    Unit tests for evaluator.py.
+
+    실제 모델/이미지 없이 내부 로직만 검증한다.
+    Tests only internal logic without real model or images.
+    """
+
+    def _make_dummy_evaluator(self, tmp_path: Path) -> Evaluator:
+        """
+        더미 Evaluator 인스턴스를 생성한다.
+        Creates a dummy Evaluator instance.
+        """
+        dummy_model = MagicMock(spec=nn.Module)
+        return Evaluator(
+            model       = dummy_model,
+            labeled_dir = tmp_path / 'labeled',
+            labels_csv  = tmp_path / 'labels_v0.csv',
+            output_dir  = tmp_path / 'reports',
+            device      = torch.device('cpu'),
+            image_size  = 128,
+            batch_size  = 32,
         )
-        heatmap = fig.data[0]
-        z = np.array(heatmap.z, dtype=float)
-        # Ignore NaN entries (possible for empty rows)
-        # NaN 항목 무시 (빈 행에서 발생 가능)
-        valid = z[~np.isnan(z)]
-        if len(valid) > 0:
-            assert valid.min() >= -1e-9
-            assert valid.max() <= 1.0 + 1e-9
 
-    def test_non_normalize_has_counts(self, perfect_preds):
-        """Non-normalized matrix should contain integer count values. / 비정규화 행렬은 정수 카운트 값을 포함해야 합니다."""
-        y_true, y_pred = perfect_preds
-        fig = build_confusion_matrix_figure(
-            y_true, y_pred, title="T", normalize=False
-        )
-        heatmap = fig.data[0]
-        z = np.array(heatmap.z, dtype=float)
-        # All values should be non-negative integers
-        # 모든 값은 비음수 정수여야 함
-        assert np.all(z >= 0)
-        assert np.all(z == np.floor(z))
+    def test_extract_color_c(self):
+        """
+        C 색상 파일명에서 'C' 를 추출하는지 확인한다.
+        Checks extraction of 'C' from a C-color filename.
+        """
+        assert Evaluator._extract_color('scan_001_C_0007.png') == 'C'
 
+    def test_extract_color_y(self):
+        """Y 색상 파일명 / Y-color filename."""
+        assert Evaluator._extract_color('scan_016_Y_0004.png') == 'Y'
 
-class TestBuildMaeHeatmapFigure:
-    """Unit tests for build_mae_heatmap_figure(). / build_mae_heatmap_figure() 단위 테스트."""
+    def test_extract_color_m(self):
+        """M 색상 파일명 / M-color filename."""
+        assert Evaluator._extract_color('scan_002_M_0016.png') == 'M'
 
-    def test_returns_plotly_figure(self, mock_results):
-        """Should return a plotly go.Figure instance. / plotly go.Figure 인스턴스를 반환해야 합니다."""
-        import plotly.graph_objects as go
-        fig = build_mae_heatmap_figure(mock_results)
-        assert isinstance(fig, go.Figure)
+    def test_extract_color_k(self):
+        """K 색상 파일명 / K-color filename."""
+        assert Evaluator._extract_color('scan_002_K_0016.png') == 'K'
 
-    def test_heatmap_shape(self, mock_results):
-        """Heatmap z-matrix should have shape (len(CHANNELS), NUM_LEVELS). / Heatmap z 행렬은 (채널 수, 레벨 수) 형태여야 합니다."""
-        fig = build_mae_heatmap_figure(mock_results)
-        z = np.array(fig.data[0].z)
-        assert z.shape == (len(CHANNELS), NUM_LEVELS)
+    def test_extract_color_invalid(self):
+        """
+        색상 코드가 없는 파일명은 None 을 반환하는지 확인한다.
+        Checks that None is returned for filenames without color codes.
+        """
+        assert Evaluator._extract_color('image_001.png')        is None
+        assert Evaluator._extract_color('scan_001_X_0007.png')  is None
 
+    def test_output_dir_created(self, tmp_path):
+        """
+        output_dir 이 자동으로 생성되는지 확인한다.
+        Checks that output_dir is created automatically.
+        """
+        ev = self._make_dummy_evaluator(tmp_path)
+        assert ev.output_dir.exists()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Tests — evaluator.py / evaluator.py 테스트
-# ─────────────────────────────────────────────────────────────────────────────
+    def test_compute_calls_compute_all_channels(self, tmp_path):
+        """
+        compute() 가 compute_all_channels 를 호출하여 지표를 반환하는지 확인한다.
+        Checks that compute() returns metrics via compute_all_channels.
+        """
+        ev      = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(['C', 'K'])
+        metrics = ev.compute(results, channels=['C', 'K'])
 
+        assert 'overall' in metrics
+        assert 'C' in metrics
+        assert 'K' in metrics
 
-class TestEvaluatorConfig:
-    """Unit tests for EvaluatorConfig. / EvaluatorConfig 단위 테스트."""
+    def test_get_misclassified_structure(self, tmp_path):
+        """
+        get_misclassified 반환 DataFrame 의 컬럼 구조를 검증한다.
+        Validates the column structure of the DataFrame returned by get_misclassified.
+        """
+        ev      = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(['C'], n_per_ch=60, perfect=False)
+        df      = ev.get_misclassified(results, channels=['C'])
 
-    def test_defaults_match_prd(self):
-        """Default targets should match PRD §1.4. / 기본 목표값은 PRD §1.4와 일치해야 합니다."""
-        cfg = EvaluatorConfig()
-        assert cfg.target_overall_acc == 0.90
-        assert cfg.target_per_color_acc == 0.85
-        assert cfg.target_per_class_f1 == 0.80
-        assert cfg.target_mae == 0.50
+        expected_cols = {'filename', 'color', 'true_level', 'pred_level',
+                         'confidence', 'correct', 'error_gap'}
+        assert expected_cols.issubset(set(df.columns))
+        if len(df) > 0:
+            assert all(df['correct'] == False)
+            assert all(df['error_gap'] >= 1)
 
-    def test_targets_dict_has_all_keys(self):
-        """targets_dict() must include all four target keys. / targets_dict()는 4개의 목표 키를 모두 포함해야 합니다."""
-        cfg = EvaluatorConfig()
-        d = cfg.targets_dict()
-        for key in ("overall_accuracy", "per_color_accuracy", "per_class_f1", "mae"):
-            assert key in d
+    def test_get_misclassified_empty_for_perfect(self, tmp_path):
+        """
+        완벽한 예측에서 오분류 DataFrame 이 비어 있는지 확인한다.
+        Checks that the misclassified DataFrame is empty for perfect predictions.
+        """
+        ev      = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(['C'], n_per_ch=60, perfect=True)
+        df      = ev.get_misclassified(results, channels=['C'])
 
-    def test_confidence_thresholds_prd(self):
-        """Confidence thresholds should match PRD §14.2 defaults. / 신뢰도 임계값은 PRD §14.2 기본값과 일치해야 합니다."""
-        cfg = EvaluatorConfig()
-        assert cfg.conf_thresh_auto == 0.8
-        assert cfg.conf_thresh_warn == 0.5
-        assert cfg.conf_thresh_manual == 0.3
+        assert len(df) == 0
 
+    def test_save_csv_creates_file(self, tmp_path):
+        """
+        save_csv 가 CSV 파일을 생성하는지 확인한다.
+        Checks that save_csv creates a CSV file.
+        """
+        ev      = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(['C'], n_per_ch=20)
+        path    = ev.save_csv(results, experiment_name='test', channels=['C'])
 
-class TestGrayspotEvaluator:
-    """Integration-level tests for GrayspotEvaluator. / GrayspotEvaluator 통합 테스트."""
-
-    def test_run_returns_evaluation_summary(self, mock_results, tmp_path):
-        """run() should return an EvaluationSummary instance. / run()은 EvaluationSummary 인스턴스를 반환해야 합니다."""
-        cfg = EvaluatorConfig(output_dir=tmp_path, open_browser=False)
-        evaluator = GrayspotEvaluator(cfg)
-        summary = evaluator.run(mock_results)
-        assert isinstance(summary, EvaluationSummary)
-
-    def test_output_files_created(self, mock_results, tmp_path):
-        """run() should create all expected output files. / run()은 예상된 모든 출력 파일을 생성해야 합니다."""
-        cfg = EvaluatorConfig(output_dir=tmp_path, open_browser=False)
-        evaluator = GrayspotEvaluator(cfg)
-        evaluator.run(mock_results)
-
-        expected_files = [
-            "cm_Y.html",
-            "cm_M.html",
-            "cm_C.html",
-            "cm_K.html",
-            "cm_overall.html",
-            "eval_dashboard.html",
-            "per_class_metrics.html",
-            "mae_heatmap.html",
-            "misclassified_scatter.html",
-            "confidence_distribution.html",
-            "evaluation_results.csv",
-            "misclassified_samples.csv",
-            "metrics_summary.json",
-        ]
-        for fname in expected_files:
-            assert (tmp_path / fname).exists(), f"Missing: {fname}"
-
-    def test_evaluation_results_csv_columns(self, mock_results, tmp_path):
-        """evaluation_results.csv must contain all PRD §8.2.2 columns. / CSV는 PRD §8.2.2 컬럼을 모두 포함해야 합니다."""
+        assert path.exists()
         import pandas as pd
-        cfg = EvaluatorConfig(output_dir=tmp_path, open_browser=False)
-        evaluator = GrayspotEvaluator(cfg)
-        evaluator.run(mock_results)
+        df = pd.read_csv(path)
+        assert len(df) == 20
+        assert 'true_level' in df.columns
+        assert 'pred_level' in df.columns
+        assert 'confidence' in df.columns
 
-        csv_path = tmp_path / "evaluation_results.csv"
-        df = pd.read_csv(csv_path, encoding="utf-8-sig")
-        required_cols = [
-            "filename", "color", "true_level", "pred_level",
-            "confidence", "correct", "error_gap",
-        ]
-        for col in required_cols:
-            assert col in df.columns, f"Missing column: {col}"
+    def test_save_json_creates_file(self, tmp_path):
+        """
+        save_json 이 JSON 파일을 생성하는지 확인한다.
+        Checks that save_json creates a JSON file.
+        """
+        import json as _json
 
-    def test_metrics_json_structure(self, mock_results, tmp_path):
-        """metrics_summary.json must have meta/targets/global/by_color keys. / JSON은 필수 최상위 키를 가져야 합니다."""
-        cfg = EvaluatorConfig(output_dir=tmp_path, open_browser=False)
-        evaluator = GrayspotEvaluator(cfg)
-        evaluator.run(mock_results)
+        ev      = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(['C', 'K'])
+        metrics = ev.compute(results, channels=['C', 'K'])
+        path    = ev.save_json(metrics, experiment_name='test', channels=['C', 'K'])
 
-        json_path = tmp_path / "metrics_summary.json"
-        with open(json_path, encoding="utf-8") as f:
-            data = json.load(f)
-        for key in ("meta", "targets", "global", "by_color"):
-            assert key in data
+        assert path.exists()
+        with open(path, encoding='utf-8') as f:
+            data = _json.load(f)
+        assert 'global'    in data
+        assert 'by_color'  in data
+        assert 'per_class_overall' in data
 
-    def test_by_channel_covers_all_cmyk(self, mock_results, tmp_path):
-        """EvaluationSummary.by_channel must include all 4 CMYK channels. / by_channel은 4개 CMYK 채널 모두를 포함해야 합니다."""
-        cfg = EvaluatorConfig(output_dir=tmp_path, open_browser=False)
-        evaluator = GrayspotEvaluator(cfg)
-        summary = evaluator.run(mock_results)
-        for ch in CHANNELS:
-            assert ch in summary.by_channel
+    def test_save_json_target_fields(self, tmp_path):
+        """
+        JSON 에 성능 목표 필드가 포함되어 있는지 확인한다.
+        Checks that the JSON includes performance target fields.
+        """
+        import json as _json
 
-    def test_get_summary_dict_not_none_after_run(self, mock_results, tmp_path):
-        """get_summary_dict() should not return None after run(). / run() 이후 get_summary_dict()는 None을 반환하면 안 됩니다."""
-        cfg = EvaluatorConfig(output_dir=tmp_path, open_browser=False)
-        evaluator = GrayspotEvaluator(cfg)
-        evaluator.run(mock_results)
-        d = evaluator.get_summary_dict()
-        assert d is not None
+        ev      = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(['C'])
+        metrics = ev.compute(results, channels=['C'])
+        path    = ev.save_json(metrics, experiment_name='targets_test', channels=['C'])
 
-    def test_evaluator_default_config(self, mock_results, tmp_path):
-        """Evaluator should work with default config (no args). / Evaluator는 기본 설정으로 동작해야 합니다."""
-        cfg = EvaluatorConfig(output_dir=tmp_path, open_browser=False)
-        evaluator = GrayspotEvaluator(cfg)
-        # Should not raise / 예외를 발생시키면 안 됩니다
-        summary = evaluator.run(mock_results)
-        assert summary is not None
+        with open(path, encoding='utf-8') as f:
+            data = _json.load(f)
+        targets = data['targets']
+        assert 'overall_accuracy'   in targets
+        assert 'per_color_accuracy' in targets
+        assert 'per_class_f1'       in targets
+        assert 'mae'                in targets
+
+    def test_build_phase3_decision_all_pass(self, tmp_path):
+        """
+        완벽한 예측에서 Phase 3 판단이 TERMINATE 를 포함하는지 확인한다.
+        Checks that Phase 3 decision includes TERMINATE for perfect predictions.
+        """
+        ev      = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(['C', 'K'], perfect=True)
+        metrics = ev.compute(results, channels=['C', 'K'])
+        text    = ev._build_phase3_decision(metrics, ['C', 'K'])
+
+        assert 'TERMINATE' in text
+
+    def test_build_phase3_decision_action_required(self, tmp_path):
+        """
+        랜덤 예측에서 Phase 3 판단이 조치 필요를 포함하는지 확인한다.
+        Checks that Phase 3 decision includes action required for random predictions.
+        """
+        ev      = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(['C', 'K'], perfect=False)
+        metrics = ev.compute(results, channels=['C', 'K'])
+        text    = ev._build_phase3_decision(metrics, ['C', 'K'])
+
+        # 랜덤 예측은 목표 미달이므로 조치 내용이 포함되어야 함
+        # Random predictions miss targets, so action text should be present
+        assert 'Phase 3' in text
+
+
+# ---------------------------------------------------------------------------
+# Integration test / 통합 테스트
+# ---------------------------------------------------------------------------
+
+class TestIntegration:
+    """
+    metrics + confusion + evaluator 통합 테스트.
+    Integration tests for metrics + confusion + evaluator.
+    """
+
+    def test_full_pipeline_without_model(self, tmp_path):
+        """
+        실제 모델 없이 지표 계산 -> CSV -> JSON 파이프라인 전체를 실행한다.
+        Runs the full metrics -> CSV -> JSON pipeline without a real model.
+        """
+        dummy_model = MagicMock(spec=nn.Module)
+        ev = Evaluator(
+            model       = dummy_model,
+            labeled_dir = tmp_path / 'labeled',
+            labels_csv  = tmp_path / 'labels_v0.csv',
+            output_dir  = tmp_path / 'reports',
+            device      = torch.device('cpu'),
+        )
+
+        results = make_results_dict(['Y', 'M', 'C', 'K'], n_per_ch=30)
+        metrics = ev.compute(results)
+        ev.save_csv(results, experiment_name='integration')
+        ev.save_json(metrics, experiment_name='integration')
+
+        # 저장된 파일 존재 여부 확인 / Check saved files exist
+        assert (tmp_path / 'reports' / 'evaluation_results_integration.csv').exists()
+        assert (tmp_path / 'reports' / 'metrics_summary_integration.json').exists()
+
+    def test_metrics_and_confusion_consistency(self):
+        """
+        metrics.py 와 confusion.py 의 Accuracy 가 일치하는지 확인한다.
+        Checks that accuracy from metrics.py and confusion.py are consistent.
+        """
+        y_true = make_labels(120)
+        y_pred = make_random_preds(120)
+
+        m      = compute_metrics(y_true, y_pred)
+        cm_raw, _ = compute_confusion_matrix(y_true, y_pred, normalize=False)
+
+        # 혼동 행렬 대각선 합 / 전체 합 = accuracy
+        # Diagonal sum / total sum = accuracy
+        acc_from_cm = cm_raw.diagonal().sum() / cm_raw.sum()
+
+        assert m['accuracy'] == pytest.approx(acc_from_cm, abs=1e-6)

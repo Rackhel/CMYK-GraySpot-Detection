@@ -40,9 +40,9 @@ storage:
 
 # ── 모델 설정 / Model Settings ─────────────────────────────────────────────
 model:
-  backbone: "efficientnet_b0"           # "efficientnet_b0" | "resnet50" | "resnet18"
+  backbone: "efficientnet_b0"           # "efficientnet_b0" | "resnet50"
   # feature_dim은 백본에 따라 자동 결정됨 / Auto-determined by backbone
-  # efficientnet_b0: 1280 / resnet50: 2048 / resnet18: 512
+  # efficientnet_b0: 1280 / resnet50: 2048
   
   weights: null                         # 사전 학습 가중치 경로 / Pretrained weights path
   frozen_backbone: false                # 백본 고정 여부 / Freeze backbone weights

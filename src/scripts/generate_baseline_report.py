@@ -12,13 +12,13 @@ outputs/reports/baseline.html을 생성합니다.
 
 Usage / 사용법:
     # Random weights (prototype mode / 프로토타입 모드)
-    python scripts/generate_baseline_report.py
+    python src/scripts/generate_baseline_report.py
 
     # With checkpoint / 체크포인트 지정
-    python scripts/generate_baseline_report.py --checkpoint data_set/models/baseline_C.pt
+    python src/scripts/generate_baseline_report.py --checkpoint data_set/models/best_C.pt
 
     # Open in browser after generation / 생성 후 브라우저 열기
-    python scripts/generate_baseline_report.py --open-browser
+    python src/scripts/generate_baseline_report.py --open-browser
 
 Source notebook : 04_evaluation.ipynb (Cells 0~15, full pipeline)
 PRD reference   : Section 8.2 (Reporting), Section 5.6 (Evaluation)
