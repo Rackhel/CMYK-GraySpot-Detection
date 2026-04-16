@@ -99,23 +99,48 @@ class ConfigManager(LoggerMixin):
         if "system" not in self.config:
             self.config["system"] = {}
         
-        device_config = self.config["system"].get("device", "auto")
-        
+        device_config = self.config["system"].get("device", "auto").lower()
+        gpu_available = torch.cuda.is_available()
+        mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+
         if device_config == "auto":
-            # 자동 감지 / Auto-detect
-            if torch.cuda.is_available():
-                self.config["system"]["device"] = "cuda"
-                self.config["system"]["device_name"] = f"cuda:{torch.cuda.current_device()}"
-                self.config["system"]["device_count"] = torch.cuda.device_count()
+            if gpu_available:
+                selected = "cuda"
+            elif mps_available:
+                selected = "mps"
             else:
-                self.config["system"]["device"] = "cpu"
-                self.config["system"]["device_name"] = "cpu"
-                self.config["system"]["device_count"] = 1
+                selected = "cpu"
         elif device_config == "cuda":
-            if not torch.cuda.is_available():
-                raise RuntimeError("CUDA requested but not available. Use 'auto' or 'cpu'")
+            if gpu_available:
+                selected = "cuda"
+            elif mps_available:
+                self.logger.warning(
+                    "CUDA requested but unavailable; falling back to macOS MPS as GPU engine."
+                )
+                selected = "mps"
+            else:
+                raise RuntimeError("CUDA requested but not available. Use 'auto' or 'cpu'.")
+        elif device_config == "cpu":
+            selected = "cpu"
+        elif device_config == "mps":
+            if not mps_available:
+                raise RuntimeError("MPS requested but not available. Use 'auto', 'cuda', or 'cpu'.")
+            selected = "mps"
+        else:
+            raise ValueError(
+                "Invalid system.device value. Allowed: auto, cuda, cpu, mps."
+            )
+
+        self.config["system"]["device"] = selected
+        self.config["system"]["device_platform"] = selected
+        self.config["system"]["device_engine"] = "gpu" if selected in {"cuda", "mps"} else "cpu"
+
+        if selected == "cuda":
             self.config["system"]["device_name"] = f"cuda:{torch.cuda.current_device()}"
             self.config["system"]["device_count"] = torch.cuda.device_count()
+        elif selected == "mps":
+            self.config["system"]["device_name"] = "mps"
+            self.config["system"]["device_count"] = 1
         else:
             self.config["system"]["device_name"] = "cpu"
             self.config["system"]["device_count"] = 1
@@ -234,7 +259,9 @@ class ConfigManager(LoggerMixin):
         """설정 정보 출력 / Display configuration info."""
         info = []
         info.append(f"ConfigManager (root: {self.root_dir})")
-        info.append(f"  Device: {self.config['system'].get('device_name', 'unknown')}")
+        device_name = self.config['system'].get('device_name', 'unknown')
+        device_engine = self.config['system'].get('device_engine', 'unknown')
+        info.append(f"  Device: {device_name} ({device_engine})")
         info.append(f"  Backbone: {self.config['model'].get('backbone', 'unknown')}")
         info.append(f"  Channels: {len(self.config['data'].get('channels', []))} " +
                     f"{self.config['data'].get('channels', [])}")
