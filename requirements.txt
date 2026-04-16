@@ -12,3 +12,7 @@ seaborn
 pytest
 torch
 torchvision
+logger
+colorlog
+nb_log
+platform

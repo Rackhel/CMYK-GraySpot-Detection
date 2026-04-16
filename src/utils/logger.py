@@ -12,7 +12,7 @@ Provides centralized logger for use throughout the project.
     logger.info("Training started...")
     logger.warning("Low validation accuracy detected")
 """
-
+import platform
 import logging
 import logging.handlers
 import sys
@@ -41,12 +41,19 @@ class ColoredFormatter(logging.Formatter):
     def format(self, record):
         """로그 기록 포맷 / Format log record."""
         if sys.platform == 'win32':
-            # Windows doesn't support ANSI colors in console
-            return super().format(record)
+            if platform.architecture()[0] == '64bit':
+                # Windows 64bit
+                log_color = self.COLORS.get(record.levelname, self.RESET)
+                record.levelname_colored = f"{log_color}{record.levelname}{self.RESET}"
+                return super().format(record)
+            else:
+                # Windows 32bit → Can't Supporting ANSI 
+                return super().format(record)
         
-        log_color = self.COLORS.get(record.levelname, self.RESET)
-        record.levelname_colored = f"{log_color}{record.levelname}{self.RESET}"
-        return super().format(record)
+        else:
+            log_color = self.COLORS.get(record.levelname, self.RESET)
+            record.levelname_colored = f"{log_color}{record.levelname}{self.RESET}"
+            return super().format(record)
 
 
 class LoggerConfig:
@@ -286,6 +293,8 @@ def log_epoch_summary(
     logger.info(msg)
 
 
+
+    
 # 프로젝트 시작 시 자동 설정 (선택사항)
 # Auto-setup on import (optional - can be overridden by user)
 # _default_setup_done = False
