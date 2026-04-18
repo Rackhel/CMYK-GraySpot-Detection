@@ -99,7 +99,7 @@ def run_baseline(cfg: dict, channel: str, device: torch.device) -> dict:
     val_ds = CMYKDataset(bcfg, channel, split="val", augment=False, oversample=False)
     test_ds = CMYKDataset(bcfg, channel, split="test", augment=False, oversample=False)
 
-    logger.info("\n" + "=" * 60)
+    logger.info("=" * 60)
     logger.info(f"  Baseline Training — Channel: [{channel}]")
     logger.info("  Mode: Supervised-only (Phase 2, no Phase 0)")
     logger.info(f"  Backbone: {cfg['model']['backbone']}")
@@ -154,7 +154,7 @@ def run_baseline(cfg: dict, channel: str, device: torch.device) -> dict:
     mae = sum(abs(t - p) for t, p in zip(y_true, y_pred)) / max(len(y_true), 1)
     best_val_acc = max(r["val_acc"] for r in history)
 
-    logger.info(f"\n  [{channel}] 테스트셋 결과 / Test Set Results")
+    logger.info(f"[{channel}] 테스트셋 결과 / Test Set Results")
     logger.info(f"  {'─' * 40}")
     logger.info(
         f"  Test Accuracy : {test_acc:.4f}  (target >= {cfg['evaluation']['targets']['per_color_accuracy']}) "
@@ -226,7 +226,7 @@ def main():
     for ch in target_channels:
         results.append(run_baseline(config.config, ch, device))
 
-    logger.info("\n" + "=" * 60)
+    logger.info("=" * 60)
     logger.info("  Baseline 성능 요약 / Baseline Performance Summary")
     logger.info("=" * 60)
     logger.info(f"  {'Channel':<10} {'Test Acc':<12} {'MAE':<10} {'Val Acc':<10} Acc Pass")
@@ -254,7 +254,7 @@ def main():
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
-    logger.info(f"\n  Summary saved / 요약 저장: {summary_path}")
+    logger.info(f"Summary saved / 요약 저장: {summary_path}")
     logger.info(f"  Baseline outputs / 산출물: {baseline_dir}")
     logger.info("")
 
