@@ -294,6 +294,146 @@ def log_epoch_summary(
     logger.info(msg)
 
 
+def log_inference_summary(
+    channel: str,
+    num_samples: int,
+    batch_size: int,
+    device: str,
+    logger: Optional[logging.Logger] = None
+) -> None:
+    """
+    추론 요약 로깅 / Log inference summary.
+    
+    추론 파이프라인 시작 시 호출합니다.
+    Call at the start of inference pipeline.
+    
+    Args:
+        channel: CMYK 채널 / Channel name
+        num_samples: 샘플 수 / Number of samples
+        batch_size: 배치 크기 / Batch size
+        device: 추론 장치 / Device (cuda/cpu)
+        logger: 로거 인스턴스 / Logger instance
+    """
+    if logger is None:
+        logger = get_logger()
+    
+    logger.info("=" * 70)
+    logger.info(f"INFERENCE SUMMARY / 추론 요약 - [{channel}]")
+    logger.info("=" * 70)
+    logger.info(f"  Samples: {num_samples:,}")
+    logger.info(f"  Batch Size: {batch_size}")
+    logger.info(f"  Total Batches: {(num_samples + batch_size - 1) // batch_size}")
+    logger.info(f"  Device: {device}")
+    logger.info("=" * 70)
+
+
+def log_prediction_stats(
+    channel: str,
+    predictions: dict,
+    targets: Optional[dict] = None,
+    logger: Optional[logging.Logger] = None
+) -> None:
+    """
+    예측 통계 로깅 / Log prediction statistics.
+    
+    예측 결과의 기본 통계를 출력합니다.
+    Print basic statistics of predictions.
+    
+    Args:
+        channel: CMYK 채널 / Channel name
+        predictions: 예측 결과 딕셔너리 / Prediction results dict
+                    'predictions': class predictions
+                    'confidences': confidence scores
+        targets: 선택사항 목표값 / Optional ground truth
+        logger: 로거 인스턴스 / Logger instance
+    """
+    if logger is None:
+        logger = get_logger()
+    
+    preds = predictions.get("predictions", [])
+    confs = predictions.get("confidences", [])
+    
+    import numpy as np
+    
+    logger.info(f"[{channel}] Prediction Statistics / 예측 통계")
+    logger.info(f"  Num Predictions: {len(preds)}")
+    
+    if len(confs) > 0:
+        confs_arr = np.array(confs)
+        logger.info(f"  Confidence - Mean: {confs_arr.mean():.4f}, "
+                   f"Std: {confs_arr.std():.4f}, "
+                   f"Min: {confs_arr.min():.4f}, Max: {confs_arr.max():.4f}")
+    
+    if targets is not None and "targets" in targets:
+        targets_arr = np.array(targets["targets"])
+        preds_arr = np.array(preds)
+        accuracy = (preds_arr == targets_arr).mean()
+        logger.info(f"  Accuracy (vs targets): {accuracy:.4f}")
+
+
+def log_report_generation(
+    report_path: str | Path,
+    num_channels: int,
+    num_samples: int,
+    generation_time: float,
+    logger: Optional[logging.Logger] = None
+) -> None:
+    """
+    보고서 생성 요약 로깅 / Log report generation summary.
+    
+    HTML 보고서 생성 완료 후 호출합니다.
+    Call after HTML report generation completes.
+    
+    Args:
+        report_path: 보고서 파일 경로 / Report file path
+        num_channels: 채널 수 / Number of channels
+        num_samples: 샘플 수 / Number of samples
+        generation_time: 생성 소요 시간 (초) / Generation time in seconds
+        logger: 로거 인스턴스 / Logger instance
+    """
+    if logger is None:
+        logger = get_logger()
+    
+    logger.info("=" * 70)
+    logger.info("REPORT GENERATION COMPLETE / 보고서 생성 완료")
+    logger.info("=" * 70)
+    logger.info(f"  Report Path: {report_path}")
+    logger.info(f"  Channels: {num_channels}")
+    logger.info(f"  Samples: {num_samples:,}")
+    logger.info(f"  Generation Time: {generation_time:.2f}s")
+    logger.info("=" * 70)
+
+
+def log_pipeline_error(
+    pipeline_name: str,
+    stage: str,
+    error: Exception,
+    logger: Optional[logging.Logger] = None
+) -> None:
+    """
+    파이프라인 오류 로깅 / Log pipeline error with context.
+    
+    Args:
+        pipeline_name: 파이프라인 이름 / Pipeline name
+        stage: 오류 발생 단계 / Stage where error occurred
+        error: 예외 객체 / Exception object
+        logger: 로거 인스턴스 / Logger instance
+    """
+    if logger is None:
+        logger = get_logger()
+    
+    logger.error("=" * 70)
+    logger.error(f"PIPELINE ERROR / 파이프라인 오류")
+    logger.error("=" * 70)
+    logger.error(f"  Pipeline: {pipeline_name}")
+    logger.error(f"  Stage: {stage}")
+    logger.error(f"  Error Type: {type(error).__name__}")
+    logger.error(f"  Message: {str(error)}")
+    logger.error("=" * 70)
+    
+    # 디버그 레벨에서 스택 트레이스 출력
+    logger.debug(f"Stack trace:", exc_info=error)
+
 
     
 # 프로젝트 시작 시 자동 설정 (선택사항)
