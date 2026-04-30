@@ -10,6 +10,10 @@ from .logger import (
     LoggerMixin,
     log_training_config,
     log_epoch_summary,
+    log_inference_summary,
+    log_prediction_stats,
+    log_report_generation,
+    log_pipeline_error,
 )
 
 __all__ = [
@@ -18,4 +22,8 @@ __all__ = [
     "LoggerMixin",
     "log_training_config",
     "log_epoch_summary",
+    "log_inference_summary",
+    "log_prediction_stats",
+    "log_report_generation",
+    "log_pipeline_error",
 ]

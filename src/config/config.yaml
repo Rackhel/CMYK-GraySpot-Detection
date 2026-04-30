@@ -148,6 +148,66 @@ logging:
   log_interval: 50                      # 배치마다 로그 간격 / Log every N batches
   val_log_interval: 1                   # 에폭마다 검증 로그 간격 / Validation log interval
 
+# ── 보고 파이프라인 설정 / Reporting Pipeline Settings ───────────────────
+reporting:
+  enabled: true                         # 보고서 생성 활성화 / Enable report generation
+  format: "html"                        # "html" (currently only supported)
+  
+  # HTML 보고서 설정 / HTML report settings
+  html:
+    output_file: "baseline.html"        # 출력 파일명 / Output filename
+    open_browser: false                 # 생성 후 브라우저 열기 / Open browser after generation
+    include_interactive: true           # 대화형 Plotly 차트 포함 / Include interactive Plotly charts
+    plotly_cdn: "https://cdn.plot.ly/plotly-2.35.2.min.js"  # Plotly CDN URL
+  
+  # 보고서 탭 설정 / Report tabs configuration
+  tabs:
+    - summary                           # Summary (KPIs + Model info)
+    - perclass                          # Per-Class metrics
+    - confusion                         # Confusion matrices
+    - mae                               # MAE heatmap
+    - confidence                        # Confidence distribution
+    - feedback                          # Phase 3 feedback decision
+  
+  # 보고서 색상 및 스타일 / Report colors and styling
+  colors:
+    pass: "#2ecc71"                     # Pass/Success color
+    fail: "#e74c3c"                     # Fail color
+    warn: "#f39c12"                     # Warning color
+    bg: "#0b1220"                       # Background color (dark)
+    fg: "#e6eef8"                       # Foreground color (light)
+
+# ── 추론 파이프라인 설정 / Inference Pipeline Settings ────────────────
+inference:
+  enabled: true                         # 추론 활성화 / Enable inference
+  batch_size: 32                        # 기본 배치 크기 / Default batch size
+  device: "auto"                        # "auto" | "cuda" | "cpu" (장치 선택)
+  
+  # 모델 로딩 / Model loading settings
+  model_loading:
+    cache_models: true                  # 메모리에 모델 캐싱 / Cache models in memory
+    device_map: "auto"                  # "auto" | "cuda" | "cpu" (장치 매핑)
+    dtype: "float32"                    # "float32" | "float16" (데이터 타입)
+  
+  # 추론 결과 / Inference output settings
+  outputs:
+    return_logits: true                 # 로짓 반환 / Return logits
+    return_probabilities: true          # 확률 반환 / Return probabilities
+    return_confidences: true            # 신뢰도 점수 반환 / Return confidence scores
+  
+  # 신뢰도 임계값 / Confidence thresholds
+  confidence_thresholds:
+    auto_accept: 0.8                    # 자동 수락 임계값 / Auto-accept threshold
+    warn_threshold: 0.5                 # 경고 임계값 / Warning threshold
+    manual_review: 0.3                  # 수동 검토 임계값 / Manual review threshold
+  
+  # 추론 최적화 / Inference optimizations
+  optimizations:
+    use_half_precision: false           # 반정도 정밀도 사용 / Use half precision
+    use_quantization: false             # 양자화 사용 / Use quantization
+    num_workers: 4                      # DataLoader workers
+    pin_memory: true                    # CUDA pin memory
+
 # ── Optuna Hyperparameter Tuning 설정 ───────────────────────────────────────
 optuna:
   enabled: false                        # Optuna 튜닝 활성화 / Enable hyperparameter tuning
