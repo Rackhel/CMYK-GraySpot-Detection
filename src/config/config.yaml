@@ -7,7 +7,7 @@
 system:
   project_name: "grayspot"              # 프로젝트명 / Project name
   version: "0.1.0"                      # 버전 / Version
-  device: "auto"                        # "cuda" | "cpu" | "auto" (자동 감지)
+  device: "auto"                        # "cuda" | "cpu" | "auto" (auto-detect; macOS MPS treated as GPU engine)
   mixed_precision: false                # AMP 사용 여부 / Enable mixed precision training
   
 # ── 데이터 설정 / Data Settings ───────────────────────────────────────────
