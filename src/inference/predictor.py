@@ -179,7 +179,7 @@ class GrayspotPredictor(LoggerMixin):
         GrayspotModel = _get_model_class()
         model = GrayspotModel(self.config.config, phase=2)
 
-        checkpoint = torch.load(str(model_path), map_location="cpu")
+        checkpoint = torch.load(str(model_path), map_location="cpu", weights_only=True)
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             checkpoint = checkpoint["model_state_dict"]
         model.load_state_dict(checkpoint, strict=False)

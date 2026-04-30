@@ -12,6 +12,6 @@ def augment(image):
         
     if random.random() > 0.5:
         noise = random.randint(0, 10)
-        image = image + noise
+        image = np.clip(image + noise, 0, 255)
 
     return image

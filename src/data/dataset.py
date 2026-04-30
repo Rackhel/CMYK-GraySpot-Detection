@@ -25,12 +25,7 @@ class CMYKDataset(Dataset):
         image = cv2.resize(image, (128, 128))
         image = image / 255.0
 
-        label = torch.tensor([
-            row["C"],
-            row["M"],
-            row["Y"],
-            row["K"]
-        ], dtype=torch.float32)
+        label = torch.tensor(int(row["level"]), dtype=torch.long)
 
         image = torch.tensor(image).permute(2, 0, 1).float()
 
