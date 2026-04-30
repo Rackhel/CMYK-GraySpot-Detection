@@ -1,5 +1,6 @@
 import cv2
 import random
+import numpy as np
 
 def augment(image):
     
