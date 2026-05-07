@@ -1,81 +1,35 @@
 """
 data/preprocessing.py
 
-Preprocessing functions for Grayspot detection pipeline.
-Grayspot 탐지 파이프라인을 위한 전처리 함수들.
+CMYK 패치 이미지 표준 전처리 — SSOT (Section 6.5~6.9).
+Standard preprocessing for CMYK patch images — SSOT (Section 6.5~6.9).
 
-Features / 기능:
-    - Image resizing and normalization / 이미지 크기 조정 및 정규화
-    - Batch preprocessing support / 배치 전처리 지원
+학습·추론 공통 적용 / Applied to both training and inference:
+    - Resize → image_size × image_size
+    - Normalize → [0, 1]
+
+주의 / Note:
+    - Augmentation은 별도 augmentation.py에서 적용 (학습 전용)
+    - Augmentation is applied separately in augmentation.py (training only)
 """
 
 import cv2
 import numpy as np
-from typing import Union, Tuple
 
 
-def preprocess(image: Union[np.ndarray, str]) -> np.ndarray:
+def preprocess(image: np.ndarray, image_size: int = 128) -> np.ndarray:
     """
-    Basic preprocessing: resize and normalize image.
-    기본 전처리: 이미지 크기 조정 및 정규화.
-    
+    표준 전처리를 적용한다.
+    Applies standard preprocessing.
+
     Args:
-        image: Input image (numpy array or file path)
-        
+        image:      BGR uint8 이미지 (H, W, 3) / BGR uint8 image
+        image_size: 리사이즈 목표 크기 / Target resize size
+
     Returns:
-        Preprocessed image [0, 1] float32 normalized
+        float32 정규화 이미지 (image_size, image_size, 3), 범위 [0, 1]
+        float32 normalized image, range [0, 1]
     """
-    if isinstance(image, str):
-        image = cv2.imread(image, cv2.IMREAD_COLOR)
-        if image is None:
-            raise ValueError(f"Cannot read image from {image}")
-    
-    image = cv2.resize(image, (128, 128))
-    image = np.clip(image / 255.0, 0, 1)
-    return image.astype(np.float32)
-
-
-def preprocess_image(image: Union[np.ndarray, str], 
-                     size: Tuple[int, int] = (128, 128)) -> np.ndarray:
-    """
-    Preprocess image with customizable size.
-    사용자 정의 크기로 이미지 전처리.
-    
-    Args:
-        image: Input image (numpy array or file path)
-        size : Target size (height, width)
-        
-    Returns:
-        Preprocessed image [0, 1] float32 normalized
-    """
-    if isinstance(image, str):
-        image = cv2.imread(image, cv2.IMREAD_COLOR)
-        if image is None:
-            raise ValueError(f"Cannot read image from {image}")
-    
-    image = cv2.resize(image, size)
-    image = np.clip(image / 255.0, 0, 1)
-    return image.astype(np.float32)
-
-
-def preprocess_batch(images: np.ndarray, 
-                     size: Tuple[int, int] = (128, 128)) -> np.ndarray:
-    """
-    Batch preprocessing for multiple images.
-    여러 이미지의 배치 전처리.
-    
-    Args:
-        images: Batch of images (N, H, W, C)
-        size  : Target size (height, width)
-        
-    Returns:
-        Preprocessed batch [0, 1] float32 normalized
-    """
-    batch_size = images.shape[0]
-    processed = np.zeros((batch_size, size[0], size[1], images.shape[3]), 
-                         dtype=np.float32)
-    
-    for i in range(batch_size):
-        processed[i] = preprocess_image(images[i], size)
-    
-    return processed
+    image = cv2.resize(image, (image_size, image_size))
+    image = image.astype(np.float32) / 255.0
+    return image
