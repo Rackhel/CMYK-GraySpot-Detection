@@ -1,14 +1,14 @@
 """
 data/dataset.py
 
-Grayspot 학습용 PyTorch Dataset 클래스.
-PyTorch Dataset classes for Grayspot training.
+Grayspot 학습에 사용하는 PyTorch Dataset 정의.
+PyTorch Dataset definitions used for Grayspot training.
 
-두 가지 Dataset / Two Dataset classes:
-    - CMYKDataset       : Supervised 학습(Phase 2)용 — 폴더 구조 기반 라벨 로드
-    - ContrastiveDataset: Contrastive Learning(Phase 0)용 — 라벨 없이 Positive Pair 반환
+포함된 Dataset 종류 / Included dataset classes:
+    - CMYKDataset        : 지도학습(Phase 2)용 Dataset
+    - ContrastiveDataset : Contrastive Learning(Phase 0)용 Dataset
 
-폴더 구조 / Folder structure:
+기본 폴더 구조 / Expected folder structure:
     data_set/labeled/{channel}/{level}/*.png
 """
 
@@ -21,88 +21,113 @@ import torch
 from torch.utils.data import Dataset
 
 from data.preprocessing import preprocess
-from data.augmentation  import augment_supervised, augment_contrastive
+from data.augmentation import augment_supervised, augment_contrastive
 
 
 # ──────────────────────────────────────────────────────────────
-# Supervised Dataset / Phase 2
+# Supervised Dataset
 # ──────────────────────────────────────────────────────────────
 
 class CMYKDataset(Dataset):
     """
-    Supervised 학습(Phase 2)용 Dataset.
-    Dataset for Supervised training (Phase 2).
+    지도학습 단계에서 사용하는 Dataset 클래스.
+    Dataset class for supervised learning.
 
-    폴더 구조에서 레벨별 이미지를 로드하고 Stratified Split + Oversampling을 적용한다.
-    Loads level-labeled images from folder structure,
-    applies Stratified Split and optional Oversampling.
+    채널 및 레벨 기반 폴더 구조에서 이미지를 읽어온다.
+    Stratified split과 optional oversampling을 적용한다.
 
     Args:
-        cfg:       config.yaml dict
-        channel:   "Y" | "M" | "C" | "K"
-        split:     "train" | "val" | "test"
-        augment:   증강 적용 여부 — train split에서만 활성화
-                   Whether to apply augmentation — activated only for train split
-        oversample: 소수 클래스 오버샘플링 여부 / Whether to oversample minority classes
+        cfg: 설정 정보(config.yaml)
+        channel: "Y" | "M" | "C" | "K"
+        split: "train" | "val" | "test"
+        augment: train 데이터 증강 여부
+        oversample: 클래스 불균형 보정 여부
     """
 
     _EXTS = {".png", ".jpg", ".jpeg", ".tiff", ".tif"}
 
     def __init__(
         self,
-        cfg:       dict,
-        channel:   str,
-        split:     str  = "train",
-        augment:   bool = True,
+        cfg: dict,
+        channel: str,
+        split: str = "train",
+        augment: bool = True,
         oversample: bool = True,
     ):
-        self.augment    = augment and (split == "train")
+        self.augment = augment and (split == "train")
         self.image_size = cfg["data"]["image_size"]
         self.num_levels = cfg["data"]["num_levels"]
 
         labeled_dir = Path(cfg["storage"]["labeled_dir"])
         all_samples: list[tuple[Path, int]] = []
 
-        # 레벨별 이미지 수집 / Collect images per level
+        # 레벨별 이미지 경로 수집 / Collect image paths by level
         channel_dir = labeled_dir / channel
+
         for level in range(self.num_levels):
             level_dir = channel_dir / str(level)
+
             if not level_dir.exists():
                 continue
+
             for img_path in sorted(level_dir.glob("*")):
                 if img_path.suffix.lower() in self._EXTS:
                     all_samples.append((img_path, level))
 
-        # Stratified Split — 레벨별 비율 유지 / Maintain level distribution per split
+        # 레벨 비율 유지 분할 / Stratified split
         level_groups: dict[int, list] = defaultdict(list)
+
         for sample in all_samples:
             level_groups[sample[1]].append(sample)
 
         train_s, val_s, test_s = [], [], []
+
         for lv, items in level_groups.items():
             random.shuffle(items)
-            n       = len(items)
+
+            n = len(items)
             n_train = max(1, int(n * 0.70))
-            n_val   = max(1, int(n * 0.15))
+            n_val = max(1, int(n * 0.15))
+
             train_s.extend(items[:n_train])
             val_s.extend(items[n_train:n_train + n_val])
             test_s.extend(items[n_train + n_val:])
 
-        split_map = {"train": train_s, "val": val_s, "test": test_s}
+        split_map = {
+            "train": train_s,
+            "val": val_s,
+            "test": test_s,
+        }
+
         self.samples: list[tuple[Path, int]] = split_map[split]
 
-        # 소수 클래스 오버샘플링 / Minority class oversampling
-        if split == "train" and oversample and cfg["phase2"].get("oversample", True) and self.samples:
+        # 클래스 균형 보정 / Minority class oversampling
+        if (
+            split == "train"
+            and oversample
+            and cfg["phase2"].get("oversample", True)
+            and self.samples
+        ):
             level_counts = Counter(lv for _, lv in self.samples)
-            max_count    = max(level_counts.values())
+            max_count = max(level_counts.values())
+
             oversampled: list[tuple[Path, int]] = []
+
             for level in range(self.num_levels):
-                level_s = [(p, lv) for p, lv in self.samples if lv == level]
+                level_s = [
+                    (p, lv)
+                    for p, lv in self.samples
+                    if lv == level
+                ]
+
                 if not level_s:
                     continue
+
                 while len(level_s) < max_count:
                     level_s.append(random.choice(level_s))
+
                 oversampled.extend(level_s)
+
             self.samples = oversampled
 
     def __len__(self) -> int:
@@ -112,13 +137,16 @@ class CMYKDataset(Dataset):
         img_path, level = self.samples[idx]
 
         image = cv2.imread(str(img_path))
-        if image is None:
-            raise ValueError(f"이미지 없음 / Image not found: {img_path}")
 
-        # 전처리 / Preprocessing
+        if image is None:
+            raise ValueError(
+                f"이미지를 불러올 수 없음 / Failed to load image: {img_path}"
+            )
+
+        # 이미지 전처리 / Image preprocessing
         image = preprocess(image, self.image_size)
 
-        # 증강 (train only) / Augmentation (train only)
+        # 학습 시 증강 적용 / Apply augmentation during training
         if self.augment:
             image = augment_supervised(image)
 
@@ -126,38 +154,41 @@ class CMYKDataset(Dataset):
 
 
 # ──────────────────────────────────────────────────────────────
-# Contrastive Dataset / Phase 0
+# Contrastive Dataset
 # ──────────────────────────────────────────────────────────────
 
 class ContrastiveDataset(Dataset):
     """
-    Contrastive Learning(Phase 0, SimCLR)용 Dataset.
-    Dataset for Contrastive Learning (Phase 0, SimCLR).
+    Contrastive Learning(SimCLR)용 Dataset 클래스.
+    Dataset class for contrastive learning.
 
-    라벨 없이 동일 이미지의 두 가지 증강 뷰(Positive Pair)를 반환한다.
-    Returns two differently-augmented views (Positive Pair) of the same image, without labels.
+    동일 이미지에서 서로 다른 두 개의 augmented view를 생성한다.
+    Labels are not required in this dataset.
 
     Args:
-        cfg:     config.yaml dict
+        cfg: 설정 정보(config.yaml)
         channel: "Y" | "M" | "C" | "K"
     """
 
     _EXTS = {".png", ".jpg", ".jpeg", ".tiff", ".tif"}
 
     def __init__(self, cfg: dict, channel: str):
-        self.image_size  = cfg["data"]["image_size"]
-        self.num_levels  = cfg["data"]["num_levels"]
+        self.image_size = cfg["data"]["image_size"]
+        self.num_levels = cfg["data"]["num_levels"]
+
         self.image_paths: list[Path] = []
 
         labeled_dir = Path(cfg["storage"]["labeled_dir"])
 
-        # 레벨 폴더 전체에서 이미지 수집 (라벨 불필요)
-        # Collect images from all level folders (labels not needed)
+        # 전체 레벨 폴더 탐색 / Scan all level folders
         channel_dir = labeled_dir / channel
+
         for level in range(self.num_levels):
             level_dir = channel_dir / str(level)
+
             if not level_dir.exists():
                 continue
+
             for img_path in sorted(level_dir.glob("*")):
                 if img_path.suffix.lower() in self._EXTS:
                     self.image_paths.append(img_path)
@@ -167,14 +198,25 @@ class ContrastiveDataset(Dataset):
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         image = cv2.imread(str(self.image_paths[idx]))
-        if image is None:
-            raise ValueError(f"이미지 없음 / Image not found: {self.image_paths[idx]}")
 
-        # 전처리 후 동일 이미지에 서로 다른 증강 2회 적용 → Positive Pair
-        # Preprocess then apply two independent augmentations → Positive Pair
+        if image is None:
+            raise ValueError(
+                f"이미지를 불러올 수 없음 / Failed to load image: {self.image_paths[idx]}"
+            )
+
+        # 전처리 후 서로 다른 augmentation 적용
+        # Apply two independent augmentations after preprocessing
         image = preprocess(image, self.image_size)
-        view1 = augment_contrastive(image.copy(), self.image_size)
-        view2 = augment_contrastive(image.copy(), self.image_size)
+
+        view1 = augment_contrastive(
+            image.copy(),
+            self.image_size,
+        )
+
+        view2 = augment_contrastive(
+            image.copy(),
+            self.image_size,
+        )
 
         return (
             torch.tensor(view1).permute(2, 0, 1).float(),
