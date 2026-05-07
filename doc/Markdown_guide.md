@@ -1,102 +1,437 @@
-## PRD Document Markdown Structure Explanation
-## PRD 문서 마크다운 구조 설명
+# Markdown Guide — CMYK Printer Project
 
-The PRD document is organized using a standard Markdown hierarchy combined with several practical documentation elements. The overall structure can be understood as follows:
-PRD 문서는 표준 마크다운 계층 구조와 여러 실용적인 문서 요소를 결합하여 구성되어 있습니다. 전체 구조는 다음과 같이 이해할 수 있습니다.
+This document explains the markdown conventions and structure used throughout the CMYK Printer Grayspot Detection Project.
 
-### 1. Title Hierarchy / 제목 계층 구조
-
-The document uses Markdown heading levels to define its hierarchy clearly.
-문서는 마크다운 제목 레벨을 사용하여 계층 구조를 명확하게 정의합니다.
-
-- `#` : Main document title / 메인 문서 제목
-- `##` : Major sections / chapters / 주요 섹션 / 챕터
-- `###` : Subsections / 하위 섹션
-- `####` : Detailed subtopics / 세부 하위 주제
-
-Example / 예시:
-
-# Grayspot Detection Pipeline Design
-## Full Pipeline Design Document
-## 1. System Overview
-### 1.1 Objective
-#### Learning Flow
-
-This structure makes the document easy to scan and helps readers understand the relationship between high-level sections and detailed implementation notes.
-이 구조는 문서를 쉽게 훑어볼 수 있게 하며, 상위 섹션과 세부 구현 내용 간의 관계를 독자가 이해하는 데 도움을 줍니다.
+이 문서는 CMYK 프린터 Grayspot 탐지 프로젝트 전체에서 사용되는 마크다운 규칙 및 구조를 설명합니다.
 
 ---
 
-### 2. Major Section Structure / 주요 섹션 구조
+## 1. Heading Hierarchy / 제목 계층 구조
 
-The document is divided into large sections using `##` headings.
-문서는 `##` 제목을 사용하여 큰 섹션으로 나뉩니다.
+The project uses standard Markdown heading levels to organize documentation clearly.
 
-Each major section represents one important area of the PRD, such as:
-각 주요 섹션은 PRD의 중요한 영역 하나를 나타내며, 예를 들면 다음과 같습니다.
+```markdown
+# Main Title / 메인 제목                    [PRD, README 최상위]
+## Section / 섹션                           [장(Chapter)]
+### Subsection / 하위섹션                   [소주제(Topic)]
+#### Detailed Topics / 상세주제             [세부항목(Subtopic)]
+##### Minor points / 부분항목              [부분 항목]
+```
 
-- System Overview / 시스템 개요
-- Overall Pipeline Architecture / 전체 파이프라인 아키텍처
-- Training Pipeline / 학습 파이프라인
-- Module Structure / 모듈 구조
-- Core Module Detailed Design / 핵심 모듈 상세 설계
-- Data Collection and Labeling Guide / 데이터 수집 및 라벨링 가이드
-- Implementation Steps / 구현 단계
-- Technology Stack / 기술 스택
-- GUI Design / GUI 설계
-- Experiment Tracking Strategy / 실험 추적 전략
-- Data Drift Monitoring Strategy / 데이터 드리프트 모니터링 전략
-- Confidence-Driven Operational Policy / 신뢰도 기반 운영 정책
-- Appendices / 부록
+### Examples / 예시
 
-This means the PRD is not written as one long narrative, but as a structured technical design document with clearly separated topics.
-즉, PRD는 하나의 긴 서술 형식이 아니라 명확하게 구분된 주제를 가진 구조화된 기술 설계 문서로 작성됩니다.
+- **README.md**: Uses `#` for title, `##` for major sections (Installation, Configuration)
+- **PRD Documents**: Uses hierarchical structure to separate concerns
+- **Code Documentation**: Uses `##` for module section, `###` for class/function groups
 
 ---
 
-### 3. Subsection Structure / 하위 섹션 구조
+## 2. Content Structure / 콘텐츠 구조
 
-Within each major section, the document uses `###` and sometimes `####` headings to break content into smaller logical units.
-각 주요 섹션 내에서 문서는 `###` 및 경우에 따라 `####` 제목을 사용하여 내용을 더 작은 논리적 단위로 나눕니다.
+### 2.1 Documentation Files / 문서 파일
 
-For example / 예를 들면:
+Each documentation file should follow this structure:
 
-- `### 1.1 Objective / 목표`
-- `### 1.2 Input / Output Definition / 입출력 정의`
-- `### 1.3 Grayspot Level Definition / Grayspot 레벨 정의`
-- `### 1.4 Performance Targets / 성능 목표`
+```markdown
+# Document Title / 문서 제목
 
-When additional detail is needed, `####` is used for deeper explanation.
-추가적인 세부 사항이 필요한 경우 `####`을 사용하여 더 깊은 설명을 제공합니다.
-
-Example / 예시:
-
-- `#### Architecture Configuration / 아키텍처 구성`
-- `#### Candidate Methodologies / 후보 방법론`
-- `#### Positive Pair Definition / Positive Pair 정의`
-
-So the basic structure is / 기본 구조는 다음과 같습니다:
-
-- `##` = chapter / 챕터
-- `###` = topic inside the chapter / 챕터 내 주제
-- `####` = detailed explanation inside the topic / 주제 내 세부 설명
+Brief description in English and Korean
 
 ---
 
-### 4. Tables / 표
+## Table of Contents / 목차
 
-A large portion of the PRD uses tables to present structured information clearly.
-PRD의 많은 부분은 구조화된 정보를 명확하게 표현하기 위해 표를 사용합니다.
+1. [Section 1](#section-1)
+2. [Section 2](#section-2)
 
-Tables are used for / 표는 다음 용도로 사용됩니다:
+---
 
-- input/output definitions / 입출력 정의
-- performance targets / 성능 목표
-- hyperparameters / 하이퍼파라미터
-- module responsibilities / 모듈 책임
-- evaluation metrics / 평가 메트릭
-- policies / 정책
-- decision criteria / 의사결정 기준
+## Section 1
+
+Content here...
+
+### Subsection 1.1
+
+More detailed content...
+
+---
+
+## Section 2
+
+...
+```
+
+### 2.2 Code Documentation / 코드 문서
+
+Python modules include docstrings with the following structure:
+
+```python
+"""
+module/file.py
+
+Brief description in English and Korean (한글).
+
+Features / 기능:
+    - Feature 1 description
+    - Feature 2 description
+
+Usage / 사용법:
+    Example code blocks with comments
+
+Python 3.11.5 | PyTorch 2.x compatible
+"""
+```
+
+---
+
+## 3. Formatting Conventions / 포맷 규칙
+
+### 3.1 Code Blocks / 코드 블록
+
+Use triple backticks with language specification:
+
+````markdown
+```python
+# Python code
+def function():
+    pass
+```
+
+```bash
+# Bash/Shell commands
+python src/scripts/train.py
+```
+
+```yaml
+# YAML configuration
+system:
+  device: "auto"
+```
+````
+
+### 3.2 Lists / 목록
+
+Use consistent bullet formatting:
+
+```markdown
+- Item 1
+- Item 2
+  - Nested item 2.1
+  - Nested item 2.2
+- Item 3
+
+1. Ordered item 1
+2. Ordered item 2
+   1. Nested ordered item 2.1
+   2. Nested ordered item 2.2
+```
+
+### 3.3 Emphasis / 강조
+
+```markdown
+**Bold text** for important terms
+*Italic text* for file names or emphasis
+`code` for inline code references
+```
+
+### 3.4 Links / 링크
+
+```markdown
+[Display Text](url)
+[GitHub](https://github.com)
+[Section Reference](#section-name)
+
+For local files:
+[README](README.md)
+[Config](src/config/config.yaml)
+```
+
+### 3.5 Tables / 표
+
+```markdown
+| Header 1 | Header 2 | Header 3 |
+|----------|----------|----------|
+| Data 1   | Data 2   | Data 3   |
+| Data 4   | Data 5   | Data 6   |
+
+| Component | Description | Status |
+|-----------|-------------|--------|
+| Training  | Training pipeline | ✅ Complete |
+| Inference | Inference module | ✅ Complete |
+| Reports   | HTML report generation | ✅ Complete |
+```
+
+---
+
+## 4. Project-Specific Conventions / 프로젝트별 규칙
+
+### 4.1 Bilingual Formatting / 이중 언어 포맷
+
+All documents should provide both English and Korean explanations:
+
+```markdown
+## Section Title / 섹션 제목
+
+English explanation...
+
+한국어 설명...
+
+### Subsection / 하위섹션
+
+English details
+
+한국어 세부사항
+```
+
+### 4.2 Feature Lists / 기능 목록
+
+When listing features, always provide both languages:
+
+```markdown
+## Features / 기능
+
+### English Version
+- Feature 1: Description
+- Feature 2: Description
+
+### 한국어 버전
+- 기능 1: 설명
+- 기능 2: 설명
+
+Or combined format:
+- Batch inference support / 배치 추론 지원
+- Auto device detection (CUDA/MPS/CPU) / 자동 장치 감지
+- Cached model loading / 캐시된 모델 로딩
+```
+
+### 4.3 Status Indicators / 상태 표시
+
+Use emoji for quick status reference:
+
+```markdown
+✅ Complete / 완료
+🚧 In Progress / 진행 중
+❌ Not Started / 미시작
+⚠️ Warning / 경고
+💡 Tip / 팁
+📝 Note / 참고
+```
+
+### 4.4 Version Information / 버전 정보
+
+Include version info at the end of major documents:
+
+```markdown
+---
+
+**Version**: 1.0.0
+**Last Updated**: April 30, 2026
+**Python**: 3.11.5
+**PyTorch**: 2.1.0+
+```
+
+---
+
+## 5. README Best Practices / README 작성 규칙
+
+### Structure / 구조
+
+```markdown
+# Project Title
+
+Brief description (1-2 sentences)
+
+---
+
+## Table of Contents
+## System Requirements
+## Installation
+## Quick Start
+## Project Structure
+## Configuration
+## Usage / Training / Inference
+## Docker Usage
+## Troubleshooting
+## Version History
+## Contributing
+## License
+## Support
+```
+
+### Installation Section / 설치 섹션
+
+Always include:
+- Minimum requirements
+- Recommended requirements
+- Platform-specific instructions
+- Virtual environment setup
+- Docker alternative
+
+### Examples / 예시
+
+Provide actual working examples:
+
+```markdown
+### Example: Training
+
+\`\`\`bash
+python src/scripts/train.py --channel Y
+\`\`\`
+
+### Example: Inference
+
+\`\`\`python
+from src.inference.predictor import GrayspotPredictor
+predictor = GrayspotPredictor()
+\`\`\`
+```
+
+---
+
+## 6. Documentation Structure for Modules / 모듈 문서화 구조
+
+### For Python Modules / Python 모듈의 경우
+
+```python
+"""
+module_name.py
+
+One-line description / 한 줄 설명
+
+Detailed description in both English and Korean.
+영어와 한글 모두의 상세 설명.
+
+Features / 기능:
+    - Feature 1 / 기능 1
+    - Feature 2 / 기능 2
+
+Classes / 클래스:
+    ClassName: Brief description
+
+Functions / 함수:
+    function_name: Brief description
+
+Usage / 사용법:
+    >>> from module import ClassName
+    >>> obj = ClassName()
+
+Python 3.10+ | Compatible with PyTorch 2.x
+"""
+```
+
+---
+
+## 7. Common Patterns / 일반적인 패턴
+
+### Installation Instructions / 설치 지시사항
+
+```markdown
+### Installation / 설치
+
+#### Local Setup / 로컬 설정
+
+\`\`\`bash
+# Create virtual environment
+python -m venv venv
+
+# Activate (Windows)
+venv\Scripts\activate
+
+# Activate (macOS/Linux)
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+\`\`\`
+
+#### Docker Setup / Docker 설정
+
+\`\`\`bash
+docker build -t project:latest .
+docker run --rm -it project:latest
+\`\`\`
+```
+
+### Platform-Specific Instructions / 플랫폼별 지시사항
+
+```markdown
+### PyTorch Installation / PyTorch 설치
+
+#### macOS — Apple Silicon (MPS)
+\`\`\`bash
+pip install torch torchvision
+\`\`\`
+
+#### Windows / Linux — GPU (CUDA 11.8)
+\`\`\`bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+\`\`\`
+
+#### Windows / Linux — CPU Only
+\`\`\`bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+\`\`\`
+```
+
+---
+
+## 8. File Organization / 파일 조직
+
+```
+docs/
+├── README.md                    # Main project documentation
+├── Markdown_guide.md            # This file
+├── Client_Q.md                  # Client questions & answers
+├── S1_review.md                 # S1 review notes
+├── CONFIGURATION_OPTIMIZATION_SUMMARY.md
+└── OPTIMIZATION_COMPLETE.md
+
+src/
+├── module/
+│   ├── __init__.py             # Module docstring
+│   ├── submodule.py            # File with module-level docstring
+│   └── README.md               # Optional module-level README
+```
+
+---
+
+## 9. Validation Checklist / 검증 체크리스트
+
+When writing documentation, verify:
+
+- ✅ Consistent heading hierarchy
+- ✅ Bilingual content (English + Korean) where applicable
+- ✅ Code blocks with proper syntax highlighting
+- ✅ Working examples included
+- ✅ Proper formatting and spacing
+- ✅ Links to related sections work
+- ✅ No broken references
+- ✅ Version information up-to-date
+- ✅ Status indicators clear
+- ✅ Installation instructions tested
+
+---
+
+## Quick Reference / 빠른 참조
+
+| Element | Markdown | Purpose |
+|---------|----------|---------|
+| Heading | `# Title` | Document sections |
+| Bold | `**text**` | Emphasis |
+| Code | `` `code` `` | Inline code |
+| Code Block | ` ``` ` | Multi-line code |
+| Link | `[text](url)` | References |
+| List | `- item` | Bullet points |
+| List | `1. item` | Numbered list |
+| Table | `\| col \|` | Structured data |
+| Horizontal Rule | `---` | Section breaks |
+| Status | `✅ ✓` | Quick indicators |
+
+---
+
+**Version**: 1.0.0  
+**Last Updated**: April 30, 2026  
+**Applies to**: CMYK Printer Grayspot Detection Project v1.0.0+
 
 Example table format / 표 형식 예시:
 
