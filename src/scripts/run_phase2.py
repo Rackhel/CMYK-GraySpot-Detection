@@ -82,7 +82,7 @@ sys.modules["utils"] = _utils_shim
 from src.config import get_config
 from src.utils  import setup_logging, get_logger, log_training_config
 from models.grayspot_model  import GrayspotModel
-from training.trainer       import CMYKDataset, Phase2Trainer
+from training.trainer       import CMYKDataset, Phase2Trainer, backbone_tag
 
 warnings.filterwarnings("ignore")
 
@@ -203,7 +203,8 @@ def run_phase2(
         }
 
     # ── Phase 0 backbone 로드 → Phase 2로 전환 / Load Phase 0 backbone → switch to Phase 2 ──
-    backbone_path = phase0_dir / f"phase0_backbone_{channel}.pt"
+    tag           = backbone_tag(p2cfg["model"]["backbone"])
+    backbone_path = phase0_dir / f"phase0_backbone_{channel}_{tag}.pt"
 
     # Phase 0 모드로 모델 초기화 후 switch_to_phase2() 호출
     # Initialize model in Phase 0 mode, then call switch_to_phase2()
@@ -228,9 +229,9 @@ def run_phase2(
     # ── Best checkpoint 로드 후 Test셋 평가 / Load best checkpoint → evaluate on test set ──
     best_path = ckpt_dir / f"best_{channel}.pt"
 
-    # Trainer가 best_{channel}.pt에 저장하므로 phase2_{channel}_v1.pt로 복사
-    # Trainer saves to best_{channel}.pt — copy to phase2_{channel}_v1.pt for cycle versioning
-    versioned_path = ckpt_dir / f"phase2_{channel}_{CYCLE_TAG}.pt"
+    # Trainer가 best_{channel}.pt에 저장하므로 phase2_{channel}_{tag}_{CYCLE_TAG}.pt로 복사
+    # Trainer saves to best_{channel}.pt — copy to phase2_{channel}_{tag}_{CYCLE_TAG}.pt for cycle versioning
+    versioned_path = ckpt_dir / f"phase2_{channel}_{tag}_{CYCLE_TAG}.pt"
     if best_path.exists():
         model.load_state_dict(torch.load(best_path, map_location=device))
         torch.save(torch.load(best_path, map_location="cpu"), versioned_path)
@@ -398,9 +399,10 @@ def main() -> None:
     print()
 
     # Phase 0 체크포인트 존재 여부 사전 확인 / Pre-check Phase 0 checkpoints
+    _tag = backbone_tag(config.get("model.backbone"))
     missing = [
         ch for ch in target_channels
-        if not (phase0_dir / f"phase0_backbone_{ch}.pt").exists()
+        if not (phase0_dir / f"phase0_backbone_{ch}_{_tag}.pt").exists()
     ]
     if missing:
         logger.error(

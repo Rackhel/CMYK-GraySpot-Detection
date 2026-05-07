@@ -29,6 +29,26 @@ logger = get_logger(__name__)
 
 
 # ──────────────────────────────────────────────────────────────
+# Backbone 약어 / Backbone abbreviation helper
+# ──────────────────────────────────────────────────────────────
+
+def backbone_tag(backbone_name: str) -> str:
+    """
+    backbone 이름의 파일명용 약어를 반환한다.
+    Returns a filename-safe abbreviation for the backbone name.
+
+    Examples:
+        "efficientnet_b0" → "effb0"
+        "resnet50"        → "res50"
+    """
+    _MAP = {
+        "efficientnet_b0": "effb0",
+        "resnet50":        "res50",
+    }
+    return _MAP.get(backbone_name, backbone_name.replace("_", "")[:8])
+
+
+# ──────────────────────────────────────────────────────────────
 # Dataset
 # ──────────────────────────────────────────────────────────────
 
@@ -227,7 +247,8 @@ class Phase0Trainer:
         """학습된 모델 state_dict 저장 / Save trained model state_dict."""
         models_dir = Path(self.cfg["storage"]["models_dir"])
         models_dir.mkdir(parents=True, exist_ok=True)
-        save_path  = models_dir / f"phase0_backbone_{self.channel}.pt"
+        tag       = backbone_tag(self.cfg["model"]["backbone"])
+        save_path = models_dir / f"phase0_backbone_{self.channel}_{tag}.pt"
         torch.save(self.model.state_dict(), save_path)
         logger.info(f"  Backbone saved / 저장: {save_path}")
         return save_path
