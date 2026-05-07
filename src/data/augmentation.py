@@ -1,21 +1,20 @@
 """
 data/augmentation.py
 
-학습 전용 데이터 증강 함수 모음.
-Data augmentation functions — training only.
+학습 과정에서 사용하는 이미지 증강 함수 모음.
+Image augmentation utilities used during training.
 
-두 가지 정책 / Two augmentation policies:
-    - augment_supervised   : Supervised 학습(Phase 2)용
-    - augment_contrastive  : Contrastive Learning(Phase 0, SimCLR)용
+지원하는 증강 방식 / Available augmentation pipelines:
+    - augment_supervised   : 지도학습용 증강
+    - augment_contrastive  : Contrastive Learning(SimCLR)용 증강
 
-주의 / Note:
-    - 입력은 float32 [0, 1] 정규화 이미지여야 함 (preprocessing.py 적용 후)
-    - Input must be float32 normalized image in [0, 1] (after preprocessing.py)
-    - Inference 시에는 호출하지 않는다 / Do NOT call during inference
+주의사항 / Important:
+    - 입력 이미지는 float32 형식의 [0, 1] 범위여야 함
+    - preprocessing 이후에 사용하는 것을 가정함
+    - 추론(inference) 단계에서는 사용하지 않음
 """
 
 import random
-import numpy as np
 
 import cv2
 import numpy as np
@@ -23,29 +22,30 @@ import numpy as np
 
 def augment_supervised(image: np.ndarray) -> np.ndarray:
     """
-    Supervised 학습(Phase 2)용 증강.
-    Augmentation for Supervised training (Phase 2).
+    지도학습 단계에서 사용하는 증강 함수.
+    Augmentation pipeline for supervised learning.
 
-    적용 변환 / Applied transforms:
-        - Random horizontal flip
-        - Brightness jitter  (±30/255)
-        - Additive noise     (0~10/255)
+    적용 가능한 변환 / Possible transforms:
+        - 좌우 반전
+        - 밝기 변화
+        - 약한 랜덤 노이즈 추가
 
     Args:
-        image: float32 [0, 1] 정규화 이미지 (H, W, 3) / Normalized image
+        image: float32 정규화 이미지 (H, W, 3)
 
     Returns:
-        증강된 float32 [0, 1] 이미지 / Augmented float32 [0, 1] image
+        증강이 적용된 float32 이미지
     """
-    # 수평 뒤집기 / Horizontal flip
+
+    # 랜덤 좌우 반전 / Random horizontal flip
     if random.random() > 0.5:
         image = cv2.flip(image, 1)
 
-    # 밝기 조절 / Brightness jitter
+    # 밝기 랜덤 조절 / Random brightness adjustment
     if random.random() > 0.5:
         image = np.clip(image + random.randint(-30, 30) / 255.0, 0, 1)
 
-    # 노이즈 / Additive noise
+    # 작은 노이즈 추가 / Add light random noise
     if random.random() > 0.5:
         image = np.clip(image + random.randint(0, 10) / 255.0, 0, 1)
 
@@ -54,49 +54,58 @@ def augment_supervised(image: np.ndarray) -> np.ndarray:
 
 def augment_contrastive(image: np.ndarray, image_size: int = 128) -> np.ndarray:
     """
-    Contrastive Learning(Phase 0, SimCLR)용 증강.
-    Augmentation for Contrastive Learning (Phase 0, SimCLR).
+    Contrastive Learning(SimCLR)용 증강 함수.
+    Augmentation pipeline for contrastive learning.
 
-    적용 변환 / Applied transforms:
-        - Random horizontal flip
-        - Random crop + resize  (scale 0.6~1.0)
-        - Brightness jitter     (±0.2)
-        - Contrast jitter       (×0.8~1.2)
-        - Gaussian blur         (kernel 3 or 5)
+    적용 가능한 변환 / Possible transforms:
+        - 좌우 반전
+        - 랜덤 크롭 후 리사이즈
+        - 밝기 변화
+        - 대비 조절
+        - Gaussian Blur
 
     Args:
-        image:      float32 [0, 1] 정규화 이미지 (H, W, 3) / Normalized image
-        image_size: crop 후 리사이즈 목표 크기 / Target size after crop
+        image: float32 정규화 이미지
+        image_size: 출력 이미지 크기
 
     Returns:
-        증강된 float32 [0, 1] 이미지 / Augmented float32 [0, 1] image
+        증강된 float32 이미지
     """
-    # 수평 뒤집기 / Horizontal flip
+
+    # 좌우 반전 적용 / Apply horizontal flip
     if random.random() > 0.5:
         image = cv2.flip(image, 1)
 
-    # 랜덤 크롭 + 리사이즈 / Random crop + resize
+    # 랜덤 크롭 + 리사이즈 / Random crop and resize
     if random.random() > 0.5:
-        h, w   = image.shape[:2]
-        scale  = random.uniform(0.6, 1.0)
-        ch, cw = int(h * scale), int(w * scale)
-        y0     = random.randint(0, h - ch)
-        x0     = random.randint(0, w - cw)
-        image  = cv2.resize(image[y0:y0 + ch, x0:x0 + cw], (image_size, image_size))
+        h, w = image.shape[:2]
 
-    # 밝기 조절 / Brightness jitter
+        scale = random.uniform(0.6, 1.0)
+        ch, cw = int(h * scale), int(w * scale)
+
+        y0 = random.randint(0, h - ch)
+        x0 = random.randint(0, w - cw)
+
+        cropped = image[y0:y0 + ch, x0:x0 + cw]
+        image = cv2.resize(cropped, (image_size, image_size))
+
+    # 밝기 랜덤 변경 / Random brightness shift
     if random.random() > 0.5:
         image = np.clip(image + random.uniform(-0.2, 0.2), 0, 1)
 
-    # 대비 조절 / Contrast jitter
+    # 대비 랜덤 조절 / Random contrast scaling
     if random.random() > 0.5:
-        image = np.clip((image - 0.5) * random.uniform(0.8, 1.2) + 0.5, 0, 1)
+        factor = random.uniform(0.8, 1.2)
+        image = np.clip((image - 0.5) * factor + 0.5, 0, 1)
 
-    # 가우시안 블러 / Gaussian blur
+    # Gaussian Blur 적용 / Apply gaussian blur
     if random.random() > 0.5:
-        k     = random.choice([3, 5])
+        kernel = random.choice([3, 5])
+
         image = cv2.GaussianBlur(
-            (image * 255).astype(np.uint8), (k, k), 0
+            (image * 255).astype(np.uint8),
+            (kernel, kernel),
+            0
         ).astype(np.float32) / 255.0
 
     return image
