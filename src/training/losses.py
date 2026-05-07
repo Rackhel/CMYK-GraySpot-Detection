@@ -32,7 +32,7 @@ def get_loss(phase: int, cfg: dict,
     """
     if phase == 0:
         # Phase 0: InfoNCE Loss
-        temperature = cfg["phase0"]["temperature"]  # 0.1
+        temperature = cfg["phase0"].get("temperature", 0.1)
         return InfoNCELoss(temperature=temperature)
 
     elif phase == 2:

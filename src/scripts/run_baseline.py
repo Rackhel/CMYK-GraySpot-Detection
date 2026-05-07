@@ -1,4 +1,4 @@
-﻿"""
+"""
 scripts/run_baseline.py
 
 Naive Baseline: Supervised-only (Phase 2만) 학습 → 성능 기록
@@ -73,7 +73,7 @@ def create_dataloader(dataset, cfg: dict, shuffle: bool = False) -> DataLoader:
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
-        drop_last=cfg["train"].get("drop_last", True) if shuffle else False,
+        drop_last=cfg["train"].get("drop_last", False) if shuffle else False,
         num_workers=num_workers,
         pin_memory=bool(cfg["train"].get("pin_memory", False)),
         persistent_workers=persistent_workers,

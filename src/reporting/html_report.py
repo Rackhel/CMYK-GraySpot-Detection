@@ -54,6 +54,14 @@ _SRC_DIR = Path(__file__).parent.parent.resolve()   # src/
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
 
+# ── Logging 설정 / Logger setup ─────────────────────────────────────────
+try:
+    from utils.logger import get_logger
+    _logger = get_logger(__name__)
+except ImportError:
+    import logging
+    _logger = logging.getLogger(__name__)
+
 from evaluation.metrics import (
     EvaluationSummary,
     ChannelMetrics,
@@ -1003,11 +1011,16 @@ def generate_baseline_report(
         channels     : CMYK channels to include / 포함할 CMYK 채널
         open_browser : If True, open the HTML in the system default browser
                        True이면 시스템 기본 브라우저에서 HTML 열기
+        logger       : Optional logger instance for logging / 로깅용 선택사항 로거
 
     Returns:
         Resolved absolute Path of the generated HTML file
         생성된 HTML 파일의 절대 경로
     """
+    # Use provided logger or fallback to module logger
+    # 제공된 로거 사용 또는 모듈 로거로 폴백
+    log = logger or _logger
+    
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1015,21 +1028,36 @@ def generate_baseline_report(
     overall = summary.overall
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    log.info(f"[Report] Starting HTML report generation...")
+    log.debug(f"  Output path: {output_path}")
+    log.debug(f"  Channels: {channels}")
+    log.debug(f"  Overall metrics - Accuracy: {overall.accuracy:.4f}, F1: {overall.macro_f1:.4f}, MAE: {overall.mae:.4f}")
+
     # ── Build all Plotly figures → JSON strings ───────────────────────────
     # 모든 Plotly 차트 → JSON 문자열 생성
+    log.debug("[Report] Generating Plotly figures...")
+    
     dashboard_json = _fig_to_json(_build_dashboard_fig(
         overall, summary.by_channel, channels, targets
     ))
+    log.debug("  ✓ Dashboard figure generated")
+    
     perclass_json = _fig_to_json(_build_per_class_fig(
         overall, targets["per_class_f1"]
     ))
+    log.debug("  ✓ Per-class figure generated")
+    
     conf_json = _fig_to_json(_build_confidence_fig(results, channels))
+    log.debug("  ✓ Confidence figure generated")
+    
     mae_json  = _fig_to_json(_build_mae_heatmap_fig(
         results, channels, target_mae=targets["mae"]
     ))
+    log.debug("  ✓ MAE heatmap generated")
 
     # Combined arrays for overall confusion matrix
     # 전체 혼동 행렬용 통합 배열
+    log.debug("[Report] Generating confusion matrices...")
     all_true = np.concatenate([results[c]["y_true"] for c in channels])
     all_pred = np.concatenate([results[c]["y_pred"] for c in channels])
 
@@ -1038,12 +1066,16 @@ def generate_baseline_report(
         cm_jsons[ch] = _fig_to_json(_build_confusion_fig(
             results[ch]["y_true"], results[ch]["y_pred"], ch
         ))
+        log.debug(f"  ✓ Confusion matrix [{ch}] generated")
+    
     cm_jsons["overall"] = _fig_to_json(
         _build_confusion_fig(all_true, all_pred, "Overall")
     )
+    log.debug("  ✓ Overall confusion matrix generated")
 
     # ── Build each tab's HTML content ─────────────────────────────────────
     # 각 탭의 HTML 콘텐츠 생성
+    log.debug("[Report] Building HTML sections...")
     sections = {
         "summary":   _build_summary_section(summary, channels, dashboard_json),
         "perclass":  _build_perclass_section(summary, perclass_json),
@@ -1052,6 +1084,7 @@ def generate_baseline_report(
         "confidence":_build_confidence_section(conf_json),
         "feedback":  _build_feedback_section(summary, channels),
     }
+    log.debug("  ✓ All sections built")
 
     # ── Render tab navigation HTML ────────────────────────────────────────
     # 탭 네비게이션 HTML 렌더링
@@ -1077,9 +1110,12 @@ def generate_baseline_report(
         if all_pass else
         '<span style="color:#e74c3c;font-size:0.9rem;">❌ Below Target</span>'
     )
+    
+    log.debug(f"  Status badge: {'✅ Targets Met' if all_pass else '❌ Below Target'}")
 
     # ── Assemble final HTML ────────────────────────────────────────────────
     # 최종 HTML 조립
+    log.debug("[Report] Assembling final HTML...")
     html = f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -1153,14 +1189,15 @@ def generate_baseline_report(
 
     # ── Write file (UTF-8) ────────────────────────────────────────────────
     # 파일 쓰기 (UTF-8)
+    log.debug("[Report] Writing HTML to file...")
     output_path.write_text(html, encoding="utf-8")
-    log_func = logger.info if logger else print
-    log_func(f"[저장 / Saved] {output_path.resolve()}")
+    log.info(f"✓ Report saved to: {output_path.resolve()}")
 
     if open_browser:
         # Use file:// URI for reliable cross-platform browser opening
         # 크로스 플랫폼 브라우저 열기를 위해 file:// URI 사용
         uri = output_path.resolve().as_uri()
+        log.debug(f"[Report] Opening browser: {uri}")
         webbrowser.open(uri)
 
     return output_path.resolve()

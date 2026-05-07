@@ -54,26 +54,26 @@ from src.tuning.search_space import get_phase2_search_space
 
 
 # -------------------------------------------------------------------
-# Compatibility shim for team imports
+# Compatibility shim initialization
 # 팀 코드(config_manager.py, grayspot_model.py 등)가
-# `from utils import ...` 를 사용하므로,
-# 현재 실행 환경에서 top-level `utils` 모듈을 직접 등록한다.
+# `from utils import ...` 를 사용하므로, 
+# run_optuna() 진입 시 top-level `utils` 모듈을 직접 등록한다.
+# Centralized registration to avoid import-time mutations
 # -------------------------------------------------------------------
-logger_mod = importlib.import_module("src.utils.logger")
-
-utils_shim = types.ModuleType("utils")
-utils_shim.LoggerMixin = logger_mod.LoggerMixin
-utils_shim.get_logger = logger_mod.get_logger
-utils_shim.setup_logging = logger_mod.setup_logging
-utils_shim.log_training_config = logger_mod.log_training_config
-utils_shim.log_epoch_summary = logger_mod.log_epoch_summary
-
-sys.modules["utils"] = utils_shim
-
-
-# 반드시 shim 등록 후 import
-# Import only after shim registration
-from src.scripts.run_baseline import load_config, run_baseline
+def _initialize_utils_shim():
+    """
+    Register compatibility shim for team code imports.
+    Must be called before importing run_baseline.
+    """
+    if "utils" not in sys.modules:
+        logger_mod = importlib.import_module("src.utils.logger")
+        utils_shim = types.ModuleType("utils")
+        utils_shim.LoggerMixin = logger_mod.LoggerMixin
+        utils_shim.get_logger = logger_mod.get_logger
+        utils_shim.setup_logging = logger_mod.setup_logging
+        utils_shim.log_training_config = logger_mod.log_training_config
+        utils_shim.log_epoch_summary = logger_mod.log_epoch_summary
+        sys.modules["utils"] = utils_shim
 
 
 def objective(trial: optuna.Trial, channel: str) -> float:
@@ -84,6 +84,14 @@ def objective(trial: optuna.Trial, channel: str) -> float:
     Optuna 목적 함수
     Baseline 학습을 실행하고 validation accuracy를 반환
     """
+    # Initialize compatibility shim before importing run_baseline
+    # 모듈 import 전에 호환성 shim 초기화
+    _initialize_utils_shim()
+    
+    # Import here to ensure shim is registered first
+    # 모듈을 이 시점에 import하여 shim이 먼저 등록되도록 함
+    from src.scripts.run_baseline import load_config, run_baseline
+    
     # Load configuration
     # 설정 불러오기
     config = load_config()
@@ -147,6 +155,14 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
 
     Optuna 하이퍼파라미터 튜닝 실행
     """
+    # Initialize compatibility shim before importing run_baseline
+    # 모듈 import 전에 호환성 shim 초기화
+    _initialize_utils_shim()
+    
+    # Import here to ensure shim is registered first
+    # 모듈을 이 시점에 import하여 shim이 먼저 등록되도록 함
+    from src.scripts.run_baseline import load_config, run_baseline
+    
     # Normalize channel
     # 채널명 정규화
     channel = channel.lower()

@@ -4,15 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "grayspot"
-version = "0.1.0"
+version = "1.0.0"
 description = "CMYK Printer Grayspot Defect Classification Pipeline"
 authors = [
-    {name = "HP Printer Team", email = "team@example.com"},
+    {name = "HP Printer Project Team", email = "team@example.com"},
 ]
 readme = "../../README.md"
 license = {text = "MIT"}
-keywords = ["CMYK", "printer", "defect", "classification", "deep-learning"]
+keywords = ["CMYK", "printer", "defect", "classification", "deep-learning", "pytorch"]
 requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 
 # Core dependencies / 핵심 의존성
 dependencies = [
@@ -21,15 +29,12 @@ dependencies = [
     "torchvision>=0.16.0",
     "torchmetrics>=0.11.0",
     
-    # Model architectures / 모델 아키텍처
-    "efficientnet-pytorch>=0.7.1",
-    "timm>=0.9.0",
-    
     # Data processing & analysis / 데이터 처리 및 분석
     "opencv-python>=4.8.0",
     "numpy>=1.24.0",
     "pandas>=2.0.0",
     "scikit-learn>=1.3.0",
+    "scipy>=1.11.0",
     "albumentations>=1.3.0",
     
     # Configuration & utilities / 설정 및 유틸리티
@@ -41,20 +46,15 @@ dependencies = [
     
     # Visualization & reporting / 시각화 및 리포팅
     "plotly>=5.17.0",
-    "jinja2>=3.1.0",
     "matplotlib>=3.7.0",
     "seaborn>=0.12.0",
-    
-    # Model export & inference / 모델 내보내기 및 추론
-    "onnx>=1.15.0",
-    "onnxruntime>=1.16.0",
     
     # Dimension reduction / 차원 축소
     "umap-learn>=0.5.4",
     "scikit-optimize>=0.9.0",
     
-    # GUI (optional but included) / GUI (선택사항이지만 포함됨)
-    "PyQt6>=6.6.0",
+    # Data download utility / 데이터 다운로드
+    "gdown>=4.7.0",
 ]
 
 # Optional dependencies for different use cases / 다양한 사용 사례를 위한 선택적 의존성
@@ -79,9 +79,10 @@ jupyter = [
     "ipywidgets>=8.1.0",
 ]
 
-# GPU acceleration / GPU 가속화
+# GPU acceleration / GPU 가속화 (CUDA 11.8)
 gpu = [
-    "torch-cuda[cu118]>=2.1.0",  # CUDA 11.8 support
+    "torch>=2.1.0",
+    "torchvision>=0.16.0",
 ]
 
 # MLOps & experiment tracking / MLOps 및 실험 추적
@@ -97,20 +98,19 @@ docs = [
     "sphinx-autodoc-typehints>=1.24.0",
 ]
 
-# Full installation (all optional) / 전체 설치 (모든 선택사항 포함)
-all = [
-    "grayspot[dev,jupyter,mlops,docs]",
-]
-
 # Minimal installation / 최소 설치 (핵심만)
 minimal = [
     "torch>=2.1.0",
     "torchvision>=0.16.0",
-    "efficientnet-pytorch>=0.7.1",
     "opencv-python>=4.8.0",
     "numpy>=1.24.0",
     "pandas>=2.0.0",
     "PyYAML>=6.0",
+]
+
+# Full installation (all optional) / 전체 설치 (모든 선택사항 포함)
+all = [
+    "grayspot[dev,jupyter,mlops,docs]",
 ]
 
 [project.urls]
@@ -123,7 +123,6 @@ Documentation = "https://cmyk-printer.readthedocs.io"
 line-length = 100
 target-version = "py310"
 
-# Select rules / 규칙 선택
 select = [
     "E",    # pycodestyle errors
     "W",    # pycodestyle warnings
@@ -133,13 +132,11 @@ select = [
     "UP",   # pyupgrade
 ]
 
-# Ignore rules / 규칙 무시
 ignore = [
     "E501",  # line too long (handled by black)
     "E203",  # whitespace before ':'
 ]
 
-# Extend exclude / 제외 추가
 extend-exclude = [
     ".git",
     ".venv",
@@ -147,6 +144,37 @@ extend-exclude = [
     "venv",
     "notebooks",
 ]
+
+# Black configuration / Black 설정
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.git
+  | \.venv
+  | __pycache__
+  | venv
+  | notebooks
+)/
+'''
+
+# MyPy configuration / MyPy 설정
+[tool.mypy]
+python_version = "3.10"
+disallow_untyped_defs = false
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# Pytest configuration / Pytest 설정
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "--verbose --cov=src --cov-report=term-missing"
 
 # Black configuration / Black 설정
 [tool.black]
