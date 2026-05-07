@@ -78,7 +78,8 @@ from src.utils import setup_logging, get_logger
 
 # ── 모델 / 학습 모듈 / Model & Training modules ──────────────────────────────
 from models.grayspot_model import GrayspotModel
-from training.trainer import ContrastiveDataset, Phase0Trainer
+from data.dataset     import ContrastiveDataset
+from training.trainer import Phase0Trainer
 
 CHANNELS = ["Y", "M", "C", "K"]
 

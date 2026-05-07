@@ -6,24 +6,24 @@ Phase 0 / Phase 2 training loop — supports mode switching.
 
 Phase 0 Trainer: SimCLR Contrastive Learning
 Phase 2 Trainer: Supervised Classification (CE Loss)
+
+Dataset 클래스는 data/dataset.py 에 위치한다.
+Dataset classes are located in data/dataset.py.
 """
 
 import csv
 import time
-import random
-import numpy as np
-import cv2
-import torch
-import torch.nn as nn
-from collections import defaultdict, Counter
 from pathlib import Path
+
+import torch
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 
 from src.utils import get_logger
+from data.dataset       import CMYKDataset, ContrastiveDataset   # noqa: F401 — re-export
 from models.grayspot_model import GrayspotModel
-from training.losses import get_loss
+from training.losses    import get_loss
 
 logger = get_logger(__name__)
 
@@ -46,145 +46,6 @@ def backbone_tag(backbone_name: str) -> str:
         "resnet50":        "res50",
     }
     return _MAP.get(backbone_name, backbone_name.replace("_", "")[:8])
-
-
-# ──────────────────────────────────────────────────────────────
-# Dataset
-# ──────────────────────────────────────────────────────────────
-
-class CMYKDataset(Dataset):
-    """
-    CMYK 채널별 라벨링된 패치를 로드하는 Dataset.
-    Dataset for loading labeled CMYK channel patches.
-
-    폴더 구조 / Folder structure:
-        data_set/labeled/{channel}/{level}/*.png
-    """
-
-    def __init__(self, cfg: dict, channel: str, split: str = "train",
-                 augment: bool = True, oversample: bool = True):
-        self.augment    = augment and (split == "train")
-        self.image_size = cfg["data"]["image_size"]
-        self.num_levels = cfg["data"]["num_levels"]
-        self.exts       = {".png", ".jpg", ".jpeg", ".tiff", ".tif"}
-        labeled_dir     = Path(cfg["storage"]["labeled_dir"])
-        all_samples     = []
-
-        channel_dir = labeled_dir / channel
-        for level in range(self.num_levels):
-            level_dir = channel_dir / str(level)
-            if not level_dir.exists():
-                continue
-            for img_path in sorted(level_dir.glob("*")):
-                if img_path.suffix.lower() in self.exts:
-                    all_samples.append((img_path, level))
-
-        # Stratified Split — 레벨별 비율 유지 / Maintain level distribution per split
-        level_groups = defaultdict(list)
-        for sample in all_samples:
-            level_groups[sample[1]].append(sample)
-
-        train_samples, val_samples, test_samples = [], [], []
-        for lv, items in level_groups.items():
-            random.shuffle(items)
-            n       = len(items)
-            n_train = max(1, int(n * 0.70))
-            n_val   = max(1, int(n * 0.15))
-            train_samples.extend(items[:n_train])
-            val_samples.extend(items[n_train:n_train + n_val])
-            test_samples.extend(items[n_train + n_val:])
-
-        if split == "train":
-            self.samples = train_samples
-            if oversample and cfg["phase2"].get("oversample", True) and self.samples:
-                level_counts = Counter([lv for _, lv in self.samples])
-                max_count    = max(level_counts.values())
-                oversampled  = []
-                for level in range(self.num_levels):
-                    level_samples = [(p, lv) for p, lv in self.samples if lv == level]
-                    if not level_samples:
-                        continue
-                    while len(level_samples) < max_count:
-                        level_samples.append(random.choice(level_samples))
-                    oversampled.extend(level_samples)
-                self.samples = oversampled
-        elif split == "val":
-            self.samples = val_samples
-        else:
-            self.samples = test_samples
-
-    def __len__(self) -> int:
-        return len(self.samples)
-
-    def __getitem__(self, idx: int):
-        img_path, level = self.samples[idx]
-        image = cv2.imread(str(img_path))
-        if image is None:
-            raise ValueError(f"Image not found / 이미지 없음: {img_path}")
-
-        image = cv2.resize(image, (self.image_size, self.image_size))
-        image = image / 255.0
-
-        if self.augment:
-            if random.random() > 0.5:
-                image = cv2.flip(image, 1)
-            if random.random() > 0.5:
-                image = np.clip(image + random.randint(-30, 30) / 255.0, 0, 1)
-            if random.random() > 0.5:
-                image = np.clip(image + random.randint(0, 10) / 255.0, 0, 1)
-
-        return torch.tensor(image).permute(2, 0, 1).float(), level
-
-
-class ContrastiveDataset(Dataset):
-    """
-    Phase 0 Contrastive Learning 전용 Dataset — 라벨 없이 Positive Pair 반환.
-    Phase 0 Contrastive Learning Dataset — returns Positive Pair without labels.
-    """
-
-    def __init__(self, cfg: dict, channel: str):
-        self.image_size  = cfg["data"]["image_size"]
-        self.num_levels  = cfg["data"]["num_levels"]
-        self.exts        = {".png", ".jpg", ".jpeg", ".tiff", ".tif"}
-        self.image_paths = []
-        labeled_dir      = Path(cfg["storage"]["labeled_dir"])
-
-        channel_dir = labeled_dir / channel
-        for level in range(self.num_levels):
-            level_dir = channel_dir / str(level)
-            if not level_dir.exists():
-                continue
-            for img_path in sorted(level_dir.glob("*")):
-                if img_path.suffix.lower() in self.exts:
-                    self.image_paths.append(img_path)
-
-    def __len__(self) -> int:
-        return len(self.image_paths)
-
-    def _augment(self, image: np.ndarray) -> torch.Tensor:
-        if random.random() > 0.5:
-            image = cv2.flip(image, 1)
-        if random.random() > 0.5:
-            h, w   = image.shape[:2]
-            scale  = random.uniform(0.6, 1.0)
-            ch, cw = int(h * scale), int(w * scale)
-            y0, x0 = random.randint(0, h - ch), random.randint(0, w - cw)
-            image  = cv2.resize(image[y0:y0+ch, x0:x0+cw], (self.image_size, self.image_size))
-        if random.random() > 0.5:
-            image = np.clip(image + random.uniform(-0.2, 0.2), 0, 1)
-        if random.random() > 0.5:
-            image = np.clip((image - 0.5) * random.uniform(0.8, 1.2) + 0.5, 0, 1)
-        if random.random() > 0.5:
-            k     = random.choice([3, 5])
-            image = cv2.GaussianBlur((image * 255).astype(np.uint8), (k, k), 0).astype(np.float32) / 255.0
-        return torch.tensor(image).permute(2, 0, 1).float()
-
-    def __getitem__(self, idx: int):
-        image = cv2.imread(str(self.image_paths[idx]))
-        if image is None:
-            raise ValueError(f"Image not found / 이미지 없음: {self.image_paths[idx]}")
-        image = cv2.resize(image, (self.image_size, self.image_size)).astype(np.float32) / 255.0
-        return self._augment(image.copy()), self._augment(image.copy())
 
 
 # ──────────────────────────────────────────────────────────────

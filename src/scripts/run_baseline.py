@@ -45,7 +45,8 @@ sys.path.insert(0, str(SRC_DIR))
 from src.config import get_config
 from src.utils import setup_logging, get_logger, log_training_config
 from models.grayspot_model import GrayspotModel
-from training.trainer import CMYKDataset, Phase2Trainer
+from data.dataset     import CMYKDataset
+from training.trainer import Phase2Trainer
 
 warnings.filterwarnings("ignore")
 logger = get_logger(__name__)

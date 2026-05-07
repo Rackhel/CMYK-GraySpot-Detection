@@ -82,7 +82,8 @@ sys.modules["utils"] = _utils_shim
 from src.config import get_config
 from src.utils  import setup_logging, get_logger, log_training_config
 from models.grayspot_model  import GrayspotModel
-from training.trainer       import CMYKDataset, Phase2Trainer, backbone_tag
+from data.dataset       import CMYKDataset
+from training.trainer   import Phase2Trainer, backbone_tag
 
 warnings.filterwarnings("ignore")
 
