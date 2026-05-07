@@ -172,13 +172,21 @@ def compute_metrics(
         dict with keys: accuracy, macro_f1, mae, per_class, n_samples
     """
     if len(y_true) == 0:
+        empty_per_class = [
+            {
+                "level": i,
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+                "support": 0,
+            }
+            for i in range(num_classes)
+        ]
         return {
             "accuracy" : 0.0,
             "macro_f1" : 0.0,
             "mae"      : 0.0,
-            "per_class": compute_per_class_metrics(
-                np.array([0]), np.array([0]), num_classes
-            ),
+            "per_class": empty_per_class,
             "n_samples": 0,
         }
 
