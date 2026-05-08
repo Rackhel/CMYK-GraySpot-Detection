@@ -58,7 +58,11 @@ data_set/labeled/{channel}/{level}/*.png
   "channels":   ["Y", "M", "C", "K"],
   "num_levels": 6,
   "image_size": 128,
-  "split_ratios": { "train": 0.70, "val": 0.15, "test": 0.15 }
+  "split_ratios": { "train": 0.70, "val": 0.15, "test": 0.15 },
+  "normalization": {
+    "mean": [0.485, 0.456, 0.406],
+    "std":  [0.229, 0.224, 0.225]
+  }
 },
 "storage": {
   "labeled_dir": "data_set/labeled"
@@ -82,7 +86,7 @@ from data import CMYKDataset
 
 ds = CMYKDataset(cfg, channel="Y", split="train")
 image, label = ds[0]
-# image: Tensor (3, 128, 128) float32 [0, 1]
+# image: Tensor (3, 128, 128) float32, ImageNet-normalized (mean/std subtracted)
 # label: int  [0, 5]
 ```
 
@@ -101,7 +105,7 @@ from data import ContrastiveDataset
 
 ds = ContrastiveDataset(cfg, channel="Y")
 view1, view2 = ds[0]
-# view1, view2: Tensor (3, 128, 128) float32 [0, 1]
+# view1, view2: Tensor (3, 128, 128) float32, ImageNet-normalized
 # Positive pair: same image with different augmentations
 ```
 
@@ -119,12 +123,13 @@ view1, view2 = ds[0]
 ### 3.1 처리 순서 / Processing Order
 
 ```
-cv2.imread(path)                          # BGR uint8 (H, W, 3)
+cv2.imread(path)                                 # BGR uint8 (H, W, 3)
     → preprocess(image, image_size=128)
-        → cv2.resize((128, 128))          # 크기 통일 / Uniform size
-        → .astype(np.float32) / 255.0    # [0, 255] → [0.0, 1.0]
-    → [augment_supervised(image)]         # train split only (Phase 2)
-    → torch.tensor(image).permute(2,0,1) # (H,W,C) → (C,H,W)
+        → cv2.resize((128, 128))                 # 크기 통일 / Uniform size
+        → .astype(np.float32) / 255.0           # [0, 255] → [0.0, 1.0]
+    → [augment_supervised(image)]                # train split only (Phase 2)
+    → torch.tensor(image).permute(2,0,1).float() # (H,W,C) → (C,H,W)
+    → _IMAGENET_NORMALIZE(tensor)               # ImageNet mean/std normalization
     → DataLoader batching
 ```
 
@@ -134,14 +139,15 @@ cv2.imread(path)                          # BGR uint8 (H, W, 3)
 |---|---|---|
 | 파일 로드 / File load | BGR (OpenCV `cv2.imread`) | Hard SSOT |
 | 전처리 후 / After preprocess | BGR float32 [0, 1] | 변환 없음 / No conversion |
-| 모델 입력 / Model input | BGR float32 [0, 1] | ImageNet norm ❌ 미적용 |
-| 추론 / Inference | BGR float32 [0, 1] | **학습과 일치 필수** / Must match training |
+| 텐서 정규화 후 / After normalize | BGR float32, ImageNet-normalized | `mean=[0.485,0.456,0.406]`, `std=[0.229,0.224,0.225]` |
+| 모델 입력 / Model input | BGR float32, ImageNet-normalized | ✅ pretrained backbone 호환 |
+| 추론 / Inference | BGR float32, ImageNet-normalized | **학습과 일치 필수** / Must match training |
 
 > **⚠️ SSOT-CS01**: 학습과 평가에서 동일 색상 공간(BGR)을 유지해야 한다.
 > Training and evaluation **must** use the same color space (BGR).
 
-> **⚠️ SSOT-NM01**: 이 프로젝트는 ImageNet 정규화를 적용하지 않는다. pretrained backbone 사용 시 성능에 영향을 줄 수 있다.
-> This project does **not** apply ImageNet normalization. This may impact pretrained backbone performance.
+> ✅ **SSOT-NM01 해소됨 / Resolved**: `dataset.py`의 `_IMAGENET_NORMALIZE`가 `CMYKDataset`과 `ContrastiveDataset` 모두에 적용된다.
+> `_IMAGENET_NORMALIZE` in `dataset.py` is applied in both `CMYKDataset` and `ContrastiveDataset`.
 
 ### 3.3 `preprocess()` 함수 시그니처 / Function Signature
 
@@ -233,27 +239,28 @@ view = augment_contrastive(image: np.ndarray, image_size: int, aug_cfg: dict) ->
 
 | 계약 / Contract | 타입 / Type | 형상 / Shape | 값 범위 / Range |
 |---|---|---|---|
-| Dataset 출력 (Phase 2) | `(Tensor, int)` | `(3, 128, 128)`, scalar | [0, 1], [0, 5] |
-| Dataset 출력 (Phase 0) | `(Tensor, Tensor)` | `(3, 128, 128)`, `(3, 128, 128)` | [0, 1] |
-| 모델 입력 / Model input | `Tensor` | `(B, 3, 128, 128)` | float32 [0, 1] |
+| Dataset 출력 (Phase 2) | `(Tensor, int)` | `(3, 128, 128)`, scalar | ImageNet-normalized float32, label [0, 5] |
+| Dataset 출력 (Phase 0) | `(Tensor, Tensor)` | `(3, 128, 128)`, `(3, 128, 128)` | ImageNet-normalized float32 |
+| 모델 입력 / Model input | `Tensor` | `(B, 3, 128, 128)` | ImageNet-normalized float32 |
 | 평가 입력 / Eval input | `np.ndarray` | `(N,)` | int [0, 5] |
 
 ---
 
 ## 7. SSOT 위반 현황 / Violations
 
-| 코드 / Code | 위반 내용 / Violation | 등급 / Level | 해결 방법 / Fix |
+| 코드 / Code | 위반 내용 / Violation | 등급 / Level | 상태 / Status |
 |---|---|---|---|
-| SSOT-CS01 | BGR/RGB 불일치 위험 — 추론 시 동일 공간 유지 필수 | Level 1 | 추론 파이프라인에서 BGR 입력 강제 확인 |
-| SSOT-NM01 | ImageNet 정규화 미적용 — pretrained backbone 성능 저하 가능 | Level 2 | 정규화 추가 또는 문서화 의도 명시 |
+| SSOT-CS01 | BGR/RGB 불일치 위험 — 추론 시 동일 공간 유지 필수 | Level 1 | ⚠️ 지속 모니터링 |
+| SSOT-NM01 | ImageNet 정규화 미적용 — pretrained backbone 성능 저하 가능 | Level 2 | ✅ **해소됨** |
 
 > ✅ **해소됨 / Resolved**: `data.split_ratios` Dead Config → `dataset.py`에서 소비 완료.
 > ✅ **해소됨 / Resolved**: `phase0.augmentation.color_jitter` / `blur_prob` → `augment_contrastive(aug_cfg)` 소비 완료.
 > ✅ **해소됨 / Resolved**: `phase0.augmentation` 나머지 키 (flip/crop/contrast/blur_kernels) → `augment_contrastive()` 소비 완료.
 > ✅ **해소됨 / Resolved**: `phase2.augmentation.*` 신규 추가 → `CMYKDataset.sup_aug_cfg` 경유 `augment_supervised()` 소비 완료.
+> ✅ **해소됨 / Resolved**: SSOT-NM01 — `_IMAGENET_NORMALIZE` 적용 완료 (`dataset.py`, 2026-05-08).
 
 ---
 
-**Version**: 0.2.0
+**Version**: 0.3.0
 **Last Updated**: 2026-05-08
 **Applies to**: CMYK Grayspot Detection System v0.1.0+

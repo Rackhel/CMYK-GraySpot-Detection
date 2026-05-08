@@ -141,6 +141,7 @@ config.get("phase2.learning_rate")
 | `preprocess()` 출력 | `np.ndarray` | `(128, 128, 3)` | `[0.0, 1.0]` float32 | **BGR** |
 | 증강 후 / After augmentation | `np.ndarray` | `(128, 128, 3)` | `[0.0, 1.0]` float32 | **BGR** |
 | Tensor 변환 후 / After to_tensor | `torch.Tensor` | `(3, 128, 128)` | `[0.0, 1.0]` float32 | **BGR** (C,H,W) |
+| ImageNet 정규화 후 / After normalize | `torch.Tensor` | `(3, 128, 128)` | ImageNet-normalized float32 | **BGR** (C,H,W) |
 
 > ⚠️ **SSOT-CS01**: 파일 로드부터 모델 입력까지 BGR을 유지한다. RGB 변환 금지.
 
@@ -152,8 +153,8 @@ view1, view2 = dataset[i]
 
 | 출력 / Output | 타입 / Type | 형상 / Shape | 범위 / Range | 비고 / Note |
 |---|---|---|---|---|
-| `view1` | `torch.Tensor` | `(3, 128, 128)` | `[0.0, 1.0]` | 동일 이미지 다른 증강 |
-| `view2` | `torch.Tensor` | `(3, 128, 128)` | `[0.0, 1.0]` | Positive pair |
+| `view1` | `torch.Tensor` | `(3, 128, 128)` | ImageNet-normalized | 동일 이미지 다른 증강 |
+| `view2` | `torch.Tensor` | `(3, 128, 128)` | ImageNet-normalized | Positive pair |
 
 ### 3.3 `CMYKDataset` 출력 계약
 
@@ -163,7 +164,7 @@ image, label = dataset[i]
 
 | 출력 / Output | 타입 / Type | 형상 / Shape | 범위 / Range | 비고 / Note |
 |---|---|---|---|---|
-| `image` | `torch.Tensor` | `(3, 128, 128)` | `[0.0, 1.0]` | train split만 증강 적용 |
+| `image` | `torch.Tensor` | `(3, 128, 128)` | ImageNet-normalized | train split만 증강 적용 |
 | `label` | `int` | scalar | `[0, 5]` | ordinal 6-class |
 
 ### 3.4 DataLoader 배치 계약
@@ -327,7 +328,7 @@ evaluator = Evaluator(
 | 입력 / Input | 타입 / Type | 제약 / Constraint |
 |---|---|---|
 | `model` | `nn.Module` | 반드시 `model.eval()` 상태 |
-| 이미지 배치 | `Tensor (B, 3, 128, 128)` | BGR float32 [0, 1] — 학습과 동일 |
+| 이미지 배치 | `Tensor (B, 3, 128, 128)` | BGR float32, ImageNet-normalized — 학습과 동일 |
 | 레이블 | `Tensor (B,)` | int [0, 5] |
 
 ### 7.2 `Evaluator.run()` 출력 계약

@@ -19,9 +19,15 @@ from pathlib import Path
 import cv2
 import torch
 from torch.utils.data import Dataset
+from torchvision import transforms as T
 
 from data.preprocessing import preprocess
 from data.augmentation  import augment_supervised, augment_contrastive
+
+_IMAGENET_NORMALIZE = T.Normalize(
+    mean=[0.485, 0.456, 0.406],
+    std=[0.229, 0.224, 0.225],
+)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -124,7 +130,8 @@ class CMYKDataset(Dataset):
         if self.augment:
             image = augment_supervised(image, self.sup_aug_cfg)
 
-        return torch.tensor(image).permute(2, 0, 1).float(), level
+        tensor = torch.tensor(image).permute(2, 0, 1).float()
+        return _IMAGENET_NORMALIZE(tensor), level
 
 
 # ──────────────────────────────────────────────────────────────
@@ -180,6 +187,6 @@ class ContrastiveDataset(Dataset):
         view2 = augment_contrastive(image.copy(), self.image_size, self.aug_cfg)
 
         return (
-            torch.tensor(view1).permute(2, 0, 1).float(),
-            torch.tensor(view2).permute(2, 0, 1).float(),
+            _IMAGENET_NORMALIZE(torch.tensor(view1).permute(2, 0, 1).float()),
+            _IMAGENET_NORMALIZE(torch.tensor(view2).permute(2, 0, 1).float()),
         )

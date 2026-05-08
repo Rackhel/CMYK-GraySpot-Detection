@@ -83,13 +83,16 @@ class TestCMYKDataset:
             _, y = ds[i]
             assert 0 <= int(y) < cfg["data"]["num_levels"]
 
-    def test_tensor_range_0_to_1(self, labeled_data_dir, minimal_cfg):
+    def test_tensor_is_imagenet_normalized(self, labeled_data_dir, minimal_cfg):
         cfg = copy.deepcopy(minimal_cfg)
         cfg["storage"]["labeled_dir"] = str(labeled_data_dir / "labeled")
         ds = CMYKDataset(cfg, channel="Y", split="train", augment=False, oversample=False)
         x, _ = ds[0]
-        assert float(x.min()) >= 0.0
-        assert float(x.max()) <= 1.0
+        # Values must be finite; ImageNet normalization produces values outside [0, 1]
+        assert torch.isfinite(x).all()
+        assert x.dtype == torch.float32
+        # After mean subtraction at least one channel's dark pixels go negative
+        assert float(x.min()) < 0.0, "ImageNet normalization not applied — min should be negative"
 
     def test_dataloader_batch_shape(self, labeled_data_dir, minimal_cfg):
         cfg = copy.deepcopy(minimal_cfg)
