@@ -1,7 +1,24 @@
 {
   "_comment": "모듈 의존성 관계도 / Module dependency graph — CMYK Grayspot Detection System",
-  "_version": "0.2.0",
+  "_version": "0.3.0",
   "_last_updated": "2026-05-08",
+
+  "environment_constraints": {
+    "_note": "외부 패키지 버전 제약 / External package version constraints",
+    "numpy": {
+      "required": ">=1.24.0,<2.0",
+      "reason": "Anaconda 기본 환경의 pyarrow / pandas / scipy가 NumPy 1.x 기준으로 컴파일돼 있어 NumPy 2.x 로드 시 ImportError 발생. numpy<2 로 고정. / Anaconda default env packages (pyarrow, pandas, scipy) are compiled against NumPy 1.x — upgrading to 2.x causes ImportError. Pinned to <2.",
+      "affected_packages": ["pyarrow", "pandas", "scipy", "scikit-learn"]
+    },
+    "scikit-learn": {
+      "required": ">=1.5.0",
+      "reason": "NumPy 1.x 호환 최신 안정 버전 / Latest stable version compatible with NumPy 1.x"
+    },
+    "scipy": {
+      "required": ">=1.11.0",
+      "reason": "evaluation/metrics.py 의 sklearn 간접 의존 — requirements.txt에 명시 / Indirect dependency via sklearn used in evaluation/metrics.py — explicitly listed in requirements.txt"
+    }
+  },
 
   "modules": {
 
