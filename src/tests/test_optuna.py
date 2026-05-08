@@ -37,8 +37,7 @@ sys.path.insert(0, str(SRC_DIR))
 
 # -------------------------------------------------------------------
 # Compatibility shim for team imports
-# 팀 코드(config_manager.py, grayspot_model.py 등)가
-# `from utils import ...` 를 사용하므로,
+# 팀 코드(grayspot_model.py 등)가 `from utils import ...` 를 사용하므로,
 # 현재 실행 환경에서 top-level `utils` 모듈을 직접 등록한다.
 # -------------------------------------------------------------------
 logger_mod = importlib.import_module("src.utils.logger")
@@ -53,7 +52,7 @@ utils_shim.log_epoch_summary = logger_mod.log_epoch_summary
 sys.modules["utils"] = utils_shim
 
 
-from src.scripts.run_baseline import load_config
+from src.utils import load_config
 from src.tuning.search_space import get_phase2_search_space
 from src.tuning.optuna_tuner import objective, run_optuna
 
@@ -85,8 +84,7 @@ def section(title):
 def test_config() -> bool:
     section("TEST 1. config 로드 확인 / Config Load")
     try:
-        config = load_config()
-        cfg = config.config
+        cfg = load_config()
 
         required = ["data", "model", "phase2", "storage", "train"]
         missing = [k for k in required if k not in cfg]
@@ -95,11 +93,11 @@ def test_config() -> bool:
             fail_(f"누락된 키 / Missing keys: {missing}")
             return False
 
-        pass_("config.yaml 로드 성공 / Loaded successfully")
+        pass_("config.json 로드 성공 / Loaded successfully")
         pass_(
             f"backbone: {cfg['model']['backbone']} | "
             f"channels: {cfg['data']['channels']} | "
-            f"device: {config.get('system.device')}"
+            f"device: {cfg['system']['device']}"
         )
         return True
 

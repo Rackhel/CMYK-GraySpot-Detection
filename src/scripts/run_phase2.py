@@ -49,12 +49,10 @@ import argparse
 import copy
 import json
 import os
-import random
 import sys
 import warnings
 from pathlib import Path
 
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
@@ -65,9 +63,9 @@ sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
 # ── utils shim (팀 코드 호환) / utils shim for team code compatibility ──────────
-# config_manager.py, evaluator.py 등이 `from utils import ...`를 사용하므로
+# evaluator.py 등이 `from utils import ...`를 사용하므로
 # top-level utils 모듈을 등록한다.
-# Register top-level utils so that config_manager.py, evaluator.py etc.
+# Register top-level utils so that evaluator.py etc.
 # can resolve `from utils import ...` without modification.
 import importlib, types as _types
 _logger_mod = importlib.import_module("src.utils.logger")
@@ -79,11 +77,10 @@ _utils_shim.log_training_config = _logger_mod.log_training_config
 _utils_shim.log_epoch_summary  = _logger_mod.log_epoch_summary
 sys.modules["utils"] = _utils_shim
 
-from src.config import get_config
-from src.utils  import setup_logging, get_logger, log_training_config
+from src.utils  import setup_logging, get_logger, log_training_config, log_snapshot, set_seed, load_config, backbone_tag, validate_config, create_directories, get_nested
 from models.grayspot_model  import GrayspotModel
 from data.dataset       import CMYKDataset
-from training.trainer   import Phase2Trainer, backbone_tag
+from training.trainer   import Phase2Trainer
 
 warnings.filterwarnings("ignore")
 
@@ -91,22 +88,6 @@ warnings.filterwarnings("ignore")
 CHANNELS     = ["Y", "M", "C", "K"]
 CYCLE_TAG    = "v1"            # Swing Cycle 1 식별자 / Swing Cycle 1 identifier
 CKPT_SUBDIR  = "outputs/checkpoints"
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 유틸리티 / Utilities
-# ──────────────────────────────────────────────────────────────────────────────
-
-def _load_config():
-    """config.yaml을 로드하여 ConfigManager를 반환한다. / Loads config.yaml and returns ConfigManager."""
-    return get_config(config_path=SRC_DIR / "config" / "config.yaml", root_dir=ROOT_DIR)
-
-
-def _set_seed(seed: int) -> None:
-    """재현성을 위해 전 모듈 시드를 고정한다. / Fixes seed across all modules for reproducibility."""
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
 
 
 def _make_dataloader(dataset: CMYKDataset, cfg: dict, shuffle: bool) -> DataLoader:
@@ -157,7 +138,7 @@ def run_phase2(
     then runs Supervised training on folder-structured CMYKDataset.
 
     Args:
-        cfg:        config.yaml dict
+        cfg:        config.json dict
         channel:    "Y" | "M" | "C" | "K"
         device:     torch.device
         phase0_dir: phase0_backbone_{channel}.pt 가 저장된 디렉토리
@@ -356,59 +337,69 @@ def main() -> None:
     # 채널 결정 / Resolve target channels
     target_channels = CHANNELS if args.channel.lower() == "all" else [args.channel.upper()]
 
-    # ConfigManager 로드 / Load ConfigManager
-    config = _load_config()
-    if not config.validate():
-        print("[ERROR] Configuration validation failed — fix config.yaml and retry.")
+    # config 로드 / Load config
+    cfg = load_config()
+    if not validate_config(cfg):
+        print("[ERROR] Configuration validation failed — fix config.json and retry.")
         sys.exit(1)
-    config.create_necessary_directories()
+    create_directories(cfg)
 
     # 로깅 설정 / Setup logging
     setup_logging(
-        log_dir      = Path(config.get("storage.logs_dir")),
-        level        = config.get("logging.level") or "INFO",
-        format_style = config.get("logging.format") or "detailed",
-        console      = config.get("logging.console_output"),
-        file         = config.get("logging.file_output"),
+        log_dir      = Path(cfg["storage"]["logs_dir"]),
+        level        = get_nested(cfg, "logging.level") or "INFO",
+        format_style = get_nested(cfg, "logging.format") or "detailed",
+        console      = get_nested(cfg, "logging.console_output"),
+        file         = get_nested(cfg, "logging.file_output"),
     )
     logger = get_logger(__name__)
-    log_training_config(config.config, logger=logger)
+    log_training_config(cfg, logger=logger)
 
     # 디바이스 및 경로 결정 / Resolve device and paths
-    device    = torch.device(config.get("system.device"))
+    device    = torch.device(cfg["system"]["device"])
     ckpt_dir  = ROOT_DIR / CKPT_SUBDIR
     phase0_dir = (
         Path(args.phase0_dir) if args.phase0_dir
-        else ROOT_DIR / config.get("storage.models_dir")
+        else ROOT_DIR / cfg["storage"]["models_dir"]
     )
 
-    _set_seed(config.get("train.seed") or 42)
+    set_seed(cfg["train"].get("seed") or 42, cfg)
+
+    # ── 스냅샷 저장 / Save config snapshot ───────────────────────────────────
+    log_snapshot(
+        config       = cfg,
+        snapshot_dir = ROOT_DIR / "outputs" / "snapshots",
+        tag          = "phase2",
+        logger       = logger,
+    )
 
     # ── 시작 배너 / Start banner ───────────────────────────────────────────────
     import time
+    from datetime import datetime as _dt
     print()
     print("=" * 65)
     print("  Grayspot — Phase 2 Supervised Training (Swing Cycle 1)")
-    print(f"  {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  {_dt.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 65)
     print(f"  Channels     : {target_channels}")
     print(f"  Device       : {device}")
-    print(f"  Backbone     : {config.get('model.backbone')}")
+    print(f"  Backbone     : {cfg['model']['backbone']}")
     print(f"  Phase 0 dir  : {phase0_dir}")
     print(f"  Checkpoint   : {ckpt_dir}")
     print("=" * 65)
     print()
 
     # Phase 0 체크포인트 존재 여부 사전 확인 / Pre-check Phase 0 checkpoints
-    _tag = backbone_tag(config.get("model.backbone"))
+    _tag = backbone_tag(cfg["model"]["backbone"])
     missing = [
         ch for ch in target_channels
         if not (phase0_dir / f"phase0_backbone_{ch}_{_tag}.pt").exists()
     ]
     if missing:
         logger.error(
-            f"[ERROR] Phase 0 backbone 없음 / Phase 0 backbone not found: {missing}\n"
-            f"        경로 확인 / Check path: {phase0_dir}"
+            f"[SSOT-PH01] Phase 0 backbone 없음 / Phase 0 backbone not found: {missing}\n"
+            f"            Phase 0 완료 후 실행 / Run Phase 0 first: python -m src.scripts.run_phase0\n"
+            f"            경로 확인 / Check path: {phase0_dir}"
         )
         sys.exit(1)
 
@@ -418,7 +409,7 @@ def main() -> None:
 
     for ch in target_channels:
         result = run_phase2(
-            cfg        = config.config,
+            cfg        = cfg,
             channel    = ch,
             device     = device,
             phase0_dir = phase0_dir,
@@ -445,7 +436,7 @@ def main() -> None:
         )
 
     # ── 요약 JSON 저장 / Save summary JSON ────────────────────────────────────
-    summary_path = _save_summary(results, ckpt_dir, config.config)
+    summary_path = _save_summary(results, ckpt_dir, cfg)
     elapsed      = time.time() - t_start
 
     print()

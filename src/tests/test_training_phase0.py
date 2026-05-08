@@ -21,7 +21,7 @@ Validates Phase 0 Contrastive Learning training in isolation.
 import sys
 import argparse
 import copy
-import yaml
+import json
 import torch
 from pathlib import Path
 from torch.utils.data import DataLoader
@@ -50,11 +50,11 @@ def section(title):
 
 def load_config() -> dict:
     """
-    config.yaml 로드 / Load config.yaml
+    config.json 로드 / Load config.json
     """
-    config_path = ROOT_DIR / "src" / "config" / "config.yaml"
+    config_path = ROOT_DIR / "src" / "config" / "config.json"
     with open(config_path, encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        return json.load(f)
 
 
 def mini_cfg(cfg: dict, epochs: int = 3) -> dict:
@@ -80,7 +80,7 @@ def test_config() -> bool:
         if missing:
             fail_(f"누락된 키 / Missing keys: {missing}")
             return False
-        pass_(f"config.yaml 로드 성공 / Loaded successfully")
+        pass_(f"config.json 로드 성공 / Loaded successfully")
         pass_(f"backbone: {cfg['model']['backbone']} | "
               f"image_size: {cfg['data']['image_size']} | "
               f"channels: {cfg['data']['channels']}")

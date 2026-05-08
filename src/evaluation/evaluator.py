@@ -83,6 +83,11 @@ from evaluation.metrics import (
     check_targets,
     print_summary,
 )
+
+# 신뢰도 임계값 fallback 기본값 / Confidence threshold fallback defaults
+_DEFAULT_CONF_AUTO   = CONF_THRESH_AUTO
+_DEFAULT_CONF_WARN   = CONF_THRESH_WARN
+_DEFAULT_CONF_MANUAL = CONF_THRESH_MANUAL
 from evaluation.confusion import plot_confusion_matrix, plot_all_channels
 
 
@@ -169,7 +174,6 @@ class Evaluator(LoggerMixin):
         num_levels  : Level 수 (0~5) / Number of levels
     """
 
-    LEVEL_COLORS = ['#2ecc71', '#f1c40f', '#e67e22', '#e74c3c', '#9b59b6', '#1a1a2e']
     CMYK_COLORS  = {'Y': '#f5e642', 'M': '#e91e8c', 'C': '#00b4d8', 'K': '#444444'}
 
     def __init__(
@@ -182,6 +186,7 @@ class Evaluator(LoggerMixin):
         image_size  : int = 128,
         batch_size  : int = 32,
         num_levels  : int = NUM_LEVELS,
+        cfg         : Optional[dict] = None,
     ):
         self.model       = model
         self.labeled_dir = Path(labeled_dir)
@@ -191,6 +196,14 @@ class Evaluator(LoggerMixin):
         self.image_size  = image_size
         self.batch_size  = batch_size
         self.num_levels  = num_levels
+        self.cfg         = cfg or {}
+
+        # 신뢰도 임계값 — cfg에서 읽고, 없으면 module 상수를 fallback으로 사용
+        # Confidence thresholds — read from cfg, fall back to module constants
+        ct = self.cfg.get("inference", {}).get("confidence_thresholds", {})
+        self.conf_thresh_auto   = float(ct.get("auto_accept",   _DEFAULT_CONF_AUTO))
+        self.conf_thresh_warn   = float(ct.get("warn_threshold", _DEFAULT_CONF_WARN))
+        self.conf_thresh_manual = float(ct.get("manual_review",  _DEFAULT_CONF_MANUAL))
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.logger.info(f'Evaluator initialized / 초기화 완료  output_dir={self.output_dir}')
@@ -758,9 +771,9 @@ class Evaluator(LoggerMixin):
             ), row=r, col=c)
 
             for thresh, col_color in [
-                (CONF_THRESH_AUTO,   'green'),
-                (CONF_THRESH_WARN,   'orange'),
-                (CONF_THRESH_MANUAL, 'red'),
+                (self.conf_thresh_auto,   'green'),
+                (self.conf_thresh_warn,   'orange'),
+                (self.conf_thresh_manual, 'red'),
             ]:
                 fig.add_vline(
                     x=thresh, line_dash='dash',

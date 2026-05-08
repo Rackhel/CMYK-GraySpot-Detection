@@ -1,0 +1,245 @@
+# SSOT Validation Codes — 검증 에러 코드 정의 / Validation Error Code Definitions
+
+CMYK Grayspot Detection System 의 모든 Fail-Fast 에러 코드와 처리 방법에 관한 단일 진실 공급원.
+
+This document is the authoritative reference for all Fail-Fast error codes, their conditions, and remediation steps.
+
+> **목적 / Purpose**: 검증 에러 코드의 의미와 처리 방법 정의
+> **역할 / Role**: "What" — SSOT 위반 코드 목록, 감지 조건, 등급
+> **관련 문서 / See also**: [SSOT_Core.md](SSOT_Core.md), [SSOT_GlobalVariables.md](SSOT_GlobalVariables.md)
+
+---
+
+## Table of Contents / 목차
+
+1. [코드 명명 규칙 / Code Naming Convention](#1-코드-명명-규칙--code-naming-convention)
+2. [등급 체계 / Severity Levels](#2-등급-체계--severity-levels)
+3. [코드 전체 목록 / Complete Code List](#3-코드-전체-목록--complete-code-list)
+4. [코드별 상세 정의 / Detailed Definitions](#4-코드별-상세-정의--detailed-definitions)
+5. [감지 가이드 / Detection Guide](#5-감지-가이드--detection-guide)
+
+---
+
+## 1. 코드 명명 규칙 / Code Naming Convention
+
+```
+SSOT-{PREFIX}{NUM}
+
+PREFIX: 위반 카테고리 약어
+  FF = Fail-Fast artifact (산출물 누락)
+  PH = Phase (단계 순서 위반)
+  CS = Color Space (색상 공간 불일치)
+  NM = Normalization Mismatch (정규화 불일치)
+  CF = Config (설정 키 위반)
+  SD = Seed / Determinism (재현성 위반)
+
+NUM: 순번 (01, 02, ...)
+```
+
+---
+
+## 2. 등급 체계 / Severity Levels
+
+| 등급 / Level | 이름 / Name | 동작 / Action | 예시 / Example |
+|------|------|------|------|
+| **Level 0** | Panic | 시스템 즉시 중단 / Immediate system halt | 모델 파일 손상, CUDA OOM |
+| **Level 1** | Error | 현재 실행 중단, 명시적 에러 반환 / Abort with explicit error | SSOT-FF01, SSOT-PH01, SSOT-CS01 |
+| **Level 2** | Warning | 경고 로그 + 실행 계속 / Log warning, continue | SSOT-CF02, SSOT-NM01, SSOT-SD01 |
+| **Level 3** | Info | 기록만, 실행 계속 / Log only | 권장값과 다른 설정 |
+
+---
+
+## 3. 코드 전체 목록 / Complete Code List
+
+| 코드 / Code | 카테고리 / Category | 등급 / Level | 한 줄 요약 / One-line Summary |
+|---|---|---|---|
+| `SSOT-FF01` | Artifact | Level 1 | 필수 아티팩트 파일 누락 / Required artifact file missing |
+| `SSOT-PH01` | Phase | Level 1 | Phase 순서 위반 / Phase ordering violation |
+| `SSOT-CS01` | Color Space | Level 1 | BGR/RGB 색상 공간 불일치 / Color space mismatch |
+| `SSOT-NM01` | Normalization | Level 2 | ImageNet 정규화 미적용 / ImageNet normalization not applied |
+| `SSOT-CF01` | Config | Level 1 | 코드 참조 config 키 누락 / Config key referenced but missing |
+| `SSOT-CF02` | Config | Level 2 | Dead Config 감지 / Dead config key detected |
+| `SSOT-SD01` | Seed | Level 2 | 재현성 seed 미설정 / Reproducibility seed not enforced |
+
+---
+
+## 4. 코드별 상세 정의 / Detailed Definitions
+
+### SSOT-FF01 — 필수 아티팩트 누락 / Missing Required Artifact
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| 등급 / Level | Level 1 — Error |
+| 트리거 조건 / Trigger | Phase 0 backbone 없이 Phase 2 시작, `best_{ch}.pt` 없이 평가 시작 |
+| 감지 위치 / Detection | `Phase2Trainer.__init__()`, `GrayspotModel.switch_to_phase2()`, `Evaluator.__init__()` |
+| 즉각 조치 / Immediate Action | `raise FileNotFoundError(f"[SSOT-FF01] {path}")` |
+| 해결 방법 / Fix | Phase 0 학습 완료 후 Phase 2 진행. 평가 전 Phase 2 학습 완료 확인 |
+
+```python
+# 올바른 Fail-Fast 구현 / Correct Fail-Fast implementation
+backbone_path = model_dir / f"phase0_backbone_{channel}_{tag}.pt"
+if not backbone_path.exists():
+    raise FileNotFoundError(
+        f"[SSOT-FF01] Phase 0 backbone not found: {backbone_path}. "
+        f"Run Phase 0 training first."
+    )
+```
+
+---
+
+### SSOT-PH01 — Phase 순서 위반 / Phase Ordering Violation
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| 등급 / Level | Level 1 — Error |
+| 트리거 조건 / Trigger | Phase 0 학습 없이 Phase 2 직행, backbone 미학습 상태에서 `switch_to_phase2()` 호출 |
+| 감지 위치 / Detection | `run_phase2.py` 시작 부분, `Phase2Trainer.__init__()` |
+| 즉각 조치 / Immediate Action | 즉시 중단 + 명시적 에러 메시지 |
+| 해결 방법 / Fix | `python -m src.scripts.run_phase0` 먼저 실행 후 Phase 2 진행 |
+
+```python
+# Phase 2 시작 전 반드시 확인 / Always check before starting Phase 2
+for channel in channels:
+    tag = backbone_tag(cfg["model"]["backbone"])
+    backbone_path = model_dir / f"phase0_backbone_{channel}_{tag}.pt"
+    if not backbone_path.exists():
+        raise RuntimeError(
+            f"[SSOT-PH01] Phase 0 backbone missing for channel {channel}. "
+            f"Phase order violation: Phase 0 must complete before Phase 2."
+        )
+```
+
+---
+
+### SSOT-CS01 — 색상 공간 불일치 / Color Space Mismatch
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| 등급 / Level | Level 1 — Error |
+| 트리거 조건 / Trigger | 학습 시 BGR 사용, 평가/추론 시 RGB 사용 |
+| 감지 위치 / Detection | `Evaluator`, `GrayspotPredictor` 입력 전처리 단계 |
+| 즉각 조치 / Immediate Action | 색상 공간 강제 확인 후 불일치 시 중단 |
+| 해결 방법 / Fix | `cv2.imread()` → BGR 유지. PIL/torchvision 사용 시 BGR 변환 명시 |
+
+```python
+# 올바른 로드 / Correct loading (BGR 유지)
+image = cv2.imread(path)          # BGR uint8  ✅
+# image = Image.open(path)        # RGB        ❌ SSOT-CS01
+```
+
+---
+
+### SSOT-NM01 — 정규화 기준 불일치 / Normalization Mismatch
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| 등급 / Level | Level 2 — Warning |
+| 트리거 조건 / Trigger | Pretrained backbone 사용 시 ImageNet mean/std 정규화 미적용 |
+| 현재 상태 / Current | `preprocess()`: `/ 255.0`만 적용, ImageNet norm 없음 — **의도적 선택 or 잠재적 버그** |
+| 즉각 조치 / Immediate Action | 경고 로그 출력 후 계속 실행 |
+| 해결 방법 / Fix | 의도적 선택이면 SSOT 문서에 명시. 성능 중요 시 ImageNet norm 추가 |
+
+```python
+# 현재 구현 / Current (ImageNet norm 없음)
+image = image.astype(np.float32) / 255.0   # [0, 1] only
+
+# ImageNet norm 추가 시 / With ImageNet normalization
+IMAGENET_MEAN = np.array([0.485, 0.456, 0.406])
+IMAGENET_STD  = np.array([0.229, 0.224, 0.225])
+image = (image - IMAGENET_MEAN) / IMAGENET_STD   # 추가 시 Hard SSOT 변경
+```
+
+---
+
+### SSOT-CF01 — config 키 미존재 / Missing Config Key
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| 등급 / Level | Level 1 — Error |
+| 트리거 조건 / Trigger | 코드에서 `cfg["phase0"]["temperature"]` 등 참조하는 키가 `config.json`에 없음 |
+| 감지 위치 / Detection | `cfg["key"]` 또는 `get_nested(cfg, "key")` 접근 시 `KeyError`, 각 모듈의 config 접근 시점 |
+| 즉각 조치 / Immediate Action | `KeyError` 즉시 발생 + 에러 메시지에 코드 SSOT-CF01 명시 |
+| 해결 방법 / Fix | `config.json`에 키 추가 또는 코드의 잘못된 키 참조 수정 |
+
+---
+
+### SSOT-CF02 — Dead Config 감지 / Dead Config Detected
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| 등급 / Level | Level 2 — Warning |
+| 트리거 조건 / Trigger | `config.json`에 선언된 키가 코드에서 소비되지 않음 |
+| 현재 Dead Config 수 / Current Dead | 21개 키 (상세 목록: [SSOT_Config_Resolution.md](SSOT_Config_Resolution.md)) |
+| 즉각 조치 / Immediate Action | Warning 로그 출력, 실행 계속 |
+| 해결 방법 / Fix | 해당 키 기능 구현 또는 `config.json`에서 제거 |
+
+---
+
+### SSOT-SD01 — Seed 재현성 실패 / Seed Reproducibility Failure
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| 등급 / Level | Level 2 — Warning |
+| 트리거 조건 / Trigger | 동일 seed에서 다른 데이터 분할 또는 학습 결과 |
+| 현재 상태 / Current | `train.seed=42` 소비되지만 `cuda.deterministic=true` Dead Config — 비결정론 위험 |
+| 즉각 조치 / Immediate Action | Warning 로그 출력 |
+| 해결 방법 / Fix | `torch.backends.cudnn.deterministic=True` + `torch.backends.cudnn.benchmark=False` 추가 |
+
+```python
+# 완전한 재현성 보장 / Full reproducibility
+import random, numpy as np, torch
+
+seed = cfg["train"]["seed"]
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+torch.backends.cudnn.deterministic = True   # cuda.deterministic 소비
+torch.backends.cudnn.benchmark     = False  # cuda.benchmark 소비
+```
+
+---
+
+## 5. 감지 가이드 / Detection Guide
+
+### 5.1 자동 감지 체크리스트 / Automated Detection Checklist
+
+Phase 2 시작 전 / Before starting Phase 2:
+
+```python
+def validate_phase2_preconditions(cfg, channels):
+    model_dir = Path(cfg["storage"]["model_dir"])
+    tag       = backbone_tag(cfg["model"]["backbone"])
+    
+    for ch in channels:
+        path = model_dir / f"phase0_backbone_{ch}_{tag}.pt"
+        if not path.exists():
+            raise FileNotFoundError(f"[SSOT-FF01/PH01] {path}")
+    
+    print("✅ All Phase 2 preconditions satisfied.")
+```
+
+### 5.2 경고 감지 / Warning Detection
+
+Dead Config 감지 (선택사항 / Optional):
+
+```python
+LIVE_KEYS = {
+    "system.device", "system.num_workers", "system.pin_memory",
+    "data.root_dir", "data.channels", "data.num_levels",
+    "data.image_size", "data.image_extensions",
+    "storage.output_dir", "storage.model_dir", "storage.report_dir",
+    # ... 소비 키 전체 목록
+}
+
+def warn_dead_configs(cfg_flat: dict) -> None:
+    for key in cfg_flat:
+        if key not in LIVE_KEYS:
+            logger.warning(f"[SSOT-CF02] Dead Config detected: {key}")
+```
+
+---
+
+**Version**: 0.1.0
+**Last Updated**: 2026-05-08
+**Applies to**: CMYK Grayspot Detection System v0.1.0+

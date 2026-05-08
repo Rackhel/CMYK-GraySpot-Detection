@@ -38,7 +38,7 @@ class CMYKDataset(Dataset):
     applies Stratified Split and optional Oversampling.
 
     Args:
-        cfg:       config.yaml dict
+        cfg:       config.json dict
         channel:   "Y" | "M" | "C" | "K"
         split:     "train" | "val" | "test"
         augment:   증강 적용 여부 — train split에서만 활성화
@@ -56,9 +56,10 @@ class CMYKDataset(Dataset):
         augment:   bool = True,
         oversample: bool = True,
     ):
-        self.augment    = augment and (split == "train")
-        self.image_size = cfg["data"]["image_size"]
-        self.num_levels = cfg["data"]["num_levels"]
+        self.augment      = augment and (split == "train")
+        self.image_size   = cfg["data"]["image_size"]
+        self.num_levels   = cfg["data"]["num_levels"]
+        self.sup_aug_cfg  = cfg["phase2"].get("augmentation", {})
 
         labeled_dir = Path(cfg["storage"]["labeled_dir"])
         all_samples: list[tuple[Path, int]] = []
@@ -78,12 +79,13 @@ class CMYKDataset(Dataset):
         for sample in all_samples:
             level_groups[sample[1]].append(sample)
 
+        ratios  = cfg["data"]["split_ratios"]
         train_s, val_s, test_s = [], [], []
         for lv, items in level_groups.items():
             random.shuffle(items)
             n       = len(items)
-            n_train = max(1, int(n * 0.70))
-            n_val   = max(1, int(n * 0.15))
+            n_train = max(1, int(n * ratios["train"]))
+            n_val   = max(1, int(n * ratios["val"]))
             train_s.extend(items[:n_train])
             val_s.extend(items[n_train:n_train + n_val])
             test_s.extend(items[n_train + n_val:])
@@ -120,7 +122,7 @@ class CMYKDataset(Dataset):
 
         # 증강 (train only) / Augmentation (train only)
         if self.augment:
-            image = augment_supervised(image)
+            image = augment_supervised(image, self.sup_aug_cfg)
 
         return torch.tensor(image).permute(2, 0, 1).float(), level
 
@@ -138,7 +140,7 @@ class ContrastiveDataset(Dataset):
     Returns two differently-augmented views (Positive Pair) of the same image, without labels.
 
     Args:
-        cfg:     config.yaml dict
+        cfg:     config.json dict
         channel: "Y" | "M" | "C" | "K"
     """
 
@@ -147,6 +149,7 @@ class ContrastiveDataset(Dataset):
     def __init__(self, cfg: dict, channel: str):
         self.image_size  = cfg["data"]["image_size"]
         self.num_levels  = cfg["data"]["num_levels"]
+        self.aug_cfg     = cfg["phase0"].get("augmentation", {})
         self.image_paths: list[Path] = []
 
         labeled_dir = Path(cfg["storage"]["labeled_dir"])
@@ -173,8 +176,8 @@ class ContrastiveDataset(Dataset):
         # 전처리 후 동일 이미지에 서로 다른 증강 2회 적용 → Positive Pair
         # Preprocess then apply two independent augmentations → Positive Pair
         image = preprocess(image, self.image_size)
-        view1 = augment_contrastive(image.copy(), self.image_size)
-        view2 = augment_contrastive(image.copy(), self.image_size)
+        view1 = augment_contrastive(image.copy(), self.image_size, self.aug_cfg)
+        view2 = augment_contrastive(image.copy(), self.image_size, self.aug_cfg)
 
         return (
             torch.tensor(view1).permute(2, 0, 1).float(),

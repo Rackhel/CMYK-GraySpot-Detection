@@ -24,7 +24,7 @@ class GrayspotModel(nn.Module, LoggerMixin):
     Grayspot Level 0~5 classification model.
 
     Args:
-        cfg:   config.yaml 에서 로드한 설정 dict / Config dict loaded from config.yaml
+        cfg:   config.json 에서 로드한 설정 dict / Config dict loaded from config.json
         phase: 0 (Contrastive) | 2 (Supervised)
     """
 
@@ -32,25 +32,31 @@ class GrayspotModel(nn.Module, LoggerMixin):
         super().__init__()
 
         backbone_name = cfg["model"]["backbone"]
-        num_levels    = cfg["data"]["num_levels"]       # 6
-        proj_dim      = cfg["phase0"]["projection_dim"] # 128
-        hidden_dim    = cfg["phase2"]["hidden_dim"]     # 256
-        dropout       = cfg["phase2"]["dropout"]        # 0.3
+        num_levels    = cfg["data"]["num_levels"]        # 6
+        proj_dim      = cfg["phase0"]["projection_dim"]  # 128
+        proj_hidden   = cfg["phase0"]["hidden_dim"]      # 256 — Phase 0 head hidden dim
+        cls_hidden    = cfg["phase2"]["hidden_dim"]      # 256 — Phase 2 head hidden dim
+        dropout       = cfg["phase2"]["dropout"]         # 0.3
 
         # Backbone 로드 / Load backbone
         self.backbone, self.feature_dim = build_backbone(backbone_name)
+
+        # Frozen backbone 지원 / Frozen backbone support
+        if cfg["model"].get("frozen_backbone", False):
+            for param in self.backbone.parameters():
+                param.requires_grad = False
 
         # Phase에 따라 Head 구성 / Build head according to phase
         if phase == 0:
             self.head = ProjectionHead(
                 in_dim=self.feature_dim,
-                hidden_dim=hidden_dim,
+                hidden_dim=proj_hidden,
                 out_dim=proj_dim,
             )
         elif phase == 2:
             self.head = ClassifierHead(
                 in_dim=self.feature_dim,
-                hidden_dim=hidden_dim,
+                hidden_dim=cls_hidden,
                 num_classes=num_levels,
                 dropout=dropout,
             )
@@ -82,7 +88,7 @@ class GrayspotModel(nn.Module, LoggerMixin):
         Args:
             backbone_path: Phase 0 학습 후 저장된 backbone .pt 파일 경로
                            Path to saved backbone .pt file after Phase 0 training
-            cfg:           config.yaml dict
+            cfg:           config.json dict
         """
         # backbone. 키만 선택적으로 로드 / Selectively load backbone keys only
         state          = torch.load(backbone_path, map_location="cpu")

@@ -55,8 +55,7 @@ from src.tuning.search_space import get_phase2_search_space
 
 # -------------------------------------------------------------------
 # Compatibility shim initialization
-# 팀 코드(config_manager.py, grayspot_model.py 등)가
-# `from utils import ...` 를 사용하므로, 
+# 팀 코드(grayspot_model.py 등)가 `from utils import ...` 를 사용하므로,
 # run_optuna() 진입 시 top-level `utils` 모듈을 직접 등록한다.
 # Centralized registration to avoid import-time mutations
 # -------------------------------------------------------------------
@@ -90,16 +89,16 @@ def objective(trial: optuna.Trial, channel: str) -> float:
     
     # Import here to ensure shim is registered first
     # 모듈을 이 시점에 import하여 shim이 먼저 등록되도록 함
-    from src.scripts.run_baseline import load_config, run_baseline
+    from src.utils import load_config
+    from src.scripts.run_baseline import run_baseline
     
     # Load configuration
     # 설정 불러오기
-    config = load_config()
-    cfg = config.config
+    cfg = load_config()
 
     # Sample hyperparameters
     # 하이퍼파라미터 샘플링
-    params = get_phase2_search_space(trial)
+    params = get_phase2_search_space(trial, cfg)
 
     # Apply sampled parameters to config
     # 샘플링한 파라미터를 config에 반영
@@ -110,7 +109,7 @@ def objective(trial: optuna.Trial, channel: str) -> float:
 
     # Device setup
     # 디바이스 설정
-    device = torch.device(config.get("system.device"))
+    device = torch.device(cfg["system"]["device"])
 
     # Single-channel tuning
     # 단일 채널 튜닝
@@ -161,7 +160,8 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     
     # Import here to ensure shim is registered first
     # 모듈을 이 시점에 import하여 shim이 먼저 등록되도록 함
-    from src.scripts.run_baseline import load_config, run_baseline
+    from src.utils import load_config
+    from src.scripts.run_baseline import run_baseline
     
     # Normalize channel
     # 채널명 정규화
@@ -169,8 +169,7 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
 
     # Load config once for global settings
     # 전역 설정 확인을 위해 config 1회 로드
-    config = load_config()
-    cfg = config.config
+    cfg = load_config()
 
     # Output directory
     # 결과 저장 폴더
@@ -184,8 +183,17 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
 
     # Sampler / Pruner
     # 탐색기 및 조기 종료 설정
-    sampler = optuna.samplers.TPESampler(seed=cfg["train"].get("seed", 42))
+    seed = cfg["train"].get("seed", 42)
+    sampler_name = cfg.get("optuna", {}).get("sampler", "tpe").lower()
+    if sampler_name == "random":
+        sampler = optuna.samplers.RandomSampler(seed=seed)
+    else:  # tpe (default)
+        sampler = optuna.samplers.TPESampler(seed=seed)
     pruner = optuna.pruners.MedianPruner()
+
+    # Direction
+    # 최적화 방향 (config에서 읽기)
+    direction = cfg.get("optuna", {}).get("direction", "maximize")
 
     # Study name / DB path
     # 채널별로 study 분리
@@ -196,7 +204,7 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     # Create or load study
     # study 생성 또는 불러오기
     study = optuna.create_study(
-        direction="maximize",
+        direction=direction,
         study_name=study_name,
         storage=storage_path,
         load_if_exists=True,
