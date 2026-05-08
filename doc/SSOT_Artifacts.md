@@ -200,37 +200,57 @@ phase0_backbone_Y_effb0.pt → best_M.pt   (채널 교차 금지 ❌ SSOT-FF01)
 
 ```
 CMYK_MAIN/
-├── data_set/
-│   ├── labeled/
-│   │   └── {channel}/{level}/*.png      ← 원본 데이터
-│   └── models/
-│       ├── phase0_backbone_{ch}_{tag}.pt    ← Phase 0 backbone (채널별)
-│       ├── best_{ch}.pt                     ← Phase 2 최적 모델 (채널별)
-│       └── last_{ch}.pt                     ← Phase 2 마지막 모델
-└── outputs/
-    ├── checkpoints/
-    │   ├── phase0_history_{ch}.csv
-    │   ├── phase0_summary.json
-    │   ├── phase2_{ch}_{tag}_{ver}.pt        ← 버전 체크포인트
-    │   ├── phase2_history_{ch}.csv
-    │   └── phase2_summary_{ver}.json
-    ├── snapshots/
-    │   └── config_snapshot_{tag}_{ts}.json  ← 실행 시점 스냅샷
-    ├── reports/
-    │   ├── eval_dashboard.html
-    │   ├── per_class_metrics.html
-    │   ├── mae_heatmap.html
-    │   ├── misclassified_scatter.html
-    │   ├── confidence_distribution.html
-    │   ├── confusion/
-    │   │   ├── cm_{ch}.html
-    │   │   └── cm_overall.html
-    │   ├── evaluation_results_{name}.csv
-    │   ├── misclassified_{name}.csv
-    │   └── metrics_summary_{name}.json
-    └── optuna/
-        ├── study_{ch}.db
-        └── best_params_{ch}.json
+├── doc/                              # 아키텍처 & 설계 문서
+│   ├── SSOT_*.md                    ← 단일 진실 공급원 문서
+│   ├── Contract.md                  ← 모듈 인터페이스 계약
+│   ├── ADR_*.md                     ← 아키텍처 결정 기록
+│   └── TDD.md                       ← TDD 전략 문서
+├── src/
+│   ├── config/
+│   │   ├── config.json              ← 모든 런타임 파라미터 SSOT
+│   │   ├── dependencies.json        ← 의존성 레지스트리
+│   │   └── pyproject.toml           ← 빌드 & 도구 설정
+│   ├── data/                        dataset.py, augmentation.py, preprocessing.py
+│   ├── models/                      backbone.py, classifier.py, grayspot_model.py, projection_head.py
+│   ├── training/                    trainer.py, contrastive_loss.py, losses.py
+│   ├── evaluation/                  metrics.py, confusion.py, evaluator.py
+│   ├── inference/                   predictor.py
+│   ├── reporting/                   html_report.py
+│   ├── tuning/                      optuna_tuner.py, search_space.py
+│   ├── utils/                       utils_config.py, utils_model.py, logger.py
+│   ├── scripts/                     train.py, run_phase0.py, run_phase2.py, run_baseline.py, run_optuna.py
+│   ├── tests/
+│   │   ├── unit/                    ← 단위 테스트 (I/O 없음, < 1초)
+│   │   ├── integration/             ← 통합 테스트 (모듈 연결 검증)
+│   │   └── smoke/                   ← 스모크 테스트 (실 데이터, 전체 파이프라인)
+│   └── notebooks/                   01~06_*.ipynb
+├── data_set/                        # 원본 데이터 (git-ignored)
+│   └── labeled/
+│       └── {channel}/{level}/*.png  ← 원본 라벨 이미지
+├── outputs/                         # 모든 학습 산출물
+│   ├── checkpoints/                 ← 모델 가중치 & 학습 이력
+│   │   ├── best_{ch}.pt                    ← Phase 2 채널별 최적 모델
+│   │   ├── phase0_v1.pt                    ← Phase 0 전 채널 통합 체크포인트
+│   │   ├── phase2_{ch}_{tag}_{ver}.pt      ← Phase 2 버전 체크포인트
+│   │   ├── phase0_history_{ch}.csv
+│   │   ├── phase2_history_{ch}.csv
+│   │   ├── phase0_summary.json
+│   │   └── phase2_summary_{ver}.json
+│   ├── snapshots/                   ← 실행 시점 config 스냅샷
+│   │   └── config_snapshot_{tag}_{ts}.json
+│   ├── logs/                        ← 실행 로그
+│   ├── reports/                     ← HTML 평가 리포트
+│   │   ├── phase2_{ver}.html
+│   │   └── confusion/
+│   │       ├── cm_{ch}.html
+│   │       └── cm_overall.html
+│   └── optuna/                      ← Optuna 튜닝 결과
+│       ├── study_{ch}.db
+│       └── best_params_{ch}.json
+├── pytest.ini                       ← Pytest 설정
+├── requirements.txt
+├── Dockerfile
+└── LICENSE
 ```
 
 ---
