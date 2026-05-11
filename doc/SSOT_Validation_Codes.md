@@ -135,18 +135,21 @@ image = cv2.imread(path)          # BGR uint8  ✅
 |---|---|
 | 등급 / Level | Level 2 — Warning |
 | 트리거 조건 / Trigger | Pretrained backbone 사용 시 ImageNet mean/std 정규화 미적용 / ImageNet mean/std normalization not applied when using pretrained backbone |
-| 현재 상태 / Current | `preprocess()`: `/ 255.0`만 적용, ImageNet norm 없음 — **의도적 선택 or 잠재적 버그** / `preprocess()`: only `/ 255.0` applied, no ImageNet norm — **intentional choice or potential bug** |
+| 현재 상태 / Current | ✅ **해소됨 / Resolved** — `dataset.py`의 `_IMAGENET_NORMALIZE`가 `CMYKDataset`·`ContrastiveDataset` 모두에 적용됨 (2026-05-08) / `_IMAGENET_NORMALIZE` applied in both `CMYKDataset` and `ContrastiveDataset` in `dataset.py` |
 | 즉각 조치 / Immediate Action | 경고 로그 출력 후 계속 실행 / Log warning and continue execution |
-| 해결 방법 / Fix | 의도적 선택이면 SSOT 문서에 명시. 성능 중요 시 ImageNet norm 추가 / If intentional, document in SSOT. Add ImageNet norm if performance matters. |
+| 해결 방법 / Fix | ✅ 완료 — `_IMAGENET_NORMALIZE = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])` 적용 / Done |
 
 ```python
-# 현재 구현 / Current implementation (ImageNet norm 없음 / No ImageNet norm)
-image = image.astype(np.float32) / 255.0   # [0, 1] only
+# 현재 구현 / Current implementation (data/dataset.py — resolved 2026-05-08)
+from torchvision import transforms as T
 
-# ImageNet norm 추가 시 / With ImageNet normalization added
-IMAGENET_MEAN = np.array([0.485, 0.456, 0.406])
-IMAGENET_STD  = np.array([0.229, 0.224, 0.225])
-image = (image - IMAGENET_MEAN) / IMAGENET_STD   # 추가 시 Hard SSOT 변경 / Changes Hard SSOT if added
+_IMAGENET_NORMALIZE = T.Normalize(
+    mean=[0.485, 0.456, 0.406],
+    std=[0.229, 0.224, 0.225],
+)
+# preprocess() → /255.0 이후 dataset.py에서 추가 적용 / Applied in dataset.py after preprocess() / 255.0
+tensor = torch.tensor(image).permute(2, 0, 1).float()
+return _IMAGENET_NORMALIZE(tensor), level
 ```
 
 ---
@@ -169,7 +172,7 @@ image = (image - IMAGENET_MEAN) / IMAGENET_STD   # 추가 시 Hard SSOT 변경 /
 |---|---|
 | 등급 / Level | Level 2 — Warning |
 | 트리거 조건 / Trigger | `config.json`에 선언된 키가 코드에서 소비되지 않음 / Key declared in `config.json` is not consumed by code |
-| 현재 Dead Config 수 / Current Dead | 21개 키 / 21 keys (상세 목록 / detailed list: [SSOT_Config_Resolution.md](SSOT_Config_Resolution.md)) |
+| 현재 Dead Config 수 / Current Dead | ✅ **0개 / 0 keys** — 전체 해소 또는 config.json에서 제거 완료 / All resolved or removed from config.json (상세 목록 / full list: [SSOT_GlobalVariables.md §5](SSOT_GlobalVariables.md)) |
 | 즉각 조치 / Immediate Action | Warning 로그 출력, 실행 계속 / Log warning, continue execution |
 | 해결 방법 / Fix | 해당 키 기능 구현 또는 `config.json`에서 제거 / Implement the key's feature or remove it from `config.json` |
 
@@ -181,9 +184,9 @@ image = (image - IMAGENET_MEAN) / IMAGENET_STD   # 추가 시 Hard SSOT 변경 /
 |---|---|
 | 등급 / Level | Level 2 — Warning |
 | 트리거 조건 / Trigger | 동일 seed에서 다른 데이터 분할 또는 학습 결과 / Same seed produces different data splits or training results |
-| 현재 상태 / Current | `train.seed=42` 소비되지만 `cuda.deterministic=true` Dead Config — 비결정론 위험 / `train.seed=42` consumed but `cuda.deterministic=true` was Dead Config — risk of non-determinism |
+| 현재 상태 / Current | ✅ **해소됨 / Resolved** — `set_seed()`에서 `cuda.deterministic` / `cuda.benchmark` 소비 완료 (2026-05-08). 분할 seed는 `dataset.py` stratified split에서 `train.seed` 사용 / `cuda.deterministic` / `cuda.benchmark` consumed in `set_seed()`; split seed uses `train.seed` in `dataset.py` stratified split |
 | 즉각 조치 / Immediate Action | Warning 로그 출력 / Log warning |
-| 해결 방법 / Fix | `torch.backends.cudnn.deterministic=True` + `torch.backends.cudnn.benchmark=False` 추가 / Add both flags |
+| 해결 방법 / Fix | ✅ 완료 — 아래 코드 적용됨 / Done — code below is applied |
 
 ```python
 # 완전한 재현성 보장 / Full reproducibility guarantee
@@ -240,6 +243,6 @@ def warn_dead_configs(cfg_flat: dict) -> None:
 
 ---
 
-**Version**: 0.1.0
-**Last Updated**: 2026-05-08
+**Version**: 0.2.0
+**Last Updated**: 2026-05-11
 **Applies to**: CMYK Grayspot Detection System v0.1.0+

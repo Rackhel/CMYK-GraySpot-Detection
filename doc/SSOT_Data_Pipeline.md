@@ -17,8 +17,10 @@ This document is the authoritative reference for data loading, splitting, prepro
 3. [전처리 파이프라인 / Preprocessing Pipeline](#3-전처리-파이프라인--preprocessing-pipeline)
 4. [증강 정책 / Augmentation Policy](#4-증강-정책--augmentation-policy)
 5. [데이터 분할 규칙 / Split Rules](#5-데이터-분할-규칙--split-rules)
-6. [인터페이스 계약 / Interface Contracts](#6-인터페이스-계약--interface-contracts)
-7. [SSOT 위반 현황 / Violations](#7-ssot-위반-현황--violations)
+6. [DataLoader 설정 / DataLoader Settings](#6-dataloader-설정--dataloader-settings)
+7. [인터페이스 계약 / Interface Contracts](#7-인터페이스-계약--interface-contracts)
+8. [Fail-Fast 규칙 / Fail-Fast Rules](#8-fail-fast-규칙--fail-fast-rules)
+9. [SSOT 위반 현황 / Violations](#9-ssot-위반-현황--violations)
 
 ---
 
@@ -235,7 +237,26 @@ view = augment_contrastive(image: np.ndarray, image_size: int, aug_cfg: dict) ->
 
 ---
 
-## 6. 인터페이스 계약 / Interface Contracts
+## 6. DataLoader 설정 / DataLoader Settings
+
+컨텍스트별 DataLoader 파라미터가 다르며, 특히 `batch_size`와 `num_workers`의 출처가 다르다.
+DataLoader parameters differ by context — note the difference in `batch_size` and `num_workers` sources.
+
+| 항목 / Item | `run_phase2.py` (학습 / Training) | `Evaluator` (평가 / Evaluation) | `GrayspotPredictor` (추론 / Inference) |
+|---|---|---|---|
+| `batch_size` | `phase2.batch_size` 🟢 (config) | `inference.batch_size` 🟢 (config, 기본 32) | 호출자 지정 / caller-specified |
+| `shuffle` | train=True, val/test=False | False | False |
+| `num_workers` | `train.num_workers` 🟢 (min, cpu_count) | 0 🟡 하드코딩 / Hardcoded | 0 🟡 하드코딩 / Hardcoded |
+| `pin_memory` | `train.pin_memory` 🟢 (config) | device==cuda 🟡 하드코딩 / Hardcoded | — |
+| `drop_last` | `train.drop_last` 🟢 (config, 기본 false) | — | — |
+| `persistent_workers` | `train.persistent_workers` 🟢 | — | — |
+
+> 평가·추론의 `num_workers=0` 하드코딩은 성능 최적화 여지가 있으나 현재 의도적 기본값이다.
+> Hardcoded `num_workers=0` in evaluation/inference leaves performance on the table but is the current intentional default.
+
+---
+
+## 7. 인터페이스 계약 / Interface Contracts
 
 | 계약 / Contract | 타입 / Type | 형상 / Shape | 값 범위 / Range |
 |---|---|---|---|
@@ -246,7 +267,21 @@ view = augment_contrastive(image: np.ndarray, image_size: int, aug_cfg: dict) ->
 
 ---
 
-## 7. SSOT 위반 현황 / Violations
+## 8. Fail-Fast 규칙 / Fail-Fast Rules
+
+데이터 파이프라인에서 발동되는 SSOT 검증 코드 목록. 자세한 정의는 [SSOT_Validation_Codes.md](SSOT_Validation_Codes.md) 참조.
+SSOT validation codes triggered within the data pipeline. See [SSOT_Validation_Codes.md](SSOT_Validation_Codes.md) for full definitions.
+
+| 조건 / Condition | SSOT 코드 / Code | 등급 / Level | 동작 / Action |
+|---|---|---|---|
+| 데이터 디렉토리 미존재 / Data directory not found | `SSOT-FF01` | Level 1 — Error | 학습 중단 / Abort training |
+| 학습(BGR) ↔ 추론(RGB) 색상 공간 불일치 / Color space mismatch | `SSOT-CS01` | Level 1 — Error | 결과 신뢰 불가 / Results unreliable |
+| ImageNet 정규화 미적용 / ImageNet normalization missing | `SSOT-NM01` | Level 2 — Warning | 경고 출력 + 계속 / Warn and continue |
+| 동일 seed에서 다른 데이터 분할 / Non-deterministic split | `SSOT-SD01` | Level 2 — Warning | 경고 출력 / Log warning |
+
+---
+
+## 9. SSOT 위반 현황 / Violations
 
 | 코드 / Code | 위반 내용 / Violation | 등급 / Level | 상태 / Status |
 |---|---|---|---|
@@ -261,6 +296,6 @@ view = augment_contrastive(image: np.ndarray, image_size: int, aug_cfg: dict) ->
 
 ---
 
-**Version**: 0.3.0
-**Last Updated**: 2026-05-08
+**Version**: 0.4.0
+**Last Updated**: 2026-05-11
 **Applies to**: CMYK Grayspot Detection System v0.1.0+

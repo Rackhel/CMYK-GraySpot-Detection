@@ -115,17 +115,19 @@ Phase 0 SimCLR Contrastive Learning용 투영 Head. / Projection head for Phase 
 
 ```python
 # 구조 / Architecture
-Linear(feature_dim, projection_dim) → BatchNorm → ReLU
-→ Linear(projection_dim, projection_dim)
+Linear(feature_dim, proj_hidden) → BatchNorm → ReLU
+→ Linear(proj_hidden, projection_dim)
 → L2 Normalize
 
 # 파라미터 / Parameters
-feature_dim    = 1280 (effb0) or 2048 (res50)   ← Hard SSOT
-projection_dim = config["phase0"]["projection_dim"]  = 128  ← Hard SSOT
+feature_dim    = 1280 (effb0) or 2048 (res50)         ← Hard SSOT
+proj_hidden    = config["phase0"]["hidden_dim"]  = 256 ← Hard SSOT (ProjectionHead 전용 중간 차원 / Intermediate dim for ProjectionHead)
+projection_dim = config["phase0"]["projection_dim"] = 128 ← Hard SSOT
 ```
 
 | 파라미터 / Parameter | config 키 / Key | 기본값 / Default | Hard SSOT |
 |---|---|---|---|
+| `proj_hidden` | `phase0.hidden_dim` 🟢 | 256 | ✅ |
 | `projection_dim` | `phase0.projection_dim` 🟢 | 128 | ✅ |
 
 ---
@@ -206,6 +208,6 @@ model.load_state_dict(checkpoint, strict=False)
 
 ---
 
-**Version**: 0.1.0
-**Last Updated**: 2026-05-08
+**Version**: 0.2.0
+**Last Updated**: 2026-05-11
 **Applies to**: CMYK Grayspot Detection System v0.1.0+

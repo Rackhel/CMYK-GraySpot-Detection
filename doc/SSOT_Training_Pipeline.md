@@ -19,7 +19,8 @@ This document is the authoritative reference for training loops, optimizers, and
 5. [Optimizer / Scheduler](#5-optimizer--scheduler)
 6. [학습 파라미터 요약 / Parameter Summary](#6-학습-파라미터-요약--parameter-summary)
 7. [실행 명령어 / Run Commands](#7-실행-명령어--run-commands)
-8. [SSOT 위반 현황 / Violations](#8-ssot-위반-현황--violations)
+8. [멀티 채널 실행 / Multi-Channel Execution](#8-멀티-채널-실행--multi-channel-execution)
+9. [SSOT 위반 현황 / Violations](#9-ssot-위반-현황--violations)
 
 ---
 
@@ -142,6 +143,9 @@ if val_acc > best_val_acc + es_delta:
     best_val_acc = val_acc
     torch.save(model.state_dict(), model_dir / f"best_{channel}.pt")
 ```
+
+> ⚠️ 저장 기준이 `val_acc`(accuracy)이며, PRD 목표 지표인 `macro_f1`과 다름. Optuna도 `best_val_acc`를 목적 함수로 사용한다.
+> ⚠️ Best model is saved by `val_acc` (accuracy), which differs from the PRD target metric `macro_f1`. Optuna also uses `best_val_acc` as its objective function.
 
 ### 3.4 체크포인트 흐름 / Checkpoint Flow
 
@@ -292,7 +296,36 @@ python -m src.scripts.train
 
 ---
 
-## 8. SSOT 위반 현황 / Violations
+## 8. 멀티 채널 실행 / Multi-Channel Execution
+
+4개 CMYK 채널은 **독립적으로** 학습된다. 모델을 공유하지 않으며, 채널별로 Phase 0 → Phase 2 전체 파이프라인이 개별 실행된다.
+The 4 CMYK channels are trained **independently**. No model is shared — each channel runs through the full Phase 0 → Phase 2 pipeline separately.
+
+```python
+# scripts/run_phase2.py 기준 / Based on scripts/run_phase2.py
+channels = cfg["data"]["channels"]   # ["Y", "M", "C", "K"]
+for channel in channels:
+    run_phase2(channel, cfg)
+# 결과: 채널별 독립 모델 4개 생성 / Result: 4 independent models, one per channel
+# outputs/checkpoints/best_Y.pt
+# outputs/checkpoints/best_M.pt
+# outputs/checkpoints/best_C.pt
+# outputs/checkpoints/best_K.pt
+```
+
+| 채널 / Channel | Phase 0 backbone | Phase 2 모델 / Model | 독립성 / Independence |
+|---|---|---|---|
+| Y | `phase0_backbone_Y_{tag}.pt` | `best_Y.pt` | ✅ 타 채널과 완전 독립 / Fully independent |
+| M | `phase0_backbone_M_{tag}.pt` | `best_M.pt` | ✅ |
+| C | `phase0_backbone_C_{tag}.pt` | `best_C.pt` | ✅ |
+| K | `phase0_backbone_K_{tag}.pt` | `best_K.pt` | ✅ |
+
+> **Channel Invariant**: 동일 channel의 Phase 0 backbone만 해당 channel의 Phase 2에 사용할 수 있다. (SSOT-FF01)
+> Only the Phase 0 backbone of the **same** channel may be used for that channel's Phase 2 training.
+
+---
+
+## 9. SSOT 위반 현황 / Violations
 
 | 코드 / Code | 위반 내용 / Violation | 등급 / Level | 해결 방법 / Fix |
 |---|---|---|---|
@@ -307,6 +340,6 @@ python -m src.scripts.train
 
 ---
 
-**Version**: 0.2.0
-**Last Updated**: 2026-05-08
+**Version**: 0.3.0
+**Last Updated**: 2026-05-11
 **Applies to**: CMYK Grayspot Detection System v0.1.0+
