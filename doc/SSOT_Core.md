@@ -34,8 +34,8 @@ This document defines the core SSOT principles, terminology, and document invent
 
 | 구분 / Category | 포함 / Included | 제외 / Excluded |
 |------|------|------|
-| ✅ SSOT | 학습 Phase 정의, 모델 구조 파라미터, 데이터 분할 규칙, 평가 목표 | — |
-| ❌ 비 SSOT / Non-SSOT | — | HTML 리포트 포맷, 디버깅 로그, GUI 레이아웃 |
+| ✅ SSOT | 학습 Phase 정의, 모델 구조 파라미터, 데이터 분할 규칙, 평가 목표 / Training phase definitions, model structure parameters, data split rules, evaluation targets | — |
+| ❌ 비 SSOT / Non-SSOT | — | HTML 리포트 포맷, 디버깅 로그, GUI 레이아웃 / HTML report format, debug logs, GUI layout |
 
 > SSOT는 **의미를 고정하는 최소 단위**까지만 책임진다.
 > SSOT is responsible only for fixing the **minimum semantic unit**.
@@ -111,13 +111,11 @@ All Python code in this project **must** follow the three principles below.
 
 | 단위 / Unit | 원칙 / Rule | 위반 예시 / Bad Example | 준수 예시 / Good Example |
 |---|---|---|---|
-| 모듈 / Module | 단일 관심사만 다룸 | `utils.py` — 로깅 + 설정 로딩 + 모델 빌드 혼재 | `logger.py` / `utils_config.py` / `utils_model.py` 분리 |
-| 클래스 / Class | 단일 역할 수행 | `Trainer` 가 학습 + 평가 + 저장 동시 담당 | `Phase0Trainer` (학습만), `Evaluator` (평가만) |
-| 함수 / Function | 한 가지 작업만 수행 | `run()` 이 전처리 + 학습 + 저장 + 리포트 생성 | 각 단계를 분리된 함수로 위임 |
+| 모듈 / Module | 단일 관심사만 다룸 / Handle a single concern only | `utils.py` — 로깅 + 설정 로딩 + 모델 빌드 혼재 / logging + config loading + model build mixed | `logger.py` / `utils_config.py` / `utils_model.py` 분리 / separated |
+| 클래스 / Class | 단일 역할 수행 / Perform a single role | `Trainer` 가 학습 + 평가 + 저장 동시 담당 / `Trainer` handles train + evaluate + save simultaneously | `Phase0Trainer` (학습만 / train only), `Evaluator` (평가만 / evaluate only) |
+| 함수 / Function | 한 가지 작업만 수행 / Perform a single task | `run()` 이 전처리 + 학습 + 저장 + 리포트 생성 / `run()` does preprocess + train + save + report | 각 단계를 분리된 함수로 위임 / Delegate each step to a separate function |
 
-**SRP 위반 판단 기준**: 함수/클래스 설명에 "그리고(and)"가 필요하면 책임이 두 개다.
-
-**SRP violation test**: if describing a function/class requires the word "and", it has more than one responsibility.
+**SRP 위반 판단 기준 / SRP violation test**: 함수/클래스 설명에 "그리고(and)"가 필요하면 책임이 두 개다. / If describing a function/class requires the word "and", it has more than one responsibility.
 
 ---
 
@@ -135,7 +133,7 @@ All Python code in this project **must** follow the three principles below.
 | 상수 / Constant | UPPER_SNAKE_CASE | `NUM_LEVELS`, `TARGET_MAE`, `CONF_THRESH_AUTO` |
 | config 키 / Config key | snake_case (JSON) | `"learning_rate"`, `"num_levels"`, `"data_root"` |
 
-**금지 / Prohibited**: camelCase 변수(`learningRate`), 단어 축약(`lr_rt`), 밑줄 과잉(`__val__`)
+**금지 / Prohibited**: camelCase 변수(`learningRate`), 단어 축약(`lr_rt`), 밑줄 과잉(`__val__`) / camelCase variables, word abbreviations, excessive underscores
 
 ---
 
@@ -146,13 +144,13 @@ All Python code in this project **must** follow the three principles below.
 
 | 규칙 / Rule | 위반 예시 / Bad | 준수 예시 / Good |
 |---|---|---|
-| 변수명이 역할을 설명함 | `x`, `tmp`, `d`, `res` | `image_tensor`, `val_loader`, `best_val_acc` |
-| 함수명이 동작을 설명함 | `process()`, `run()`, `do()` | `augment_contrastive()`, `save_backbone()` |
-| 매직 넘버 금지 | `if score > 0.8` | `if score > cfg["evaluation"]["targets"]["overall_accuracy"]` |
-| 불리언은 서술어 형식 | `flag`, `check` | `is_skipped`, `has_early_stopped`, `use_oversample` |
-| 루프 변수도 의미 있게 | `for i in channels` | `for channel in channels` |
+| 변수명이 역할을 설명함 / Variable name describes its role | `x`, `tmp`, `d`, `res` | `image_tensor`, `val_loader`, `best_val_acc` |
+| 함수명이 동작을 설명함 / Function name describes its action | `process()`, `run()`, `do()` | `augment_contrastive()`, `save_backbone()` |
+| 매직 넘버 금지 / No magic numbers | `if score > 0.8` | `if score > cfg["evaluation"]["targets"]["overall_accuracy"]` |
+| 불리언은 서술어 형식 / Booleans use predicate form | `flag`, `check` | `is_skipped`, `has_early_stopped`, `use_oversample` |
+| 루프 변수도 의미 있게 / Loop variables must be meaningful | `for i in channels` | `for channel in channels` |
 
-**예외 / Exception**: 수학 공식 내 관례적 단문자 (`i`, `j` 인덱스, `z` 임베딩 벡터) 는 허용하되 주석으로 의미 명시.
+**예외 / Exception**: 수학 공식 내 관례적 단문자 (`i`, `j` 인덱스, `z` 임베딩 벡터) 는 허용하되 주석으로 의미 명시. / Conventional single-letter variables in math formulas (`i`, `j` for indices, `z` for embedding vectors) are allowed but must be explained in comments.
 
 ---
 
@@ -179,10 +177,10 @@ All Python code in this project **must** follow the three principles below.
 
 | 등급 / Level | 이름 / Name | 동작 / Action | 예시 / Example |
 |------|------|------|------|
-| **Level 0** | Panic | 시스템 즉시 중단 / Immediate system halt | 모델 파일 손상, CUDA OOM |
+| **Level 0** | Panic | 시스템 즉시 중단 / Immediate system halt | 모델 파일 손상, CUDA OOM / Corrupt model file, CUDA OOM |
 | **Level 1** | Error | 현재 실행 중단, 명시적 오류 반환 / Abort current run with explicit error | SSOT-FF01, SSOT-PH01, SSOT-CS01 |
-| **Level 2** | Warning + Continue | 경고 로그 + 실행 계속 / Log warning and continue | Dead Config 키 감지 (SSOT-CF02) |
-| **Level 3** | Info | 기록만, 실행 계속 / Log only, continue execution | 권장값과 다른 설정 |
+| **Level 2** | Warning + Continue | 경고 로그 + 실행 계속 / Log warning and continue | Dead Config 키 감지 (SSOT-CF02) / Dead config key detected |
+| **Level 3** | Info | 기록만, 실행 계속 / Log only, continue execution | 권장값과 다른 설정 / Settings different from recommended values |
 
 ### 6.4 금지 행위 / Prohibited Actions
 
@@ -223,15 +221,15 @@ All Python code in this project **must** follow the three principles below.
 
 | 문서 / Document | 역할 / Role | 핵심 관심사 / Key Concerns |
 |------|------|------------|
-| [SSOT_Core.md](SSOT_Core.md) | 이 문서 — 핵심 원칙 / This document — core principles | SSOT 정의, 코딩 컨벤션, Fail-Fast, Hard/Soft 분류 |
+| [SSOT_Core.md](SSOT_Core.md) | 이 문서 — 핵심 원칙 / This document — core principles | SSOT 정의, 코딩 컨벤션, Fail-Fast, Hard/Soft 분류 / SSOT definition, coding conventions, Fail-Fast, Hard/Soft classification |
 | [SSOT_Data_Pipeline.md](SSOT_Data_Pipeline.md) | 데이터 로딩, 분할, 전처리, 증강 / Data loading, split, preprocessing, augmentation | 입력 분포, 분할 재현성 / Input distribution, split reproducibility |
-| [SSOT_Model_Architecture.md](SSOT_Model_Architecture.md) | 모델 구조, backbone, head 정의 / Model structure, backbone, head | 레이어 구성, feature dim |
-| [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | 학습 루프, optimizer, loss 정의 / Training loop, optimizer, loss | Phase 순서, 실제 학습 파라미터 |
-| [SSOT_Evaluation_Reporting.md](SSOT_Evaluation_Reporting.md) | 평가 지표, 목표값, 리포트 / Evaluation metrics, targets, reports | 지표 정의, 합격 기준 |
-| [SSOT_Config_Resolution.md](SSOT_Config_Resolution.md) | config 키별 소비 현황 대조표 / Config key consumption cross-reference | 선언 vs 실제 소비 |
-| [SSOT_Artifacts.md](SSOT_Artifacts.md) | 산출물 파일명 패턴 및 스키마 / Artifact filename patterns and schemas | 모델 파일, 리포트 경로 |
-| [SSOT_Validation_Codes.md](SSOT_Validation_Codes.md) | 검증 에러 코드 정의 / Validation error code definitions | Fail-Fast 코드 목록 |
-| [SSOT_GlobalVariables.md](SSOT_GlobalVariables.md) | 전역 변수 / 하드코딩 정책 / Global variables and hardcoding policy | Hard/Soft 분류 전체 목록 |
+| [SSOT_Model_Architecture.md](SSOT_Model_Architecture.md) | 모델 구조, backbone, head 정의 / Model structure, backbone, head | 레이어 구성, feature dim / Layer structure, feature dim |
+| [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | 학습 루프, optimizer, loss 정의 / Training loop, optimizer, loss | Phase 순서, 실제 학습 파라미터 / Phase ordering, actual training parameters |
+| [SSOT_Evaluation_Reporting.md](SSOT_Evaluation_Reporting.md) | 평가 지표, 목표값, 리포트 / Evaluation metrics, targets, reports | 지표 정의, 합격 기준 / Metric definitions, pass thresholds |
+| [SSOT_Config_Resolution.md](SSOT_Config_Resolution.md) | config 키별 소비 현황 대조표 / Config key consumption cross-reference | 선언 vs 실제 소비 / Declared vs. actually consumed |
+| [SSOT_Artifacts.md](SSOT_Artifacts.md) | 산출물 파일명 패턴 및 스키마 / Artifact filename patterns and schemas | 모델 파일, 리포트 경로 / Model files, report paths |
+| [SSOT_Validation_Codes.md](SSOT_Validation_Codes.md) | 검증 에러 코드 정의 / Validation error code definitions | Fail-Fast 코드 목록 / Fail-Fast code list |
+| [SSOT_GlobalVariables.md](SSOT_GlobalVariables.md) | 전역 변수 / 하드코딩 정책 / Global variables and hardcoding policy | Hard/Soft 분류 전체 목록 / Full Hard/Soft classification list |
 
 ---
 
@@ -239,11 +237,11 @@ All Python code in this project **must** follow the three principles below.
 
 | 문서 / Document | 경로 / Path | 역할 / Role |
 |------|------|------|
-| 의존성 그래프 / Dependency graph | `src/config/dependencies.json` | 모듈 의존성 레이어 구조 |
-| 설정 파일 / Config file | `src/config/config.json` | 런타임 파라미터 SSOT |
+| 의존성 그래프 / Dependency graph | `src/config/dependencies.json` | 모듈 의존성 레이어 구조 / Module dependency layer structure |
+| 설정 파일 / Config file | `src/config/config.json` | 런타임 파라미터 SSOT / Runtime parameter SSOT |
 | Config 로딩 인터페이스 / Config loading interface | `src/utils/utils_config.py` | `load_config()` → `dict`, `validate_config()`, `create_directories()`, `get_nested()` |
 | 모델 유틸리티 / Model utilities | `src/utils/utils_model.py` | `set_seed()`, `backbone_tag()`, `build_model()` |
-| Markdown 가이드 / Markdown guide | `doc/Markdown_guide.md` | 문서 작성 스타일 가이드 |
+| Markdown 가이드 / Markdown guide | `doc/Markdown_guide.md` | 문서 작성 스타일 가이드 / Document writing style guide |
 
 ---
 

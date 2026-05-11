@@ -25,23 +25,20 @@ This document tracks the consumption status of every key in `config.json` and de
 
 ## 1. Config 로딩 API / Config Loading Interface
 
-> `src/config/config_manager.py` 및 `ConfigManager` 클래스는 **삭제됨**.
-> `src/config/config_manager.py` and the `ConfigManager` class have been **deleted**.
+> `src/config/config_manager.py` 및 `ConfigManager` 클래스는 **삭제됨**. / `src/config/config_manager.py` and the `ConfigManager` class have been **deleted**.
 
-config 로딩은 `src/utils/utils_config.py` 의 함수들로 대체되었다.
-Config loading is now handled by functions in `src/utils/utils_config.py`.
+config 로딩은 `src/utils/utils_config.py` 의 함수들로 대체되었다. / Config loading is now handled by functions in `src/utils/utils_config.py`.
 
 ### 1.1 공개 API / Public API
 
 | 함수 / Function | 반환 타입 / Return | 설명 / Description |
 |---|---|---|
-| `load_config(config_path=None, root_dir=None)` | `dict` | `config.json` 로드 → 경로 해소 → 디바이스 감지 후 **dict 반환** |
-| `validate_config(cfg)` | `bool` | 필수 키 및 값 범위 검증 |
-| `create_directories(cfg)` | `None` | `storage.*` 경로 자동 생성 |
-| `get_nested(cfg, key, default=None)` | `Any` | `"phase2.learning_rate"` 형식의 dot-notation으로 optional 키 조회 |
+| `load_config(config_path=None, root_dir=None)` | `dict` | `config.json` 로드 → 경로 해소 → 디바이스 감지 후 **dict 반환** / Load → path resolution → device detection → **return dict** |
+| `validate_config(cfg)` | `bool` | 필수 키 및 값 범위 검증 / Validate required keys and value ranges |
+| `create_directories(cfg)` | `None` | `storage.*` 경로 자동 생성 / Auto-create `storage.*` paths |
+| `get_nested(cfg, key, default=None)` | `Any` | `"phase2.learning_rate"` 형식의 dot-notation으로 optional 키 조회 / Optional key lookup via dot-notation (e.g., `"phase2.learning_rate"`) |
 
-모든 함수는 `from src.utils import ...` 또는 `from utils import ...` (shim 환경) 로 임포트한다.
-All functions are imported via `from src.utils import ...` or `from utils import ...` (shim context).
+모든 함수는 `from src.utils import ...` 또는 `from utils import ...` (shim 환경) 로 임포트한다. / All functions are imported via `from src.utils import ...` or `from utils import ...` (shim context).
 
 ### 1.2 접근 패턴 / Access Pattern
 
@@ -70,18 +67,16 @@ torch.device(cfg["system"]["device"])
 ```
 src/utils/
 ├── __init__.py        ← 모든 공개 심볼 re-export / Re-exports all public symbols
-├── utils_config.py    ← load_config, validate_config, create_directories, get_nested
-├── utils_model.py     ← set_seed, backbone_tag, build_model
-└── logger.py          ← get_logger, setup_logging, LoggerMixin, log_* helpers
+├── utils_config.py    ← load_config, validate_config, create_directories, get_nested  # 설정 로딩 / Config loading
+├── utils_model.py     ← set_seed, backbone_tag, build_model  # 모델 유틸 / Model utilities
+└── logger.py          ← get_logger, setup_logging, LoggerMixin, log_* helpers  # 로깅 / Logging
 ```
 
 ---
 
 ## 2. 목적 및 아이콘 / Purpose and Icons
 
-`config.json`에 선언된 모든 키가 실제 코드에서 소비되는지를 추적한다.
-
-Track whether every key declared in `config.json` is actually consumed by code.
+`config.json`에 선언된 모든 키가 실제 코드에서 소비되는지를 추적한다. / Track whether every key declared in `config.json` is actually consumed by code.
 
 | 아이콘 / Icon | 의미 / Meaning | 설명 / Description |
 |---|---|---|
@@ -94,7 +89,7 @@ Track whether every key declared in `config.json` is actually consumed by code.
 
 ## 3. 전체 요약 / Summary
 
-| 섹션 / Section | 총 키 수 / Total | 🟢 소비 / Consumed | 🔴 미연결 / Dead | 소비율 / Rate |
+| 섹션 / Section | 총 키 수 / Total Keys | 🟢 소비 / Consumed | 🔴 미연결 / Dead | 소비율 / Rate |
 |------|---------|---------|----------|-------|
 | system | 1 | 1 | 0 | 100% |
 | data | 6 | 6 | 0 | 100% |
@@ -109,7 +104,7 @@ Track whether every key declared in `config.json` is actually consumed by code.
 | inference | ~10 | 0 | ~10 | 0% |
 | optuna | 8 | 8 | 0 | 100% |
 | cuda | 2 | 2 | 0 | 100% |
-| **합계 / Total** | **~87** | **~70** | **~17** | **~80%** |
+| **합계 / Grand Total** | **~87** | **~70** | **~17** | **~80%** |
 
 ---
 
@@ -190,7 +185,7 @@ Track whether every key declared in `config.json` is actually consumed by code.
 | `phase2.augmentation.noise_prob` | `0.5` | 🟢 | `CMYKDataset.sup_aug_cfg` → `augment_supervised()` |
 | `phase2.augmentation.noise_range` | `10` | 🟢 | `CMYKDataset.sup_aug_cfg` → `augment_supervised()` |
 
-### 4.7 train — 공통 학습 설정 / Common Train Settings
+### 4.7 train — 공통 학습 설정 / Common Training Settings
 
 | 키 / Key | 기본값 / Default | 소비 여부 / Status | 소비 위치 / Consumer |
 |---|---|---|---|
@@ -205,7 +200,7 @@ Track whether every key declared in `config.json` is actually consumed by code.
 | `train.optimizer` | `"adamw"` | 🟢 | `_build_optimizer()` (trainer.py) |
 | `train.gradient_clip` | `1.0` | 🟢 | `Phase0Trainer`, `Phase2Trainer` |
 | `train.momentum` | `0.9` | 🟢 | `_build_optimizer()` — SGD 선택 시 소비 / consumed when optimizer=sgd |
-| `train.betas` | `[0.9, 0.999]` | 🟢 | `_build_optimizer()` — AdamW betas |
+| `train.betas` | `[0.9, 0.999]` | 🟢 | `_build_optimizer()` — AdamW betas / AdamW beta parameters |
 | `train.gamma` | `0.1` | 🟢 | `_build_scheduler()` — StepLR 선택 시 소비 / consumed when scheduler=step |
 
 ### 4.8 evaluation
@@ -263,16 +258,12 @@ Track whether every key declared in `config.json` is actually consumed by code.
 
 ## 5. Dead Config 요약 / Dead Config Summary
 
-현재 이 시스템에 남아 있는 Dead Config는 `reporting` 및 `inference` 섹션의 일부 키로,
-해당 모듈이 config를 직접 소비하지 않기 때문입니다.
-
-The remaining Dead Config keys belong to `reporting` and `inference` sections
-where the modules do not yet consume config values directly.
+현재 이 시스템에 남아 있는 Dead Config는 `reporting` 및 `inference` 섹션의 일부 키로, 해당 모듈이 config를 직접 소비하지 않기 때문입니다. / The remaining Dead Config keys belong to `reporting` and `inference` sections where the modules do not yet consume config values directly.
 
 | 우선순위 / Priority | config 키 / Key | 구현 난이도 / Effort | 성능/재현성 영향 / Impact |
 |---------|-----------|-----------|----------|
-| 🟢 LOW | `reporting.*` (html 설정 외) | 쉬움/Easy | 리포트 포맷 유연성 |
-| 🟢 LOW | `inference.*` (confidence_thresholds 제외) | 보통/Medium | 추론 설정 유연성 |
+| 🟢 LOW | `reporting.*` (html 설정 외 / excluding html settings) | 쉬움 / Easy | 리포트 포맷 유연성 / Report format flexibility |
+| 🟢 LOW | `inference.*` (confidence_thresholds 제외 / excluding confidence_thresholds) | 보통 / Medium | 추론 설정 유연성 / Inference config flexibility |
 
 > ✅ **해소됨 / Resolved**: `inference.confidence_thresholds.*` → `Evaluator.__init__(cfg)` 소비 완료.
 
@@ -280,10 +271,10 @@ where the modules do not yet consume config values directly.
 
 ## 6. 사용 규칙 / Usage Rules
 
-1. **새 config 키 추가 시 / When adding a new config key**: 이 문서에 동시 등록 (소비 위치 명시)
-2. **코드에서 config 읽을 때 / When reading config in code**: 이 문서에서 키 존재 확인
-3. **리팩토링 시 / During refactoring**: Dead Config → 구현 또는 config.json에서 제거 결정
-4. **PR 리뷰 시 / During PR review**: config 키 추가/변경이 이 문서에 반영되었는지 확인
+1. **새 config 키 추가 시 / When adding a new config key**: 이 문서에 동시 등록 (소비 위치 명시) / Register in this document simultaneously (specify consumer location)
+2. **코드에서 config 읽을 때 / When reading config in code**: 이 문서에서 키 존재 확인 / Verify key existence in this document
+3. **리팩토링 시 / During refactoring**: Dead Config → 구현 또는 config.json에서 제거 결정 / Decide to implement or remove from config.json
+4. **PR 리뷰 시 / During PR review**: config 키 추가/변경이 이 문서에 반영되었는지 확인 / Verify that config key additions/changes are reflected in this document
 
 > `SSOT-CF01`: 코드가 참조하는 config 키가 config.json에 없으면 **즉시 실패**.
 > `SSOT-CF01`: If code references a key absent from config.json, **fail immediately**.

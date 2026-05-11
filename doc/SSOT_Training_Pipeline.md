@@ -72,7 +72,7 @@ from training import Phase0Trainer
 trainer = Phase0Trainer(model, cfg, channel="Y", device=device)
 history = trainer.train(loader)
 trainer.save_backbone()
-# 출력: data_set/models/phase0_backbone_{channel}_{tag}.pt
+# 출력 / Output: data_set/models/phase0_backbone_{channel}_{tag}.pt
 ```
 
 ### 2.2 실제 학습 파라미터 / Actual Training Parameters
@@ -85,7 +85,7 @@ trainer.save_backbone()
 | weight_decay | `phase0.weight_decay` | 1e-5 | 🟢 |
 | temperature (τ) | `phase0.temperature` | 0.1 | 🟢 (Hard SSOT) |
 | projection_dim | `phase0.projection_dim` | 128 | 🟢 (Hard SSOT) |
-| proj_hidden_dim | `phase0.hidden_dim` | 256 | 🟢 (Hard SSOT — ProjectionHead 중간 차원) |
+| proj_hidden_dim | `phase0.hidden_dim` | 256 | 🟢 (Hard SSOT — ProjectionHead 중간 차원 / intermediate dimension) |
 | optimizer | `train.optimizer` | `"adamw"` | 🟢 (`_build_optimizer()`) |
 | scheduler | `train.scheduler` | `"cosine"` | 🟢 (`_build_scheduler()`) |
 | gradient_clip | `train.gradient_clip` | 1.0 | 🟢 |
@@ -97,7 +97,7 @@ trainer.save_backbone()
 ```python
 Phase0Trainer.save_backbone()
 # → data_set/models/phase0_backbone_{channel}_{tag}.pt
-# 전체 model.state_dict() 저장 (backbone + ProjectionHead)
+# 전체 model.state_dict() 저장 (backbone + ProjectionHead) / Save full model.state_dict() (backbone + ProjectionHead)
 ```
 
 ---
@@ -112,8 +112,8 @@ from training import Phase2Trainer
 trainer = Phase2Trainer(model, cfg, channel="Y", device=device, train_ds=train_ds)
 history = trainer.train(train_loader, val_loader)
 trainer.save_history(history)
-# 출력: data_set/models/best_{channel}.pt
-#       data_set/reports/phase2_history_{channel}.csv
+# 출력 / Output: data_set/models/best_{channel}.pt
+#               data_set/reports/phase2_history_{channel}.csv
 ```
 
 ### 3.2 실제 학습 파라미터 / Actual Training Parameters
@@ -124,7 +124,7 @@ trainer.save_history(history)
 | batch_size | `phase2.batch_size` | 16 | 🟢 |
 | learning_rate | `phase2.learning_rate` | 1e-4 | 🟢 |
 | weight_decay | `phase2.weight_decay` | 1e-4 | 🟢 |
-| hidden_dim | `phase2.hidden_dim` | 256 | 🟢 (Hard SSOT — ClassifierHead 중간 차원) |
+| hidden_dim | `phase2.hidden_dim` | 256 | 🟢 (Hard SSOT — ClassifierHead 중간 차원 / intermediate dimension) |
 | dropout | `phase2.dropout` | 0.3 | 🟢 |
 | oversample | `phase2.oversample` | true | 🟢 |
 | early_stopping.enabled | `phase2.early_stopping.enabled` | true | 🟢 |
@@ -137,7 +137,7 @@ trainer.save_history(history)
 ### 3.3 Best Model 기준 / Best Model Criteria
 
 ```python
-# val_acc 기준 best 모델 저장 (early stopping 포함)
+# val_acc 기준 best 모델 저장 (early stopping 포함) / Save best model by val_acc (including early stopping)
 if val_acc > best_val_acc + es_delta:
     best_val_acc = val_acc
     torch.save(model.state_dict(), model_dir / f"best_{channel}.pt")
@@ -147,8 +147,8 @@ if val_acc > best_val_acc + es_delta:
 
 ```
 Phase2Trainer.train()
-    → data_set/models/best_{ch}.pt           (best val_acc 기준)
-    → data_set/reports/phase2_history_{ch}.csv  (에폭별 이력 CSV)
+    → data_set/models/best_{ch}.pt           (best val_acc 기준 / by best val_acc)
+    → data_set/reports/phase2_history_{ch}.csv  (에폭별 이력 CSV / per-epoch history CSV)
 ```
 
 ---
@@ -212,9 +212,9 @@ def _build_optimizer(model, lr, weight_decay, cfg):
 
 | 컴포넌트 / Component | config 키 / Key | 기본값 / Default | 소비 여부 / Consumed |
 |---|---|---|---|
-| optimizer 종류 | `train.optimizer` | `"adamw"` | 🟢 |
-| AdamW betas | `train.betas` | `[0.9, 0.999]` | 🟢 (adamw 선택 시) |
-| SGD momentum | `train.momentum` | `0.9` | 🟢 (sgd 선택 시) |
+| optimizer 종류 / Optimizer type | `train.optimizer` | `"adamw"` | 🟢 |
+| AdamW betas | `train.betas` | `[0.9, 0.999]` | 🟢 (adamw 선택 시 / when adamw selected) |
+| SGD momentum | `train.momentum` | `0.9` | 🟢 (sgd 선택 시 / when sgd selected) |
 
 ### 5.2 Scheduler Factory
 
@@ -230,9 +230,9 @@ def _build_scheduler(optimizer, epochs, cfg):
 
 | 컴포넌트 / Component | config 키 / Key | 기본값 / Default | 소비 여부 / Consumed |
 |---|---|---|---|
-| scheduler 종류 | `train.scheduler` | `"cosine"` | 🟢 |
+| scheduler 종류 / Scheduler type | `train.scheduler` | `"cosine"` | 🟢 |
 | CosineAnnealingLR eta_min | `train.eta_min` | 1e-6 | 🟢 |
-| StepLR gamma | `train.gamma` | 0.1 | 🟢 (step 선택 시) |
+| StepLR gamma | `train.gamma` | 0.1 | 🟢 (step 선택 시 / when step selected) |
 | Gradient clipping | `train.gradient_clip` | 1.0 | 🟢 |
 
 ---
@@ -255,7 +255,7 @@ def _build_scheduler(optimizer, epochs, cfg):
 
 ### 6.2 Snapshot 통합 / Snapshot Integration
 
-학습 시작 시 설정 스냅샷 저장 / Saved at training start:
+학습 시작 시 설정 스냅샷 저장 / Config snapshot saved at training start:
 
 ```python
 from utils import log_snapshot
@@ -296,7 +296,7 @@ python -m src.scripts.train
 
 | 코드 / Code | 위반 내용 / Violation | 등급 / Level | 해결 방법 / Fix |
 |---|---|---|---|
-| SSOT-PH01 | Phase 0 없이 Phase 2 직행 시 FF01 미발생 위험 | Level 1 | `backbone_path.exists()` 검증 구현 완료 ✅ |
+| SSOT-PH01 | Phase 0 없이 Phase 2 직행 시 FF01 미발생 위험 / Risk of missing FF01 when skipping Phase 0 and going directly to Phase 2 | Level 1 | `backbone_path.exists()` 검증 구현 완료 ✅ |
 
 > ✅ **해소됨 / Resolved**: `train.optimizer`, `train.scheduler` → `_build_optimizer()` / `_build_scheduler()` factory 구현 완료.
 > ✅ **해소됨 / Resolved**: `train.gradient_clip` → Phase0/2Trainer `clip_grad_norm_` 적용 완료.

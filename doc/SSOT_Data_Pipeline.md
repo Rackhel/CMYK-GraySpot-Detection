@@ -30,10 +30,10 @@ data_set/
     ├── Y/
     │   ├── 0/   ← Level 0 (정상 / Normal)
     │   │   └── *.png
-    │   ├── 1/
-    │   ├── 2/
-    │   ├── 3/
-    │   ├── 4/
+    │   ├── 1/   ← Level 1
+    │   ├── 2/   ← Level 2
+    │   ├── 3/   ← Level 3
+    │   ├── 4/   ← Level 4
     │   └── 5/   ← Level 5 (최대 결함 / Maximum defect)
     ├── M/
     ├── C/
@@ -69,11 +69,11 @@ data_set/labeled/{channel}/{level}/*.png
 }
 ```
 
-- `storage.labeled_dir` 🟢 — `dataset.py`에서 소비
-- `data.channels` 🟢 — `run_baseline.py`, `run_phase0.py`에서 소비
-- `data.num_levels` 🟢 — `grayspot_model.py`에서 소비 (Hard SSOT)
-- `data.image_size` 🟢 — `dataset.py`에서 소비 (Hard SSOT)
-- `data.split_ratios` 🟢 — `dataset.py` stratified split에서 소비
+- `storage.labeled_dir` 🟢 — `dataset.py`에서 소비 / consumed in `dataset.py`
+- `data.channels` 🟢 — `run_baseline.py`, `run_phase0.py`에서 소비 / consumed in `run_baseline.py`, `run_phase0.py`
+- `data.num_levels` 🟢 — `grayspot_model.py`에서 소비 (Hard SSOT) / consumed in `grayspot_model.py`
+- `data.image_size` 🟢 — `dataset.py`에서 소비 (Hard SSOT) / consumed in `dataset.py`
+- `data.split_ratios` 🟢 — `dataset.py` stratified split에서 소비 / consumed in `dataset.py` stratified split
 
 ---
 
@@ -93,10 +93,10 @@ image, label = ds[0]
 | 속성 / Attribute | 값 / Value | 비고 / Note |
 |---|---|---|
 | 입력 소스 / Input | `data_set/labeled/{channel}/{level}/*.png` | BGR → float32 |
-| 출력 형상 / Output shape | `(3, 128, 128)` | C, H, W 순서 |
+| 출력 형상 / Output shape | `(3, 128, 128)` | C, H, W 순서 / C, H, W order |
 | 레이블 타입 / Label type | `int` [0, 5] | ordinal 6-class |
 | 분할 / Split | `train` / `val` / `test` | stratified (`data.split_ratios` 🟢) |
-| 오버샘플링 / Oversample | `phase2.oversample` 🟢 | 클래스 불균형 보정 |
+| 오버샘플링 / Oversample | `phase2.oversample` 🟢 | 클래스 불균형 보정 / Class imbalance correction |
 
 ### 2.2 ContrastiveDataset — Phase 0 (SimCLR)
 
@@ -111,10 +111,10 @@ view1, view2 = ds[0]
 
 | 속성 / Attribute | 값 / Value | 비고 / Note |
 |---|---|---|
-| 입력 소스 / Input | `data_set/labeled/{channel}/{level}/*.png` | 전체 레벨 수집 (라벨 불필요) |
+| 입력 소스 / Input | `data_set/labeled/{channel}/{level}/*.png` | 전체 레벨 수집 (라벨 불필요) / All levels collected (label not needed) |
 | 출력 / Output | `(view1, view2)` Tensor pair | augmented positive pair |
 | 레이블 / Label | ❌ 없음 / None | unsupervised |
-| 증강 설정 / Aug config | `phase0.augmentation` 🟢 | `aug_cfg`로 전달 |
+| 증강 설정 / Aug config | `phase0.augmentation` 🟢 | `aug_cfg`로 전달 / passed as `aug_cfg` |
 
 ---
 
@@ -125,9 +125,9 @@ view1, view2 = ds[0]
 ```
 cv2.imread(path)                                 # BGR uint8 (H, W, 3)
     → preprocess(image, image_size=128)
-        → cv2.resize((128, 128))                 # 크기 통일 / Uniform size
+        → cv2.resize((128, 128))                 # 크기 통일 / Uniform size (128×128)
         → .astype(np.float32) / 255.0           # [0, 255] → [0.0, 1.0]
-    → [augment_supervised(image)]                # train split only (Phase 2)
+    → [augment_supervised(image)]                # train split only (Phase 2) / train split 전용
     → torch.tensor(image).permute(2,0,1).float() # (H,W,C) → (C,H,W)
     → _IMAGENET_NORMALIZE(tensor)               # ImageNet mean/std normalization
     → DataLoader batching
@@ -165,14 +165,14 @@ image_tensor = preprocess(image: np.ndarray, image_size: int = 128) -> np.ndarra
 
 ### 4.1 Supervised 증강 / Supervised Augmentation
 
-Phase 2 학습 전용 (train split only) / For Phase 2 training only:
+Phase 2 학습 전용 (train split only) / For Phase 2 training only (train split only):
 
 ```python
 from data import augment_supervised
 
 augmented = augment_supervised(image: np.ndarray, aug_cfg: dict = None) -> np.ndarray
 # Input/Output: BGR float32 (128, 128, 3) [0, 1]
-# aug_cfg = cfg["phase2"]["augmentation"]  — CMYKDataset 에서 자동 전달
+# aug_cfg = cfg["phase2"]["augmentation"]  — CMYKDataset 에서 자동 전달 / auto-passed from CMYKDataset
 ```
 
 | 변환 / Transform | 파라미터 / Parameters | config 키 / Key | 소비 여부 / Status |
@@ -181,8 +181,8 @@ augmented = augment_supervised(image: np.ndarray, aug_cfg: dict = None) -> np.nd
 | 밝기 조절 / Brightness jitter | p=0.5, delta ±30/255 | `phase2.augmentation.brightness_prob`, `brightness_range` | 🟢 |
 | 가산 노이즈 / Additive noise | p=0.5, 0~10/255 | `phase2.augmentation.noise_prob`, `noise_range` | 🟢 |
 
-> 모든 Supervised 증강 파라미터가 `phase2.augmentation.*` config에서 소비됨.
-> 모듈 상수(`_SUP_*`)는 fallback 기본값으로만 유지.
+> 모든 Supervised 증강 파라미터가 `phase2.augmentation.*` config에서 소비됨. / All Supervised augmentation params are consumed from `phase2.augmentation.*` config.
+> 모듈 상수(`_SUP_*`)는 fallback 기본값으로만 유지. / Module constants (`_SUP_*`) remain as fallback defaults only.
 >
 > All Supervised augmentation params are consumed from `phase2.augmentation.*` config.
 > Module constants (`_SUP_*`) remain as fallback defaults only.
@@ -207,8 +207,8 @@ view = augment_contrastive(image: np.ndarray, image_size: int, aug_cfg: dict) ->
 | 대비 조절 / Contrast jitter | p=`blur_prob`, scale 0.8~1.2 | `phase0.augmentation.contrast_scale_min`, `contrast_scale_max` | 🟢 |
 | 가우시안 블러 / Gaussian blur | p=`blur_prob`, kernel [3, 5] | `phase0.augmentation.blur_prob`, `blur_kernels` | 🟢 |
 
-> 모든 Contrastive 증강 파라미터가 `phase0.augmentation.*` config에서 소비됨.
-> 모듈 상수(`_CON_*`)는 fallback 기본값으로만 유지.
+> 모든 Contrastive 증강 파라미터가 `phase0.augmentation.*` config에서 소비됨. / All Contrastive augmentation params are consumed from `phase0.augmentation.*` config.
+> 모듈 상수(`_CON_*`)는 fallback 기본값으로만 유지. / Module constants (`_CON_*`) remain as fallback defaults only.
 >
 > All Contrastive augmentation params are consumed from `phase0.augmentation.*` config.
 > Module constants (`_CON_*`) remain as fallback defaults only.
@@ -221,14 +221,14 @@ view = augment_contrastive(image: np.ndarray, image_size: int, aug_cfg: dict) ->
 
 | 분할 / Split | config 키 / Key | 기본값 / Default | 비고 / Note |
 |---|---|---|---|
-| train | `data.split_ratios.train` 🟢 | 0.70 | dataset.py 소비 |
-| val | `data.split_ratios.val` 🟢 | 0.15 | dataset.py 소비 |
-| test | `data.split_ratios.test` 🟢 | 0.15 | dataset.py 소비 |
+| train | `data.split_ratios.train` 🟢 | 0.70 | dataset.py 소비 / consumed in dataset.py |
+| val | `data.split_ratios.val` 🟢 | 0.15 | dataset.py 소비 / consumed in dataset.py |
+| test | `data.split_ratios.test` 🟢 | 0.15 | dataset.py 소비 / consumed in dataset.py |
 
 ### 5.2 분할 방식 / Split Method
 
-- Stratified split (클래스 비율 유지 / Class proportion preserved) — 코드에서 항상 적용
-- Seed: `train.seed` 🟢 (기본값 42) — 재현성 보장 / Reproducibility guaranteed
+- Stratified split (클래스 비율 유지 / Class proportion preserved) — 코드에서 항상 적용 / always applied in code
+- Seed: `train.seed` 🟢 (기본값 / default 42) — 재현성 보장 / Reproducibility guaranteed
 
 > **⚠️ SSOT-SD01**: 동일 seed에서 항상 동일한 분할이 생성되어야 한다.
 > The same seed must always produce the same split.
@@ -239,8 +239,8 @@ view = augment_contrastive(image: np.ndarray, image_size: int, aug_cfg: dict) ->
 
 | 계약 / Contract | 타입 / Type | 형상 / Shape | 값 범위 / Range |
 |---|---|---|---|
-| Dataset 출력 (Phase 2) | `(Tensor, int)` | `(3, 128, 128)`, scalar | ImageNet-normalized float32, label [0, 5] |
-| Dataset 출력 (Phase 0) | `(Tensor, Tensor)` | `(3, 128, 128)`, `(3, 128, 128)` | ImageNet-normalized float32 |
+| Dataset 출력 / Output (Phase 2) | `(Tensor, int)` | `(3, 128, 128)`, scalar | ImageNet-normalized float32, label [0, 5] |
+| Dataset 출력 / Output (Phase 0) | `(Tensor, Tensor)` | `(3, 128, 128)`, `(3, 128, 128)` | ImageNet-normalized float32 |
 | 모델 입력 / Model input | `Tensor` | `(B, 3, 128, 128)` | ImageNet-normalized float32 |
 | 평가 입력 / Eval input | `np.ndarray` | `(N,)` | int [0, 5] |
 
@@ -250,8 +250,8 @@ view = augment_contrastive(image: np.ndarray, image_size: int, aug_cfg: dict) ->
 
 | 코드 / Code | 위반 내용 / Violation | 등급 / Level | 상태 / Status |
 |---|---|---|---|
-| SSOT-CS01 | BGR/RGB 불일치 위험 — 추론 시 동일 공간 유지 필수 | Level 1 | ⚠️ 지속 모니터링 |
-| SSOT-NM01 | ImageNet 정규화 미적용 — pretrained backbone 성능 저하 가능 | Level 2 | ✅ **해소됨** |
+| SSOT-CS01 | BGR/RGB 불일치 위험 — 추론 시 동일 공간 유지 필수 / BGR/RGB mismatch risk — same color space must be maintained at inference | Level 1 | ⚠️ 지속 모니터링 / Ongoing monitoring |
+| SSOT-NM01 | ImageNet 정규화 미적용 — pretrained backbone 성능 저하 가능 / ImageNet normalization not applied — may degrade pretrained backbone performance | Level 2 | ✅ **해소됨 / Resolved** |
 
 > ✅ **해소됨 / Resolved**: `data.split_ratios` Dead Config → `dataset.py`에서 소비 완료.
 > ✅ **해소됨 / Resolved**: `phase0.augmentation.color_jitter` / `blur_prob` → `augment_contrastive(aug_cfg)` 소비 완료.

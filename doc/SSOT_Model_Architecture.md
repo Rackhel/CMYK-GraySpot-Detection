@@ -29,8 +29,8 @@ This document is the authoritative reference for the neural network architecture
 |---|---|---|---|
 | `GrayspotModel` | `models.grayspot_model` | 0, 2 | 통합 모델 — Backbone + Head 조합 / Unified model combining backbone and head |
 | `build_backbone` | `models.backbone` | 0, 2 | Backbone 로드 팩토리 함수 / Factory function for loading backbones |
-| `ProjectionHead` | `models.projection_head` | 0 | SimCLR Contrastive 투영 Head |
-| `ClassifierHead` | `models.classifier` | 2 | Supervised 분류 Head |
+| `ProjectionHead` | `models.projection_head` | 0 | SimCLR Contrastive 투영 Head / SimCLR Contrastive projection head |
+| `ClassifierHead` | `models.classifier` | 2 | Supervised 분류 Head / Supervised classification head |
 
 ```python
 from models import GrayspotModel, build_backbone, ProjectionHead, ClassifierHead
@@ -61,8 +61,7 @@ model = GrayspotModel(cfg, phase=2)
 ### 2.3 Phase 전환 / Phase Switching
 
 ```python
-# Phase 0 backbone을 Phase 2 모델로 전환
-# Switch Phase 0 backbone weights into Phase 2 model
+# Phase 0 backbone을 Phase 2 모델로 전환 / Switch Phase 0 backbone weights into Phase 2 model
 model.switch_to_phase2(backbone_path)
 # backbone_path: data_set/models/phase0_backbone_{channel}_{tag}.pt
 ```
@@ -85,7 +84,7 @@ backbone_tag("efficientnet_b0")  # → "effb0"
 backbone_tag("resnet50")         # → "res50"
 ```
 
-태그는 아티팩트 파일명 생성에 사용된다. / Tags are used for artifact filename generation.
+태그는 아티팩트 파일명 생성에 사용된다. / Tags are used for artifact filename generation (e.g., `phase0_backbone_Y_effb0.pt`).
 
 ### 3.2 Backbone 로드 팩토리 / Factory Function
 
@@ -105,14 +104,14 @@ backbone, feature_dim = build_backbone(cfg)
 ```
 phase0_backbone_Y_effb0.pt → GrayspotModel(backbone="efficientnet_b0", channel="Y") Phase 2 ✅
 phase0_backbone_Y_effb0.pt → GrayspotModel(backbone="efficientnet_b0", channel="M") Phase 2 ❌  (SSOT-FF01)
-phase0_backbone_Y_res50.pt → GrayspotModel(backbone="efficientnet_b0", channel="Y") Phase 2 ❌  (구조 불일치)
+phase0_backbone_Y_res50.pt → GrayspotModel(backbone="efficientnet_b0", channel="Y") Phase 2 ❌  (구조 불일치 / architecture mismatch)
 ```
 
 ---
 
 ## 4. ProjectionHead — Phase 0 Head
 
-Phase 0 SimCLR Contrastive Learning용 투영 Head.
+Phase 0 SimCLR Contrastive Learning용 투영 Head. / Projection head for Phase 0 SimCLR Contrastive Learning.
 
 ```python
 # 구조 / Architecture
@@ -133,7 +132,7 @@ projection_dim = config["phase0"]["projection_dim"]  = 128  ← Hard SSOT
 
 ## 5. ClassifierHead — Phase 2 Head
 
-Phase 2 Supervised Classification용 분류 Head.
+Phase 2 Supervised Classification용 분류 Head. / Classification head for Phase 2 Supervised Classification.
 
 ```python
 # 구조 / Architecture
@@ -148,7 +147,7 @@ num_levels  = config["data"]["num_levels"]    = 6    ← Hard SSOT
 dropout     = config["phase2"]["dropout"]     = 0.3  ← Soft SSOT
 ```
 
-| 파라미터 / Parameter | config 키 / Key | 기본값 / Default | SSOT 분류 |
+| 파라미터 / Parameter | config 키 / Key | 기본값 / Default | SSOT 분류 / Classification |
 |---|---|---|---|
 | `hidden_dim` | `phase2.hidden_dim` 🟢 | 256 | Hard |
 | `num_levels` | `data.num_levels` 🟢 | 6 | Hard |
@@ -166,8 +165,8 @@ backbone_keys = {k: v for k, v in state.items() if k.startswith("backbone.")}
 model.load_state_dict(backbone_keys, strict=False)
 ```
 
-- `backbone.*` prefix 키만 선택적 로드 / Only `backbone.*` prefix keys are loaded
-- Head 키 무시 (ProjectionHead → ClassifierHead 교체) / Head keys ignored (head is replaced)
+- `backbone.*` prefix 키만 선택적 로드 / Only `backbone.*` prefix keys are loaded selectively
+- Head 키 무시 (ProjectionHead → ClassifierHead 교체) / Head keys ignored (ProjectionHead replaced by ClassifierHead)
 - `strict=False`: 새 head 키 불일치 허용 / Allows new head key mismatches
 
 ### 6.2 추론 시 로드 / Inference Load Rules
@@ -177,7 +176,7 @@ checkpoint = torch.load(path, map_location="cpu", weights_only=True)
 model.load_state_dict(checkpoint, strict=False)
 ```
 
-- `weights_only=True`: pickle 보안 (임의 코드 실행 방지) / Pickle security
+- `weights_only=True`: pickle 보안 (임의 코드 실행 방지) / Pickle security (prevent arbitrary code execution)
 - `strict=False`: 버전 간 호환성 / Cross-version compatibility
 
 ---
@@ -190,10 +189,10 @@ model.load_state_dict(checkpoint, strict=False)
 |---|---|---|---|
 | `num_levels` | 6 | `data.num_levels` | ClassifierHead 출력 차원 / Output dim |
 | `image_size` | 128 | `data.image_size` | 모델 입력 크기 / Model input size |
-| `backbone` | `efficientnet_b0` | `model.backbone` | 전체 구조 변경 / Entire architecture |
-| `projection_dim` | 128 | `phase0.projection_dim` | Phase 0 head 구조 |
-| `hidden_dim` | 256 | `phase2.hidden_dim` | Phase 2 head 구조 |
-| Phase 순서 | Phase 0 → 2 | — | backbone 가중치 의존성 |
+| `backbone` | `efficientnet_b0` | `model.backbone` | 전체 구조 변경 / Entire architecture changed |
+| `projection_dim` | 128 | `phase0.projection_dim` | Phase 0 head 구조 / Phase 0 head structure |
+| `hidden_dim` | 256 | `phase2.hidden_dim` | Phase 2 head 구조 / Phase 2 head structure |
+| Phase 순서 / Phase ordering | Phase 0 → 2 | — | backbone 가중치 의존성 / Backbone weight dependency |
 | 색상 공간 / Color space | BGR [0, 1] | — | 입력 분포 / Input distribution |
 
 ---
@@ -202,8 +201,8 @@ model.load_state_dict(checkpoint, strict=False)
 
 | 코드 / Code | 위반 내용 / Violation | 등급 / Level |
 |---|---|---|
-| SSOT-FF01 | Phase 0 backbone 없이 Phase 2 `switch_to_phase2()` 호출 | Level 1 — 즉시 중단 |
-| SSOT-PH01 | Phase 0 학습 없이 Phase 2 직행 (backbone 미존재) | Level 1 — 즉시 중단 |
+| SSOT-FF01 | Phase 0 backbone 없이 Phase 2 `switch_to_phase2()` 호출 / Calling `switch_to_phase2()` without Phase 0 backbone | Level 1 — 즉시 중단 / Immediate halt |
+| SSOT-PH01 | Phase 0 학습 없이 Phase 2 직행 (backbone 미존재) / Going directly to Phase 2 without Phase 0 training (backbone absent) | Level 1 — 즉시 중단 / Immediate halt |
 
 ---
 

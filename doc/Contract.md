@@ -29,7 +29,7 @@ This document defines the input/output types, shapes, value ranges, and required
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  config/config.json  ──►  utils_config.load_config()  ──►  cfg: dict   │
-│                               (모든 모듈이 cfg를 수령)                     │
+│                               (모든 모듈이 cfg를 수령 / all modules receive cfg)    │
 └──────────────────────────────────┬──────────────────────────────────────┘
                                    │ cfg
                     ┌──────────────▼──────────────┐
@@ -107,8 +107,8 @@ This document defines the input/output types, shapes, value ranges, and required
 from src.utils import load_config, validate_config, create_directories, get_nested
 
 cfg = load_config()                          # → dict
-validate_config(cfg)                         # → bool  (실패 시 ValueError)
-create_directories(cfg)                      # → None  (storage.* 경로 생성)
+validate_config(cfg)                         # → bool  (실패 시 ValueError / ValueError on failure)
+create_directories(cfg)                      # → None  (storage.* 경로 생성 / creates storage.* paths)
 val = get_nested(cfg, "phase2.learning_rate") # → Any   (None-safe dot-notation)
 ```
 
@@ -116,15 +116,15 @@ val = get_nested(cfg, "phase2.learning_rate") # → Any   (None-safe dot-notatio
 
 | 항목 / Item | 타입 / Type | 보장 / Guarantee |
 |---|---|---|
-| `load_config()` 반환값 | `dict` | 경로 절대화 + device 자동 감지 완료 |
-| `cfg["system"]["device"]` | `str` | `"cpu"` / `"cuda"` / `"mps"` (절대 `"auto"` 아님) |
-| `cfg["storage"]["*_dir"]` | `str` | 절대 경로 (root 기준 해소 완료) |
+| `load_config()` 반환값 / return value | `dict` | 경로 절대화 + device 자동 감지 완료 / Path absolutized + device auto-detected |
+| `cfg["system"]["device"]` | `str` | `"cpu"` / `"cuda"` / `"mps"` (절대 `"auto"` 아님 / never `"auto"`) |
+| `cfg["storage"]["*_dir"]` | `str` | 절대 경로 (root 기준 해소 완료) / Absolute path (resolved from root) |
 
 ### 금지 패턴 / Prohibited
 
 ```python
-# ❌ 삭제된 패턴 — 사용 금지
-config = load_config()   # ConfigManager 반환 — 더 이상 존재하지 않음
+# ❌ 삭제된 패턴 — 사용 금지 / Deleted pattern — do not use
+config = load_config()   # ConfigManager 반환 — 더 이상 존재하지 않음 / Returns ConfigManager — no longer exists
 cfg = config.config
 config.get("phase2.learning_rate")
 ```
@@ -138,12 +138,12 @@ config.get("phase2.learning_rate")
 | 경계 / Boundary | 타입 / Type | 형상 / Shape | 값 범위 / Range | 색상 공간 / Color |
 |---|---|---|---|---|
 | 파일 로드 후 / After file load | `np.ndarray` | `(H, W, 3)` | `[0, 255]` uint8 | **BGR** (`cv2.imread`) |
-| `preprocess()` 출력 | `np.ndarray` | `(128, 128, 3)` | `[0.0, 1.0]` float32 | **BGR** |
+| `preprocess()` 출력 / output | `np.ndarray` | `(128, 128, 3)` | `[0.0, 1.0]` float32 | **BGR** |
 | 증강 후 / After augmentation | `np.ndarray` | `(128, 128, 3)` | `[0.0, 1.0]` float32 | **BGR** |
 | Tensor 변환 후 / After to_tensor | `torch.Tensor` | `(3, 128, 128)` | `[0.0, 1.0]` float32 | **BGR** (C,H,W) |
 | ImageNet 정규화 후 / After normalize | `torch.Tensor` | `(3, 128, 128)` | ImageNet-normalized float32 | **BGR** (C,H,W) |
 
-> ⚠️ **SSOT-CS01**: 파일 로드부터 모델 입력까지 BGR을 유지한다. RGB 변환 금지.
+> ⚠️ **SSOT-CS01**: 파일 로드부터 모델 입력까지 BGR을 유지한다. RGB 변환 금지. / BGR must be maintained from file load to model input. RGB conversion is prohibited.
 
 ### 3.2 `ContrastiveDataset` 출력 계약
 
@@ -153,7 +153,7 @@ view1, view2 = dataset[i]
 
 | 출력 / Output | 타입 / Type | 형상 / Shape | 범위 / Range | 비고 / Note |
 |---|---|---|---|---|
-| `view1` | `torch.Tensor` | `(3, 128, 128)` | ImageNet-normalized | 동일 이미지 다른 증강 |
+| `view1` | `torch.Tensor` | `(3, 128, 128)` | ImageNet-normalized | 동일 이미지 다른 증강 / Same image with different augmentation |
 | `view2` | `torch.Tensor` | `(3, 128, 128)` | ImageNet-normalized | Positive pair |
 
 ### 3.3 `CMYKDataset` 출력 계약
@@ -164,7 +164,7 @@ image, label = dataset[i]
 
 | 출력 / Output | 타입 / Type | 형상 / Shape | 범위 / Range | 비고 / Note |
 |---|---|---|---|---|
-| `image` | `torch.Tensor` | `(3, 128, 128)` | ImageNet-normalized | train split만 증강 적용 |
+| `image` | `torch.Tensor` | `(3, 128, 128)` | ImageNet-normalized | train split만 증강 적용 / Augmentation applied to train split only |
 | `label` | `int` | scalar | `[0, 5]` | ordinal 6-class |
 
 ### 3.4 DataLoader 배치 계약
@@ -182,19 +182,19 @@ image, label = dataset[i]
 
 | Phase | 입력 / Input | 출력 / Output | 비고 / Note |
 |---|---|---|---|
-| Phase 0 | `(B, 3, 128, 128)` float32 | `(B, 128)` float32 | L2-정규화된 projection vector |
-| Phase 2 | `(B, 3, 128, 128)` float32 | `(B, 6)` float32 | Raw logits — Softmax 없음 |
+| Phase 0 | `(B, 3, 128, 128)` float32 | `(B, 128)` float32 | L2-정규화된 projection vector / L2-normalized projection vector |
+| Phase 2 | `(B, 3, 128, 128)` float32 | `(B, 6)` float32 | Raw logits — Softmax 없음 / No Softmax applied |
 
 ### 4.2 생성 계약 / Construction Contract
 
 ```python
-# Phase 0 모델 생성
+# Phase 0 모델 생성 / Phase 0 model construction
 model = GrayspotModel(cfg, phase=0)
-# 필수 cfg 키: model.backbone, phase0.projection_dim, phase0.hidden_dim
+# 필수 cfg 키 / Required cfg keys: model.backbone, phase0.projection_dim, phase0.hidden_dim
 
-# Phase 2 모델 생성
+# Phase 2 모델 생성 / Phase 2 model construction
 model = GrayspotModel(cfg, phase=2)
-# 필수 cfg 키: model.backbone, model.frozen_backbone,
+# 필수 cfg 키 / Required cfg keys: model.backbone, model.frozen_backbone,
 #              data.num_levels, phase2.hidden_dim, phase2.dropout
 ```
 
@@ -213,9 +213,9 @@ backbone, feature_dim = build_backbone(cfg)
 
 ```python
 model.switch_to_phase2(backbone_path: Path)
-# 입력: phase0_backbone_{channel}_{tag}.pt
-# 동작: backbone.* 키만 로드 (strict=False)
-# 결과: Backbone weights 유지 + ClassifierHead 새로 초기화
+# 입력 / Input: phase0_backbone_{channel}_{tag}.pt
+# 동작 / Action: backbone.* 키만 로드 (strict=False) / Load only backbone.* keys (strict=False)
+# 결과 / Result: Backbone weights 유지 + ClassifierHead 새로 초기화 / Backbone weights preserved + ClassifierHead freshly initialized
 ```
 
 ---
@@ -226,14 +226,14 @@ model.switch_to_phase2(backbone_path: Path)
 
 ```python
 trainer = Phase0Trainer(model, cfg, channel="Y", device=device)
-history = trainer.train(loader)           # → List[dict]  에폭별 기록
-trainer.save_backbone()                   # → Path  저장 경로 반환
+history = trainer.train(loader)           # → List[dict]  에폭별 기록 / per-epoch record
+trainer.save_backbone()                   # → Path  저장 경로 반환 / returns save path
 ```
 
 | 경계 / Boundary | 입력 타입 / Input | 출력 타입 / Output |
 |---|---|---|
-| `train()` 입력 | `DataLoader` — `(B,3,128,128), (B,3,128,128)` | `List[{"epoch", "loss"}]` |
-| `save_backbone()` 출력 | — | `data_set/models/phase0_backbone_{ch}_{tag}.pt` |
+| `train()` 입력 / Input | `DataLoader` — `(B,3,128,128), (B,3,128,128)` | `List[{"epoch", "loss"}]` |
+| `save_backbone()` 출력 / Output | — | `data_set/models/phase0_backbone_{ch}_{tag}.pt` |
 
 **필수 cfg 키**: `phase0.epochs`, `phase0.batch_size`, `phase0.learning_rate`,
 `phase0.weight_decay`, `phase0.temperature`, `train.optimizer`, `train.scheduler`,
@@ -244,14 +244,14 @@ trainer.save_backbone()                   # → Path  저장 경로 반환
 ```python
 trainer = Phase2Trainer(model, cfg, channel="Y", device=device, train_ds=train_ds)
 history = trainer.train(train_loader, val_loader)  # → List[dict]
-trainer.save_history(history)                       # → Path  CSV 저장
+trainer.save_history(history)                       # → Path  CSV 저장 / saves CSV and returns path
 ```
 
 | 경계 / Boundary | 입력 타입 / Input | 출력 타입 / Output |
 |---|---|---|
-| `train()` 입력 | `DataLoader` × 2 — `(B,3,128,128), (B,)` | `List[{"epoch", "train_loss", "val_acc", ...}]` |
-| 체크포인트 | 내부 자동 저장 | `data_set/models/best_{ch}.pt` |
-| `save_history()` 출력 | `List[dict]` | `data_set/reports/phase2_history_{ch}.csv` |
+| `train()` 입력 / Input | `DataLoader` × 2 — `(B,3,128,128), (B,)` | `List[{"epoch", "train_loss", "val_acc", ...}]` |
+| 체크포인트 / Checkpoint | 내부 자동 저장 / Auto-saved internally | `data_set/models/best_{ch}.pt` |
+| `save_history()` 출력 / Output | `List[dict]` | `data_set/reports/phase2_history_{ch}.csv` |
 
 **필수 cfg 키**: `phase2.epochs`, `phase2.batch_size`, `phase2.learning_rate`,
 `phase2.weight_decay`, `phase2.early_stopping.*`, `train.optimizer`, `train.scheduler`,
@@ -265,12 +265,12 @@ from training import InfoNCELoss, get_loss
 # Phase 0
 loss_fn = InfoNCELoss(temperature=cfg["phase0"]["temperature"])
 loss = loss_fn(z1, z2)
-# z1, z2: (B, projection_dim)  L2-normalized — 반드시 정규화 후 전달
+# z1, z2: (B, projection_dim)  L2-normalized — 반드시 정규화 후 전달 / must be normalized before passing
 
 # Phase 2
 loss_fn = get_loss(cfg, phase=2, train_samples=train_ds.samples)
 loss = loss_fn(logits, labels)
-# logits: (B, 6)  raw logits (Softmax 미적용 상태)
+# logits: (B, 6)  raw logits (Softmax 미적용 상태 / Softmax not applied)
 # labels: (B,)   int [0, 5]
 ```
 
@@ -296,16 +296,16 @@ loss = loss_fn(logits, labels)
 | 형식 / Format | `torch.save(model.state_dict())` |
 | 포함 키 / Keys | `backbone.*` + `head.*` (ClassifierHead) |
 | 저장 기준 / Trigger | `val_acc > best_val_acc + early_stopping.min_delta` |
-| 생산자 / Producer | `Phase2Trainer.train()` 내부 |
+| 생산자 / Producer | `Phase2Trainer.train()` 내부 / Inside `Phase2Trainer.train()` |
 | 소비자 / Consumer | `Evaluator`, `GrayspotPredictor.load_model()` |
 
-### 6.3 추론 시 로드 계약
+### 6.3 추론 시 로드 계약 / Inference Load Contract
 
 ```python
 checkpoint = torch.load(path, map_location="cpu", weights_only=True)
 model.load_state_dict(checkpoint, strict=False)
-# weights_only=True : pickle 보안
-# strict=False      : 버전 간 키 불일치 허용
+# weights_only=True : pickle 보안 / pickle security
+# strict=False      : 버전 간 키 불일치 허용 / allows key mismatches between versions
 ```
 
 ---
@@ -316,20 +316,20 @@ model.load_state_dict(checkpoint, strict=False)
 
 ```python
 evaluator = Evaluator(
-    model       = model,            # nn.Module, model.eval() 상태
+    model       = model,            # nn.Module, model.eval() 상태 / in model.eval() state
     labeled_dir = Path("data_set/labeled"),
     labels_csv  = Path("data_set/labels_v0.csv"),
     output_dir  = Path("outputs/reports"),
     device      = device,
-    cfg         = cfg,              # swing_thresholds + confidence_thresholds 주입
+    cfg         = cfg,              # swing_thresholds + confidence_thresholds 주입 / injected
 )
 ```
 
 | 입력 / Input | 타입 / Type | 제약 / Constraint |
 |---|---|---|
-| `model` | `nn.Module` | 반드시 `model.eval()` 상태 |
-| 이미지 배치 | `Tensor (B, 3, 128, 128)` | BGR float32, ImageNet-normalized — 학습과 동일 |
-| 레이블 | `Tensor (B,)` | int [0, 5] |
+| `model` | `nn.Module` | 반드시 `model.eval()` 상태 / Must be in `model.eval()` state |
+| 이미지 배치 / Image batch | `Tensor (B, 3, 128, 128)` | BGR float32, ImageNet-normalized — 학습과 동일 / Same as training |
+| 레이블 / Labels | `Tensor (B,)` | int [0, 5] |
 
 ### 7.2 `Evaluator.run()` 출력 계약
 
@@ -358,20 +358,20 @@ summary = build_evaluation_summary(
 
 | 출력 / Output | 타입 / Type | 보장 / Guarantee |
 |---|---|---|
-| `summary.overall` | `ChannelMetrics` | 전 채널 집계 지표 |
-| `summary.by_channel[ch]` | `ChannelMetrics` | 채널별 지표 |
-| `summary.targets["swing_*_retry"]` | `float` | cfg 주입값 (없으면 기본값) |
+| `summary.overall` | `ChannelMetrics` | 전 채널 집계 지표 / Aggregated metrics across all channels |
+| `summary.by_channel[ch]` | `ChannelMetrics` | 채널별 지표 / Per-channel metrics |
+| `summary.targets["swing_*_retry"]` | `float` | cfg 주입값 (없으면 기본값) / cfg-injected value (default if absent) |
 
 ### 7.4 `ChannelMetrics` 구조
 
 ```python
 @dataclass
 class ChannelMetrics:
-    accuracy : float       # 전체 정확도
+    accuracy : float       # 전체 정확도 / Overall accuracy
     macro_f1 : float       # Macro-averaged F1
     mae      : float       # Mean Absolute Error (ordinal)
     n_samples: int
-    per_class: List[PerClassMetric]  # level별 precision/recall/f1/support
+    per_class: List[PerClassMetric]  # level별 precision/recall/f1/support / per-level
 
     @property
     def acc_pass(self) -> bool: ...  # accuracy >= TARGET_PER_COLOR_ACC (0.85)
@@ -389,26 +389,25 @@ feedback = determine_swing_feedback(summary)
 
 | 반환값 / Return | 조건 / Condition | 다음 단계 / Next Step |
 |---|---|---|
-| `"pass"` | 모든 목표 달성 | 시스템 종료 |
-| `"retry_phase2"` | `accuracy < swing_acc_retry` (0.80) | Phase 2 재학습 |
-| `"retry_phase0"` | `macro_f1 < swing_f1_retry` (0.70) | Phase 0 → Phase 2 재학습 |
+| `"pass"` | 모든 목표 달성 / All targets met | 시스템 종료 / System exit |
+| `"retry_phase2"` | `accuracy < swing_acc_retry` (0.80) | Phase 2 재학습 / Retrain Phase 2 |
+| `"retry_phase0"` | `macro_f1 < swing_f1_retry` (0.70) | Phase 0 → Phase 2 재학습 / Retrain Phase 0 → Phase 2 |
 
 ---
 
 ## 8. Fail-Fast 집행 포인트 / Fail-Fast Enforcement Points
 
-모든 경계에서 아래 조건은 **즉시 예외를 발생시켜야 한다**. 우회·임시 생성 금지.
-At every boundary, the following conditions **must raise an exception immediately**. No fallbacks.
+모든 경계에서 아래 조건은 **즉시 예외를 발생시켜야 한다**. 우회·임시 생성 금지. / At every boundary, the following conditions **must raise an exception immediately**. No fallbacks.
 
 | 위치 / Location | 조건 / Condition | 코드 / Code | 예외 / Exception |
 |---|---|---|---|
-| `run_phase2.py` 시작 | `phase0_backbone_{ch}_{tag}.pt` 미존재 | `SSOT-FF01` | `FileNotFoundError` |
-| `Evaluator.run()` 시작 | `best_{ch}.pt` 미존재 | `SSOT-FF01` | `FileNotFoundError` |
-| `GrayspotModel.__init__` | `cfg["data"]["num_levels"]` 키 미존재 | `SSOT-CF01` | `KeyError` |
-| `Phase0Trainer.train()` | DataLoader 배치 언패킹 실패 (형상 불일치) | `SSOT-CS01` | `ValueError` |
-| `InfoNCELoss.forward()` | z1, z2 가 L2-정규화되지 않은 경우 | — | `RuntimeError` (수치 이상) |
-| `switch_to_phase2()` | backbone 키 0개 로드 (구조 불일치) | `SSOT-FF01` | `RuntimeError` |
-| `validate_config()` | 필수 섹션 누락 (`data`, `model`, `phase2` 등) | `SSOT-CF01` | `ValueError` |
+| `run_phase2.py` 시작 / start | `phase0_backbone_{ch}_{tag}.pt` 미존재 / not found | `SSOT-FF01` | `FileNotFoundError` |
+| `Evaluator.run()` 시작 / start | `best_{ch}.pt` 미존재 / not found | `SSOT-FF01` | `FileNotFoundError` |
+| `GrayspotModel.__init__` | `cfg["data"]["num_levels"]` 키 미존재 / key missing | `SSOT-CF01` | `KeyError` |
+| `Phase0Trainer.train()` | DataLoader 배치 언패킹 실패 (형상 불일치) / DataLoader batch unpack failure (shape mismatch) | `SSOT-CS01` | `ValueError` |
+| `InfoNCELoss.forward()` | z1, z2 가 L2-정규화되지 않은 경우 / z1, z2 not L2-normalized | — | `RuntimeError` (수치 이상 / numerical anomaly) |
+| `switch_to_phase2()` | backbone 키 0개 로드 (구조 불일치) / zero backbone keys loaded (architecture mismatch) | `SSOT-FF01` | `RuntimeError` |
+| `validate_config()` | 필수 섹션 누락 (`data`, `model`, `phase2` 등) / required section missing (`data`, `model`, `phase2`, etc.) | `SSOT-CF01` | `ValueError` |
 
 ---
 
@@ -427,8 +426,8 @@ At every boundary, the following conditions **must raise an exception immediatel
 | `evaluation.metrics` | `evaluation.targets.*`, `data.num_levels` |
 | `tuning.optuna_tuner` | `optuna.*`, `system.device`, `train.seed` |
 | `tuning.search_space` | `optuna.search_space.*` |
-| `utils.utils_config` | — (config 자체를 로드하므로 의존 없음) |
-| `utils.utils_model` | `model.backbone`, `storage.models_dir`, `system.device` (`build_model` 사용 시) |
+| `utils.utils_config` | — (config 자체를 로드하므로 의존 없음 / loads config itself, no dependencies) |
+| `utils.utils_model` | `model.backbone`, `storage.models_dir`, `system.device` (`build_model` 사용 시 / when using build_model) |
 | `scripts.run_phase0` | `data.channels`, `system.device`, `train.seed`, `storage.*` |
 | `scripts.run_phase2` | `data.channels`, `system.device`, `train.seed`, `storage.*` |
 | `scripts.run_baseline` | `data.channels`, `system.device`, `train.seed`, `storage.*` |
