@@ -655,26 +655,26 @@ BDD 시나리오와 TDD 테스트 파일 / BDD scenarios mapped to TDD test file
 
 | BDD 시나리오 / Scenario | TDD 테스트 파일 / Test File | 테스트 함수 / Test Function | 계층 / Layer |
 |---|---|---|---|
-| 1.1 — AUTO_ACCEPT 플래그 | `test_predictor.py` | `test_confidence_auto_accept_flag` | Unit |
-| 1.2 — WARN 플래그 | `test_predictor.py` | `test_confidence_warn_flag` | Unit |
-| 1.3 — MANUAL_REVIEW 플래그 | `test_predictor.py` | `test_confidence_manual_review_flag` | Unit |
-| 1.5 — Raw logit 출력 | `test_models.py` | `test_output_is_logits_not_probability` | Unit |
-| 2.3 — EfficientNet-B0 head 구조 | `test_models.py` | `test_effb0_direct_compression_mid_dim_none` | Unit |
-| 2.3 — ResNet-50 head 구조 | `test_models.py` | `test_resnet50_staged_compression_mid_dim_512` | Unit |
-| 2.3 — EffB0 Linear 2개 | `test_models.py` | `test_effb0_head_layer_count_is_2_linear` | Unit |
-| 2.3 — ResNet-50 Linear 3개 | `test_models.py` | `test_resnet50_head_layer_count_is_3_linear` | Unit |
-| 2.3 — Phase2 EffB0 출력 shape | `test_models.py` | `test_phase2_effb0_output_shape` | Unit (slow) |
-| 2.3 — Phase2 ResNet-50 출력 shape | `test_models.py` | `test_phase2_resnet50_output_shape` | Unit (slow) |
-| 2.5 — 재현성 보장 | `test_utils_model.py` | `test_set_seed_reproducibility` | Unit |
-| 3.1 — PASS 피드백 | `test_metrics.py` | `test_determine_swing_feedback_pass` | Unit |
-| 3.2 — retry_phase0 피드백 | `test_metrics.py` | `test_determine_swing_feedback_retry_phase0` | Unit |
-| 3.3 — retry_phase2 피드백 | `test_metrics.py` | `test_determine_swing_feedback_retry_phase2` | Unit |
-| 4.3 — 오분류 CSV | `test_metrics.py` | `test_get_misclassified_structure` | Unit |
-| 4.4 — 지표 JSON 구조 | `test_metrics.py` | `test_check_targets_all_pass_structure` | Unit |
-| 5.1 — val_acc 목적 함수 반환 | `test_smoke_optuna.py` | `test_optuna_objective_returns_float` | Smoke |
-| 7.3 — BGR 일관성 | `test_preprocessing.py` | `test_no_rgb_conversion` | Unit |
-| 8.1 — FF01 backbone 누락 | `test_smoke_phase2.py` | `test_phase2_fails_without_phase0_backbone` | Smoke |
-| 8.2 — CF01 config 키 누락 | `test_utils_config.py` | `test_validate_config_missing_key_raises` | Unit |
+| 1.1 — AUTO_ACCEPT 플래그 / flag | `test_predictor.py` | `test_confidence_auto_accept_flag` | Unit |
+| 1.2 — WARN 플래그 / flag | `test_predictor.py` | `test_confidence_warn_flag` | Unit |
+| 1.3 — MANUAL_REVIEW 플래그 / flag | `test_predictor.py` | `test_confidence_manual_review_flag` | Unit |
+| 1.5 — Raw logit 출력 / output | `test_models.py` | `test_output_is_logits_not_probability` | Unit |
+| 2.3 — EfficientNet-B0 head 구조 / structure | `test_models.py` | `test_effb0_direct_compression_mid_dim_none` | Unit |
+| 2.3 — ResNet-50 head 구조 / structure | `test_models.py` | `test_resnet50_staged_compression_mid_dim_512` | Unit |
+| 2.3 — EffB0 Linear 2개 / 2 Linear layers | `test_models.py` | `test_effb0_head_layer_count_is_2_linear` | Unit |
+| 2.3 — ResNet-50 Linear 3개 / 3 Linear layers | `test_models.py` | `test_resnet50_head_layer_count_is_3_linear` | Unit |
+| 2.3 — Phase2 EffB0 출력 shape / output shape | `test_models.py` | `test_phase2_effb0_output_shape` | Unit (slow) |
+| 2.3 — Phase2 ResNet-50 출력 shape / output shape | `test_models.py` | `test_phase2_resnet50_output_shape` | Unit (slow) |
+| 2.5 — 재현성 보장 / Reproducibility guarantee | `test_utils_model.py` | `test_set_seed_reproducibility` | Unit |
+| 3.1 — PASS 피드백 / feedback | `test_metrics.py` | `test_determine_swing_feedback_pass` | Unit |
+| 3.2 — retry_phase0 피드백 / feedback | `test_metrics.py` | `test_determine_swing_feedback_retry_phase0` | Unit |
+| 3.3 — retry_phase2 피드백 / feedback | `test_metrics.py` | `test_determine_swing_feedback_retry_phase2` | Unit |
+| 4.3 — 오분류 CSV / Misclassification CSV | `test_metrics.py` | `test_get_misclassified_structure` | Unit |
+| 4.4 — 지표 JSON 구조 / Metrics JSON structure | `test_metrics.py` | `test_check_targets_all_pass_structure` | Unit |
+| 5.1 — val_acc 목적 함수 반환 / objective return | `test_smoke_optuna.py` | `test_optuna_objective_returns_float` | Smoke |
+| 7.3 — BGR 일관성 / consistency | `test_preprocessing.py` | `test_no_rgb_conversion` | Unit |
+| 8.1 — FF01 backbone 누락 / missing | `test_smoke_phase2.py` | `test_phase2_fails_without_phase0_backbone` | Smoke |
+| 8.2 — CF01 config 키 누락 / missing key | `test_utils_config.py` | `test_validate_config_missing_key_raises` | Unit |
 
 > **미구현 테스트 / Not Yet Implemented**: 시나리오 1.1–1.3 (`test_predictor.py`), 4.1–4.2 (HTML 생성 단위 테스트), 7.1–7.2 (채널 불변식 통합 테스트)
 >
@@ -686,13 +686,13 @@ BDD 시나리오와 TDD 테스트 파일 / BDD scenarios mapped to TDD test file
 
 | 문서 / Document | 관계 / Relationship |
 |---|---|
-| [SSOT_Core.md](SSOT_Core.md) | SOLID 원칙, SSOT 정의, Fail-Fast 정책 — BDD 시나리오 7, 8의 근거 |
-| [Contract.md](Contract.md) | 모듈 경계 계약 — BDD 시나리오 입출력 spec의 기술적 근거 |
-| [SSOT_Evaluation_Reporting.md](SSOT_Evaluation_Reporting.md) | 성능 목표값, 신뢰도 임계값 — 시나리오 1, 3, 4의 수치적 근거 |
-| [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | Phase 0/2 학습 파라미터 — 시나리오 2의 기술적 근거 |
-| [SSOT_Data_Pipeline.md](SSOT_Data_Pipeline.md) | BGR 규약, 채널 독립성 — 시나리오 6, 7의 근거 |
-| [ADR_Model_Select.md](ADR_Model_Select.md) | EfficientNet-B0/ResNet-50 설계 결정 — 시나리오 2.3의 근거 |
-| [TDD.md](TDD.md) | 시나리오별 단위 테스트 전략 — §9 매트릭스의 구현 세부 |
+| [SSOT_Core.md](SSOT_Core.md) | SOLID 원칙, SSOT 정의, Fail-Fast 정책 — BDD 시나리오 7, 8의 근거 / SOLID principles, SSOT definition, Fail-Fast policy — basis for scenarios 7 & 8 |
+| [Contract.md](Contract.md) | 모듈 경계 계약 — BDD 시나리오 입출력 spec의 기술적 근거 / Module boundary contracts — technical basis for scenario I/O specs |
+| [SSOT_Evaluation_Reporting.md](SSOT_Evaluation_Reporting.md) | 성능 목표값, 신뢰도 임계값 — 시나리오 1, 3, 4의 수치적 근거 / Performance targets, confidence thresholds — numeric basis for scenarios 1, 3, 4 |
+| [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | Phase 0/2 학습 파라미터 — 시나리오 2의 기술적 근거 / Phase 0/2 training parameters — technical basis for scenario 2 |
+| [SSOT_Data_Pipeline.md](SSOT_Data_Pipeline.md) | BGR 규약, 채널 독립성 — 시나리오 6, 7의 근거 / BGR convention, channel independence — basis for scenarios 6 & 7 |
+| [ADR_Model_Select.md](ADR_Model_Select.md) | EfficientNet-B0/ResNet-50 설계 결정 — 시나리오 2.3의 근거 / EfficientNet-B0/ResNet-50 design decision — basis for scenario 2.3 |
+| [TDD.md](TDD.md) | 시나리오별 단위 테스트 전략 — §9 매트릭스의 구현 세부 / Per-scenario unit test strategy — implementation detail of the §9 matrix |
 
 ---
 

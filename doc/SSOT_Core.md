@@ -293,12 +293,12 @@ class GrayspotModel(nn.Module):
 
 | 의존 방식 / Dependency | 현재 코드 / Current Code | DIP 준수 여부 / DIP Status |
 |---|---|---|
-| `GrayspotModel` → `nn.Module` | `self.backbone`, `self.head` 모두 `nn.Module` 타입 | ✅ 추상화 의존 |
-| `Phase2Trainer` → `model` | `nn.Module` 타입의 model 수령 — 구체 타입 미강제 | ✅ 추상화 의존 |
-| `GrayspotModel` → `ClassifierHead` | `__init__` 내부에서 직접 `ClassifierHead(...)` 생성 | ⚠️ 구체 클래스 의존 |
-| `GrayspotModel` → `build_backbone()` | 함수 호출로 backbone 생성 — factory 함수가 구체 타입 결정 | ⚠️ 경미한 의존 |
-| config dict | 모든 모듈이 `dict`(추상화)를 수령 — 구체 Config 객체 아님 | ✅ 추상화 의존 |
-| **`optuna_tuner.py`** → `sys.modules` | `sys.modules` 직접 조작으로 호환 shim 주입 — 런타임 전역 상태 오염 | ❌ 심각한 DIP 위반 |
+| `GrayspotModel` → `nn.Module` | `self.backbone`, `self.head` 모두 `nn.Module` 타입 / Both typed as `nn.Module` | ✅ 추상화 의존 / Abstraction dependency |
+| `Phase2Trainer` → `model` | `nn.Module` 타입의 model 수령 — 구체 타입 미강제 / Receives `nn.Module` — concrete type not enforced | ✅ 추상화 의존 / Abstraction dependency |
+| `GrayspotModel` → `ClassifierHead` | `__init__` 내부에서 직접 `ClassifierHead(...)` 생성 / Directly instantiates `ClassifierHead(...)` in `__init__` | ⚠️ 구체 클래스 의존 / Concrete class dependency |
+| `GrayspotModel` → `build_backbone()` | 함수 호출로 backbone 생성 — factory 함수가 구체 타입 결정 / Factory function resolves concrete type | ⚠️ 경미한 의존 / Minor dependency |
+| config dict | 모든 모듈이 `dict`(추상화)를 수령 — 구체 Config 객체 아님 / All modules receive `dict` (abstraction) — not a concrete Config object | ✅ 추상화 의존 / Abstraction dependency |
+| **`optuna_tuner.py`** → `sys.modules` | `sys.modules` 직접 조작으로 호환 shim 주입 — 런타임 전역 상태 오염 / Injects compat shim via direct `sys.modules` manipulation — contaminates global interpreter state | ❌ 심각한 DIP 위반 / Severe DIP violation |
 
 **현재 준수 규칙 / Rules for This Project**:
 
@@ -342,11 +342,11 @@ except ImportError:
 
 | 순위 / Priority | 대상 / Target | 위반 원칙 / Violated | 핵심 문제 / Core Issue | 상태 / Status |
 |---|---|---|---|---|
-| 🔴 **1순위** | `evaluator.py` | SRP + ISP | ~950줄 단일 파일에 추론·지표·저장·차트 7종 혼재 | ✅ **완료** — 4 Mixin + Orchestrator 분해 |
-| 🟠 **2순위** | `optuna_tuner.py` | DIP | `sys.modules` 직접 조작으로 전역 인터프리터 상태 오염 | ✅ **완료** — shim 제거, try/except 패턴 적용 |
-| 🟡 **3순위** | `grayspot_model.py` | OCP | Phase 분기 if/elif — Phase 추가 시 기존 코드 수정 필요 | Phase 추가 시 적용 |
-| ⏸ **보류** | `trainer.py` | OCP | optimizer 2종 if/elif — 현재 규모에서 Registry 과설계 | 보류 (optimizer 추가 시 검토) |
-| ⏸ **보류** | `scripts/*.py` | DIP | 진입점 스크립트의 직접 의존 — CLI 관례상 허용 범위 | 보류 (관례 허용) |
+| 🔴 **1순위 / Priority 1** | `evaluator.py` | SRP + ISP | ~950줄 단일 파일에 추론·지표·저장·차트 7종 혼재 / ~950-line monolith mixing inference, metrics, export, and 7 chart types | ✅ **완료 / Done** — 4 Mixin + Orchestrator 분해 / decomposed |
+| 🟠 **2순위 / Priority 2** | `optuna_tuner.py` | DIP | `sys.modules` 직접 조작으로 전역 인터프리터 상태 오염 / Direct `sys.modules` manipulation contaminates global interpreter state | ✅ **완료 / Done** — shim 제거, try/except 패턴 적용 / shim removed, try/except applied |
+| 🟡 **3순위 / Priority 3** | `grayspot_model.py` | OCP | Phase 분기 if/elif — Phase 추가 시 기존 코드 수정 필요 / if/elif Phase branching requires modifying existing code when adding a Phase | Phase 추가 시 적용 / Apply when Phase is added |
+| ⏸ **보류 / Deferred** | `trainer.py` | OCP | optimizer 2종 if/elif — 현재 규모에서 Registry 과설계 / 2-optimizer if/elif — Registry pattern is over-engineering at current scale | 보류 (optimizer 추가 시 검토) / Deferred (revisit when optimizer is added) |
+| ⏸ **보류 / Deferred** | `scripts/*.py` | DIP | 진입점 스크립트의 직접 의존 — CLI 관례상 허용 범위 / Direct dependency in entry-point scripts — acceptable by CLI convention | 보류 (관례 허용) / Deferred (convention-permitted) |
 
 > **결론 / Conclusion**: 전면 리팩토링은 불필요하다. `evaluator.py`(SRP+ISP) → `optuna_tuner.py`(DIP) 순서로 집중 개선하고, OCP는 확장 시점에 자연스럽게 도입한다. 현재 코드는 이 순서를 제외하면 이 규모의 ML 파이프라인에서 실용적 SOLID 균형점을 달성하고 있다.
 > **Conclusion**: Full refactoring is not required. Focus improvements in order: `evaluator.py` (SRP+ISP) → `optuna_tuner.py` (DIP). Apply OCP improvements at extension time. Excluding these targets, the current code achieves a pragmatic SOLID balance for this ML pipeline scale.

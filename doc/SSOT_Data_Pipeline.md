@@ -248,7 +248,7 @@ DataLoader parameters differ by context — note the difference in `batch_size` 
 | `shuffle` | train=True, val/test=False | False | False |
 | `num_workers` | `train.num_workers` 🟢 (min, cpu_count) | 0 🟡 하드코딩 / Hardcoded | 0 🟡 하드코딩 / Hardcoded |
 | `pin_memory` | `train.pin_memory` 🟢 (config) | device==cuda 🟡 하드코딩 / Hardcoded | — |
-| `drop_last` | `train.drop_last` 🟢 (config, 기본 false) | — | — |
+| `drop_last` | `train.drop_last` 🟢 (config, 기본 false / default false) | — | — |
 | `persistent_workers` | `train.persistent_workers` 🟢 | — | — |
 
 > 평가·추론의 `num_workers=0` 하드코딩은 성능 최적화 여지가 있으나 현재 의도적 기본값이다.

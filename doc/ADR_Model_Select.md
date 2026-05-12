@@ -129,13 +129,13 @@ ResNet-50 outputs 2048-dim features without channel selection. The head must als
 
 | 참조 / Reference | 내용 / Content |
 |---|---|
-| [`src/models/classifier.py`](../src/models/classifier.py) | `ClassifierHead` — `mid_dim` 파라미터로 backbone별 구조 분기 |
-| [`src/models/grayspot_model.py`](../src/models/grayspot_model.py) | `phase2.heads.{backbone}` config 읽어 `ClassifierHead` 생성 |
-| [`src/tuning/search_space.py`](../src/tuning/search_space.py) | backbone별 Optuna 탐색 공간 분기 |
-| [`src/config/config.json`](../src/config/config.json) | `phase2.heads`, `optuna.search_space.{backbone}` 정의 |
-| [SSOT_Model_Architecture.md](SSOT_Model_Architecture.md) | §5 ClassifierHead 상세 구조 |
-| [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | §3.3 backbone별 파라미터, §7 Optuna 탐색 공간 |
-| [SSOT_GlobalVariables.md](SSOT_GlobalVariables.md) | Hard SSOT `mid_dim`, `hidden_dim` 분류 |
+| [`src/models/classifier.py`](../src/models/classifier.py) | `ClassifierHead` — `mid_dim` 파라미터로 backbone별 구조 분기 / backbone-specific structure branch via `mid_dim` parameter |
+| [`src/models/grayspot_model.py`](../src/models/grayspot_model.py) | `phase2.heads.{backbone}` config 읽어 `ClassifierHead` 생성 / reads `phase2.heads.{backbone}` config to construct `ClassifierHead` |
+| [`src/tuning/search_space.py`](../src/tuning/search_space.py) | backbone별 Optuna 탐색 공간 분기 / Optuna search space branched per backbone |
+| [`src/config/config.json`](../src/config/config.json) | `phase2.heads`, `optuna.search_space.{backbone}` 정의 / defines `phase2.heads` and `optuna.search_space.{backbone}` |
+| [SSOT_Model_Architecture.md](SSOT_Model_Architecture.md) | §5 ClassifierHead 상세 구조 / §5 ClassifierHead detailed structure |
+| [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | §3.3 backbone별 파라미터, §7 Optuna 탐색 공간 / §3.3 per-backbone parameters, §7 Optuna search space |
+| [SSOT_GlobalVariables.md](SSOT_GlobalVariables.md) | Hard SSOT `mid_dim`, `hidden_dim` 분류 / Hard SSOT classification of `mid_dim`, `hidden_dim` |
 
 ---
 
