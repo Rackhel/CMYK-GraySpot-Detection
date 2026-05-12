@@ -58,7 +58,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / 'src'))
 
 # ── utils shim (팀 코드 호환) / utils shim for team code compatibility ──────
-# config_manager.py, evaluator.py 등이 `from utils import ...` 를 사용하므로
+# evaluator.py 등이 `from utils import ...` 를 사용하므로
 # top-level utils 모듈을 등록한다.
 _logger_mod = importlib.import_module('src.utils.logger')
 _utils_shim = types.ModuleType('utils')
@@ -70,8 +70,7 @@ _utils_shim.log_epoch_summary = _logger_mod.log_epoch_summary
 sys.modules['utils'] = _utils_shim
 
 # ── 이후 임포트 / Imports after shim ──────────────────────────────────────
-from src.config import get_config
-from src.utils import setup_logging, get_logger
+from src.utils import setup_logging, get_logger, load_config, validate_config, create_directories, get_nested
 
 CHANNELS = ['Y', 'M', 'C', 'K']
 
@@ -80,7 +79,7 @@ CHANNELS = ['Y', 'M', 'C', 'K']
 # Step 1 — Naive Baseline 학습 / Naive Baseline training
 # ---------------------------------------------------------------------------
 
-def step_train(config, channels: list[str], device, logger) -> bool:
+def step_train(cfg, channels: list[str], device, logger) -> bool:
     """
     run_baseline 을 채널별로 실행한다.
     Runs run_baseline per channel.
@@ -88,7 +87,8 @@ def step_train(config, channels: list[str], device, logger) -> bool:
     Returns:
         True if all channels succeeded, False otherwise.
     """
-    from src.scripts.run_baseline import run_baseline, set_seed
+    from src.scripts.run_baseline import run_baseline
+    from src.utils import set_seed
     import torch, json
     from pathlib import Path
 
@@ -97,14 +97,14 @@ def step_train(config, channels: list[str], device, logger) -> bool:
     logger.info(f'  Channels : {channels}')
     logger.info('=' * 60)
 
-    set_seed(config.get('train.seed') or 42)
+    set_seed(cfg['train'].get('seed') or 42, cfg)
 
-    baseline_dir = Path(config.get('storage.data_root')) / 'baseline'
+    baseline_dir = Path(cfg['storage']['data_root']) / 'baseline'
     baseline_dir.mkdir(parents=True, exist_ok=True)
 
     results = []
     for ch in channels:
-        result = run_baseline(config.config, ch, device)
+        result = run_baseline(cfg, ch, device)
         results.append(result)
 
     # 요약 출력 / Print summary
@@ -127,8 +127,8 @@ def step_train(config, channels: list[str], device, logger) -> bool:
     # baseline_summary.json 저장 / Save summary
     summary = {
         'mode'    : 'Naive Baseline (Supervised-only, no Phase 0)',
-        'backbone': config.get('model.backbone'),
-        'epochs'  : config.get('phase2.epochs'),
+        'backbone': cfg['model']['backbone'],
+        'epochs'  : cfg['phase2']['epochs'],
         'results' : results,
     }
     summary_path = baseline_dir / 'baseline_summary.json'
@@ -168,7 +168,7 @@ def step_optuna(channels: list[str], n_trials: int, logger) -> bool:
 # Step 3 — 리포트 생성 / Report generation
 # ---------------------------------------------------------------------------
 
-def step_report(config, channels: list[str], device, open_browser: bool, logger) -> bool:
+def step_report(cfg, channels: list[str], device, open_browser: bool, logger) -> bool:
     """
     generate_baseline_report 의 핵심 로직을 실행한다.
     Runs the core logic of generate_baseline_report.
@@ -179,8 +179,8 @@ def step_report(config, channels: list[str], device, open_browser: bool, logger)
     from datetime import datetime
     from pathlib import Path
 
+    from src.utils import build_model
     from src.scripts.generate_baseline_report import (
-        build_model,
         load_baseline_summary,
         summary_to_cards,
         build_baseline_html,
@@ -196,9 +196,9 @@ def step_report(config, channels: list[str], device, open_browser: bool, logger)
     logger.info('STEP 3 — Report Generation')
     logger.info('=' * 60)
 
-    baseline_dir = Path(config.get('storage.data_root')) / 'baseline'
-    labeled_dir  = Path(config.get('storage.labeled_dir'))
-    labels_csv   = Path(config.get('storage.data_root')) / 'labels_v0.csv'
+    baseline_dir = Path(cfg['storage']['data_root']) / 'baseline'
+    labeled_dir  = Path(cfg['storage']['labeled_dir'])
+    labels_csv   = Path(cfg['storage']['data_root']) / 'labels_v0.csv'
     output_dir   = ROOT / 'outputs' / 'reports'
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -225,35 +225,37 @@ def step_report(config, channels: list[str], device, open_browser: bool, logger)
             logger.warning(f'[{ch}] Checkpoint not found — skipping')
             continue
 
-        model = build_model(config.config, ckpt, device)
+        model = build_model(cfg, ckpt, device)
         ev    = Evaluator(
             model       = model,
             labeled_dir = labeled_dir,
             labels_csv  = labels_csv,
             output_dir  = output_dir / 'tmp',
             device      = device,
-            image_size  = config.get('data.image_size') or 128,
-            batch_size  = config.get('phase2.batch_size') or 32,
-            num_levels  = config.get('data.num_levels') or NUM_LEVELS,
+            image_size  = cfg['data']['image_size'],
+            batch_size  = cfg['phase2']['batch_size'],
+            num_levels  = cfg['data']['num_levels'],
+            cfg         = cfg,
         )
         all_results.update(ev.run(channels=[ch]))
 
     metrics = compute_all_channels(
         all_results,
         list(all_results.keys()),
-        num_classes=config.get('data.num_levels') or NUM_LEVELS,
+        num_classes=cfg['data']['num_levels'],
     )
 
     # 차트 생성
     ev_report = Evaluator(
-        model       = build_model(config.config, baseline_dir / f'best_{available[0]}.pt', device),
+        model       = build_model(cfg, baseline_dir / f'best_{available[0]}.pt', device),
         labeled_dir = labeled_dir,
         labels_csv  = labels_csv,
         output_dir  = output_dir,
         device      = device,
-        image_size  = config.get('data.image_size') or 128,
-        batch_size  = config.get('phase2.batch_size') or 32,
-        num_levels  = config.get('data.num_levels') or NUM_LEVELS,
+        image_size  = cfg['data']['image_size'],
+        batch_size  = cfg['phase2']['batch_size'],
+        num_levels  = cfg['data']['num_levels'],
+        cfg         = cfg,
     )
 
     df_miss = ev_report.get_misclassified(all_results, list(all_results.keys()))
@@ -324,9 +326,9 @@ def step_report(config, channels: list[str], device, open_browser: bool, logger)
     meta = {
         'experiment'  : 'baseline',
         'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'backbone'    : summary.get('backbone', config.get('model.backbone')),
-        'epochs'      : summary.get('epochs', config.get('phase2.epochs')),
-        'image_size'  : config.get('data.image_size') or 128,
+        'backbone'    : summary.get('backbone', cfg['model']['backbone']),
+        'epochs'      : summary.get('epochs', cfg['phase2']['epochs']),
+        'image_size'  : cfg['data']['image_size'],
         'channels'    : available,
     }
 
@@ -386,29 +388,26 @@ def main() -> None:
     # 채널 결정 / Resolve channels
     target_channels = CHANNELS if args.channel.lower() == 'all' else [args.channel.upper()]
 
-    # ConfigManager 로드 / Load ConfigManager
-    config = get_config(
-        config_path=ROOT / 'src' / 'config' / 'config.yaml',
-        root_dir=ROOT,
-    )
-    if not config.validate():
+    # config 로드 / Load config
+    cfg = load_config()
+    if not validate_config(cfg):
         print('[ERROR] Configuration validation failed.')
         sys.exit(1)
 
-    config.create_necessary_directories()
+    create_directories(cfg)
 
     # 로깅 설정 / Setup logging
     setup_logging(
-        log_dir      = __import__('pathlib').Path(config.get('storage.logs_dir')),
-        level        = config.get('logging.level') or 'INFO',
-        format_style = config.get('logging.format') or 'detailed',
-        console      = config.get('logging.console_output'),
-        file         = config.get('logging.file_output'),
+        log_dir      = __import__('pathlib').Path(cfg['storage']['logs_dir']),
+        level        = get_nested(cfg, 'logging.level') or 'INFO',
+        format_style = get_nested(cfg, 'logging.format') or 'detailed',
+        console      = get_nested(cfg, 'logging.console_output'),
+        file         = get_nested(cfg, 'logging.file_output'),
     )
     logger = get_logger(__name__)
 
     import torch
-    device = torch.device(config.get('system.device'))
+    device = torch.device(cfg['system']['device'])
 
     # 시작 배너 / Start banner
     print()
@@ -418,7 +417,7 @@ def main() -> None:
     print('=' * 60)
     print(f'  Channels     : {target_channels}')
     print(f'  Device       : {device}')
-    print(f'  Backbone     : {config.get("model.backbone")}')
+    print(f'  Backbone     : {cfg["model"]["backbone"]}')
     print(f'  Report only  : {args.report_only}')
     print(f'  Optuna       : {args.optuna} (trials={args.trials})')
     print('=' * 60)
@@ -429,7 +428,7 @@ def main() -> None:
 
     # STEP 1 — Baseline 학습 / Baseline training
     if not args.report_only:
-        ok = step_train(config, target_channels, device, logger)
+        ok = step_train(cfg, target_channels, device, logger)
         steps_done.append(('Baseline Training', ok))
         if not ok:
             logger.error('Baseline training failed. Aborting.')
@@ -446,7 +445,7 @@ def main() -> None:
         steps_done.append(('Optuna Tuning', 'SKIPPED'))
 
     # STEP 3 — 리포트 생성 / Report generation
-    ok = step_report(config, target_channels, device, args.open_browser, logger)
+    ok = step_report(cfg, target_channels, device, args.open_browser, logger)
     steps_done.append(('Report Generation', ok))
 
     # 완료 요약 / Completion summary

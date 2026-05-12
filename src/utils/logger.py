@@ -12,11 +12,12 @@ Provides centralized logger for use throughout the project.
     logger.info("Training started...")
     logger.warning("Low validation accuracy detected")
 """
-import platform
+import json
 import logging
 import logging.handlers
-import sys
 import platform
+import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
@@ -431,11 +432,106 @@ def log_pipeline_error(
     logger.error(f"  Message: {str(error)}")
     logger.error("=" * 70)
     
-    # 디버그 레벨에서 스택 트레이스 출력
     logger.debug(f"Stack trace:", exc_info=error)
 
 
-    
+def log_snapshot(
+    config: dict,
+    snapshot_dir: Optional[Path] = None,
+    tag: str = "",
+    logger: Optional[logging.Logger] = None,
+) -> Path:
+    """
+    학습 시점 스냅샷 저장 / Save a point-in-time training snapshot to JSON.
+
+    학습 시작 시 설정·환경·코드(git) 상태를 JSON 파일로 저장한다.
+    Saves config dict, environment info, and git state as a JSON file at training start.
+
+    Args:
+        config:       저장할 설정 딕셔너리 / Configuration dictionary to snapshot
+        snapshot_dir: 저장 디렉토리 / Directory for snapshot files
+                      (기본값 / default: outputs/snapshots)
+        tag:          식별 태그 (채널명, 페이즈 등) / Identifier tag (channel, phase, etc.)
+        logger:       로거 인스턴스 / Logger instance
+
+    Returns:
+        저장된 스냅샷 파일 경로 / Path of saved snapshot file
+
+    Example:
+        snap = log_snapshot(cfg, snapshot_dir=Path("outputs/snapshots"), tag="Y_phase0")
+    """
+    if logger is None:
+        logger = get_logger()
+
+    if snapshot_dir is None:
+        snapshot_dir = Path("outputs/snapshots")
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"config_snapshot_{tag}_{ts}.json" if tag else f"config_snapshot_{ts}.json"
+    snapshot_path = snapshot_dir / filename
+
+    # 환경 정보 수집 / Collect environment info
+    torch_version = "N/A"
+    cuda_available = False
+    cuda_version: Optional[str] = None
+    try:
+        import torch as _torch
+        torch_version = _torch.__version__
+        cuda_available = _torch.cuda.is_available()
+        cuda_version = _torch.version.cuda if cuda_available else None
+    except ImportError:
+        pass
+
+    # Git 상태 수집 / Collect git state (non-fatal if git unavailable)
+    git_commit: Optional[str] = None
+    git_dirty: Optional[bool] = None
+    try:
+        git_commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+        porcelain = subprocess.check_output(
+            ["git", "status", "--porcelain"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+        git_dirty = bool(porcelain)
+    except Exception:
+        pass
+
+    snapshot = {
+        "timestamp": datetime.now().isoformat(),
+        "tag": tag,
+        "environment": {
+            "python": sys.version,
+            "platform": platform.platform(),
+            "torch": torch_version,
+            "cuda_available": cuda_available,
+            "cuda_version": cuda_version,
+        },
+        "git": {
+            "commit": git_commit,
+            "dirty": git_dirty,
+        },
+        "config": config,
+    }
+
+    with open(snapshot_path, "w", encoding="utf-8") as f:
+        json.dump(snapshot, f, indent=2, ensure_ascii=False, default=str)
+
+    logger.info("=" * 70)
+    logger.info("SNAPSHOT SAVED / 스냅샷 저장 완료")
+    logger.info("=" * 70)
+    logger.info(f"  Path   : {snapshot_path}")
+    logger.info(f"  Tag    : {tag or '(none)'}")
+    logger.info(f"  Python : {sys.version.split()[0]}")
+    logger.info(f"  Torch  : {torch_version}")
+    logger.info(f"  Git    : {git_commit or 'N/A'} (dirty={git_dirty})")
+    logger.info("=" * 70)
+
+    return snapshot_path
+
+
 # 프로젝트 시작 시 자동 설정 (선택사항)
 # Auto-setup on import (optional - can be overridden by user)
 # _default_setup_done = False

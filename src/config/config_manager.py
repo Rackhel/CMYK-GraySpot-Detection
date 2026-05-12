@@ -7,15 +7,6 @@ config/config_manager.py
 Handles loading, validation, and path resolution of configuration.
 """
 
-"""
-config/config_manager.py
-
-설정 파일 관리 및 로드 / Configuration file management and loading.
-
-설정의 로드, 검증, 경로 해석을 담당합니다.
-Handles loading, validation, and path resolution of configuration.
-"""
-
 import yaml
 import json
 from pathlib import Path
@@ -23,10 +14,7 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 import torch
 
-try:
-    from utils.logger import LoggerMixin
-except ImportError:
-    from src.utils.logger import LoggerMixin  # type: ignore
+from utils import LoggerMixin
 
 
 class ConfigManager(LoggerMixin):

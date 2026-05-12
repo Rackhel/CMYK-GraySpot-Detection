@@ -33,14 +33,12 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torch.nn as nn
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / 'src'))
 
-from src.config import get_config
-from src.utils import setup_logging, get_logger
+from src.utils import setup_logging, get_logger, build_model, load_config, validate_config, create_directories, get_nested
 
 from evaluation.evaluator import Evaluator
 from evaluation.metrics import (
@@ -53,17 +51,6 @@ from evaluation.metrics import (
     check_targets,
 )
 from evaluation.confusion import plot_confusion_matrix
-from models.grayspot_model import GrayspotModel
-
-
-def build_model(cfg: dict, checkpoint: Path, device: torch.device) -> nn.Module:
-    """run_baseline.py 와 동일한 GrayspotModel 구조로 모델을 로드한다."""
-    model = GrayspotModel(cfg, phase=2).to(device)
-    state = torch.load(str(checkpoint), map_location='cpu')
-    if isinstance(state, dict) and 'model_state_dict' in state:
-        state = state['model_state_dict']
-    model.load_state_dict(state, strict=False)
-    return model.to(device).eval()
 
 
 def load_baseline_summary(baseline_dir: Path) -> dict:
@@ -373,30 +360,27 @@ def main() -> None:
     parser.add_argument('--open-browser', action='store_true')
     args = parser.parse_args()
 
-    config = get_config(
-        config_path=ROOT / 'src' / 'config' / 'config.yaml',
-        root_dir=ROOT,
-    )
-    if not config.validate():
+    cfg = load_config()
+    if not validate_config(cfg):
         print('[ERROR] Configuration validation failed.')
         sys.exit(1)
 
-    config.create_necessary_directories()
+    create_directories(cfg)
     setup_logging(
-        log_dir      = Path(config.get('storage.logs_dir')),
-        level        = config.get('logging.level') or 'INFO',
-        format_style = config.get('logging.format') or 'detailed',
-        console      = config.get('logging.console_output'),
-        file         = config.get('logging.file_output'),
+        log_dir      = Path(cfg['storage']['logs_dir']),
+        level        = get_nested(cfg, 'logging.level') or 'INFO',
+        format_style = get_nested(cfg, 'logging.format') or 'detailed',
+        console      = get_nested(cfg, 'logging.console_output'),
+        file         = get_nested(cfg, 'logging.file_output'),
     )
     logger = get_logger(__name__)
 
-    baseline_dir = Path(config.get('storage.data_root')) / 'baseline'
-    labeled_dir  = Path(config.get('storage.labeled_dir'))
-    labels_csv   = Path(config.get('storage.data_root')) / 'labels_v0.csv'
+    baseline_dir = Path(cfg['storage']['data_root']) / 'baseline'
+    labeled_dir  = Path(cfg['storage']['labeled_dir'])
+    labels_csv   = Path(cfg['storage']['data_root']) / 'labels_v0.csv'
     output_dir   = ROOT / 'outputs' / 'reports'
     output_dir.mkdir(parents=True, exist_ok=True)
-    device = torch.device(config.get('system.device'))
+    device = torch.device(cfg['system']['device'])
 
     logger.info('=' * 60)
     logger.info('Baseline Report Generation')
@@ -435,16 +419,17 @@ def main() -> None:
             logger.warning(f'[{ch}] Checkpoint not found: {ckpt} — skipping')
             continue
 
-        model = build_model(config.config, ckpt, device)
+        model = build_model(cfg, ckpt, device)
         ev    = Evaluator(
             model       = model,
             labeled_dir = labeled_dir,
             labels_csv  = labels_csv,
             output_dir  = output_dir / 'tmp',
             device      = device,
-            image_size  = config.get('data.image_size') or 128,
-            batch_size  = config.get('phase2.batch_size') or 32,
-            num_levels  = config.get('data.num_levels') or NUM_LEVELS,
+            image_size  = cfg['data']['image_size'],
+            batch_size  = cfg['phase2']['batch_size'],
+            num_levels  = cfg['data']['num_levels'],
+            cfg         = cfg,
         )
         all_results.update(ev.run(channels=[ch]))
         logger.info(f'[{ch}] Inference done (visualization only)')
@@ -453,20 +438,21 @@ def main() -> None:
     metrics = compute_all_channels(
         all_results,
         list(all_results.keys()),
-        num_classes=config.get('data.num_levels') or NUM_LEVELS,
+        num_classes=cfg['data']['num_levels'],
     )
 
     # ── 4. 차트 생성 ──────────────────────────────────────────────────────
     logger.info('Building charts...')
     ev_report = Evaluator(
-        model       = build_model(config.config, baseline_dir / f'best_{available[0]}.pt', device),
+        model       = build_model(cfg, baseline_dir / f'best_{available[0]}.pt', device),
         labeled_dir = labeled_dir,
         labels_csv  = labels_csv,
         output_dir  = output_dir,
         device      = device,
-        image_size  = config.get('data.image_size') or 128,
-        batch_size  = config.get('phase2.batch_size') or 32,
-        num_levels  = config.get('data.num_levels') or NUM_LEVELS,
+        image_size  = cfg['data']['image_size'],
+        batch_size  = cfg['phase2']['batch_size'],
+        num_levels  = cfg['data']['num_levels'],
+        cfg         = cfg,
     )
 
     df_miss = ev_report.get_misclassified(all_results, list(all_results.keys()))
@@ -537,9 +523,9 @@ def main() -> None:
     meta = {
         'experiment'  : 'baseline',
         'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'backbone'    : summary.get('backbone', config.get('model.backbone')),
-        'epochs'      : summary.get('epochs', config.get('phase2.epochs')),
-        'image_size'  : config.get('data.image_size') or 128,
+        'backbone'    : summary.get('backbone', cfg['model']['backbone']),
+        'epochs'      : summary.get('epochs', cfg['phase2']['epochs']),
+        'image_size'  : cfg['data']['image_size'],
         'channels'    : available,
     }
 

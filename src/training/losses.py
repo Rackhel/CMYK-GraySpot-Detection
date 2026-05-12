@@ -23,7 +23,7 @@ def get_loss(phase: int, cfg: dict,
 
     Args:
         phase:         0 (Contrastive) | 2 (Supervised)
-        cfg:           config.yaml dict
+        cfg:           config.json dict
         train_samples: Phase 2에서 class_weights 계산 시 필요한 샘플 리스트
                        [(image_path, level), ...] — required for class_weights in Phase 2
 

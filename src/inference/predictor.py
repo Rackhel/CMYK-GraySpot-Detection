@@ -57,12 +57,12 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 def _get_config(config_path=None):
-    """Load ConfigManager, handling different sys.path scenarios."""
+    """config.json을 로드하고 처리된 dict를 반환한다."""
     try:
-        from config import get_config as _gc
+        from utils.utils_config import load_config as _lc
     except ImportError:
-        from src.config import get_config as _gc  # type: ignore
-    return _gc(config_path) if config_path else _gc()
+        from src.utils.utils_config import load_config as _lc  # type: ignore
+    return _lc(config_path=config_path) if config_path else _lc()
 
 
 def _get_model_class():
@@ -94,20 +94,20 @@ class GrayspotPredictor(LoggerMixin):
 
         Args:
             config_path: 설정 파일 경로 (None 이면 기본값 사용)
-                         Path to config.yaml (None uses default)
+                         Path to config.json (None uses default)
         """
         self.logger.info("[Predictor] Initializing GrayspotPredictor...")
 
-        self.config = _get_config(config_path)
+        self.cfg = _get_config(config_path)
         self.device = self._setup_device()
         self.logger.info(f"  Device: {self.device}")
 
         self.models: Dict[str, Any] = {}
         self.model_paths: Dict[str, Path] = {}
 
-        self.channels    = self.config.get("data.channels") or ["Y", "M", "C", "K"]
-        self.image_size  = self.config.get("data.image_size") or 128
-        self.num_levels  = self.config.get("data.num_levels") or 6
+        self.channels    = self.cfg.get("data", {}).get("channels") or ["Y", "M", "C", "K"]
+        self.image_size  = self.cfg.get("data", {}).get("image_size") or 128
+        self.num_levels  = self.cfg.get("data", {}).get("num_levels") or 6
 
         self.logger.info(f"  Channels: {self.channels}")
         self.logger.info(f"  Image size: {self.image_size}x{self.image_size}")
@@ -115,7 +115,7 @@ class GrayspotPredictor(LoggerMixin):
 
     def _setup_device(self) -> torch.device:
         """장치 자동 설정 / Auto-detect and set compute device."""
-        device_cfg = (self.config.get("system.device") or "auto").lower()
+        device_cfg = (self.cfg.get("system", {}).get("device") or "auto").lower()
 
         if device_cfg == "auto":
             if torch.cuda.is_available():
@@ -166,7 +166,7 @@ class GrayspotPredictor(LoggerMixin):
             return
 
         if model_path is None:
-            models_dir = self.config.get_path("storage.models_dir")
+            models_dir = Path(self.cfg["storage"]["models_dir"])
             model_path = models_dir / f"best_{channel}.pt"
         else:
             model_path = Path(model_path)
@@ -177,7 +177,7 @@ class GrayspotPredictor(LoggerMixin):
         self.logger.info(f"[Predictor] Loading model [{channel}] from {model_path}")
 
         GrayspotModel = _get_model_class()
-        model = GrayspotModel(self.config.config, phase=2)
+        model = GrayspotModel(self.cfg, phase=2)
 
         checkpoint = torch.load(str(model_path), map_location="cpu", weights_only=True)
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
