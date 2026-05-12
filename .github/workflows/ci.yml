@@ -123,7 +123,7 @@ jobs:
             import tomllib
         except ImportError:
             import tomli as tomllib
-        tomllib.loads(open('src/config/pyproject.toml').read())
+        tomllib.loads(open('src/config/pyproject.toml', encoding='utf-8').read())
         print('pyproject.toml is valid')
         "
 
