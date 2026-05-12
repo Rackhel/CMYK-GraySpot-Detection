@@ -26,6 +26,7 @@ Python 3.11.5 | macOS & Windows compatible
 from __future__ import annotations
 
 import json
+
 # ── Internal / 내부 ───────────────────────────────────────────────────────
 # Absolute import so this module works both standalone and as part of the package
 # 패키지 일부 및 단독 실행 모두 동작하도록 절대 임포트 사용
@@ -64,14 +65,18 @@ except ImportError:
 
     _logger = logging.getLogger(__name__)
 
-from evaluation.confusion import (CMYK_COLORS, FONT_FAMILY, FONT_SIZE,
-                                  PLOTLY_TEMPLATE)
-from evaluation.metrics import (CHANNELS, DEFAULT_TARGET_MAE,
-                                DEFAULT_TARGET_OVERALL_ACC,
-                                DEFAULT_TARGET_PER_CLASS_F1,
-                                DEFAULT_TARGET_PER_COLOR_ACC, NUM_LEVELS,
-                                ChannelMetrics, EvaluationSummary,
-                                summary_to_dict)
+from evaluation.confusion import CMYK_COLORS, FONT_FAMILY, FONT_SIZE, PLOTLY_TEMPLATE
+from evaluation.metrics import (
+    CHANNELS,
+    DEFAULT_TARGET_MAE,
+    DEFAULT_TARGET_OVERALL_ACC,
+    DEFAULT_TARGET_PER_CLASS_F1,
+    DEFAULT_TARGET_PER_COLOR_ACC,
+    NUM_LEVELS,
+    ChannelMetrics,
+    EvaluationSummary,
+    summary_to_dict,
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 0. Style constants — matches 04_evaluation.ipynb color palette

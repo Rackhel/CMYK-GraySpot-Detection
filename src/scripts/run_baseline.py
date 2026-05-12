@@ -43,9 +43,17 @@ sys.path.insert(0, str(SRC_DIR))
 
 from data.dataset import CMYKDataset
 from models.grayspot_model import GrayspotModel
-from src.utils import (create_directories, get_logger, get_nested, load_config,
-                       log_snapshot, log_training_config, set_seed,
-                       setup_logging, validate_config)
+from src.utils import (
+    create_directories,
+    get_logger,
+    get_nested,
+    load_config,
+    log_snapshot,
+    log_training_config,
+    set_seed,
+    setup_logging,
+    validate_config,
+)
 from training.trainer import Phase2Trainer
 
 warnings.filterwarnings("ignore")

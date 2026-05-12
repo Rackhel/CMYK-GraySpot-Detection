@@ -53,8 +53,12 @@ from evaluation.evaluator_charts import ChartsMixin
 from evaluation.evaluator_export import ExportMixin
 from evaluation.evaluator_inference import InferenceMixin
 from evaluation.evaluator_metrics import MetricsMixin
-from evaluation.metrics import (CONF_THRESH_AUTO, CONF_THRESH_MANUAL,
-                                CONF_THRESH_WARN, NUM_LEVELS)
+from evaluation.metrics import (
+    CONF_THRESH_AUTO,
+    CONF_THRESH_MANUAL,
+    CONF_THRESH_WARN,
+    NUM_LEVELS,
+)
 
 _DEFAULT_CONF_AUTO = CONF_THRESH_AUTO
 _DEFAULT_CONF_WARN = CONF_THRESH_WARN

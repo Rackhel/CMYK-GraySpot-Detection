@@ -16,8 +16,7 @@ SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
-from evaluation.confusion import (compute_confusion_matrix,
-                                  plot_confusion_matrix)
+from evaluation.confusion import compute_confusion_matrix, plot_confusion_matrix
 
 # ── compute_confusion_matrix ─────────────────────────────────────────────────
 

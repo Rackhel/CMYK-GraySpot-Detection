@@ -40,11 +40,24 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from evaluation.confusion import plot_confusion_matrix
 from evaluation.evaluator import Evaluator
-from evaluation.metrics import (NUM_LEVELS, TARGET_MAE, TARGET_OVERALL_ACC,
-                                TARGET_PER_CLASS_F1, TARGET_PER_COLOR_ACC,
-                                check_targets, compute_all_channels)
-from src.utils import (build_model, create_directories, get_logger, get_nested,
-                       load_config, setup_logging, validate_config)
+from evaluation.metrics import (
+    NUM_LEVELS,
+    TARGET_MAE,
+    TARGET_OVERALL_ACC,
+    TARGET_PER_CLASS_F1,
+    TARGET_PER_COLOR_ACC,
+    check_targets,
+    compute_all_channels,
+)
+from src.utils import (
+    build_model,
+    create_directories,
+    get_logger,
+    get_nested,
+    load_config,
+    setup_logging,
+    validate_config,
+)
 
 
 def load_baseline_summary(baseline_dir: Path) -> dict:

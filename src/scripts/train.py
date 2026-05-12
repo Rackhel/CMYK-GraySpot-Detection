@@ -70,8 +70,14 @@ _utils_shim.log_epoch_summary = _logger_mod.log_epoch_summary
 sys.modules["utils"] = _utils_shim
 
 # ── 이후 임포트 / Imports after shim ──────────────────────────────────────
-from src.utils import (create_directories, get_logger, get_nested, load_config,
-                       setup_logging, validate_config)
+from src.utils import (
+    create_directories,
+    get_logger,
+    get_nested,
+    load_config,
+    setup_logging,
+    validate_config,
+)
 
 CHANNELS = ["Y", "M", "C", "K"]
 
@@ -191,11 +197,17 @@ def step_report(cfg, channels: list[str], device, open_browser: bool, logger) ->
 
     from evaluation.confusion import plot_confusion_matrix
     from evaluation.evaluator import Evaluator
-    from evaluation.metrics import (NUM_LEVELS, TARGET_MAE,
-                                    TARGET_PER_COLOR_ACC, compute_all_channels)
-    from src.scripts.generate_baseline_report import (build_baseline_html,
-                                                      load_baseline_summary,
-                                                      summary_to_cards)
+    from evaluation.metrics import (
+        NUM_LEVELS,
+        TARGET_MAE,
+        TARGET_PER_COLOR_ACC,
+        compute_all_channels,
+    )
+    from src.scripts.generate_baseline_report import (
+        build_baseline_html,
+        load_baseline_summary,
+        summary_to_cards,
+    )
     from src.utils import build_model
 
     logger.info("=" * 60)

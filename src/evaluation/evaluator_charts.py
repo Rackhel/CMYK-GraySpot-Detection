@@ -18,9 +18,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from evaluation.metrics import (TARGET_MAE, TARGET_OVERALL_ACC,
-                                TARGET_PER_CLASS_F1, TARGET_PER_COLOR_ACC,
-                                check_targets)
+from evaluation.metrics import (
+    TARGET_MAE,
+    TARGET_OVERALL_ACC,
+    TARGET_PER_CLASS_F1,
+    TARGET_PER_COLOR_ACC,
+    check_targets,
+)
 
 
 class ChartsMixin:
