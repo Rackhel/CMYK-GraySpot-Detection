@@ -20,7 +20,10 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 
-from utils import get_logger
+try:
+    from utils.logger import get_logger
+except ImportError:
+    from src.utils.logger import get_logger
 from data.dataset       import CMYKDataset, ContrastiveDataset   # noqa: F401 — re-export
 from models.grayspot_model import GrayspotModel
 from training.losses    import get_loss

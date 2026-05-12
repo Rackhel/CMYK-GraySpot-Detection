@@ -15,7 +15,11 @@ from pathlib import Path
 from models.backbone        import build_backbone
 from models.projection_head import ProjectionHead
 from models.classifier      import ClassifierHead
-from utils import LoggerMixin
+
+try:
+    from utils.logger import LoggerMixin
+except ImportError:
+    from src.utils.logger import LoggerMixin
 
 
 class GrayspotModel(nn.Module, LoggerMixin):

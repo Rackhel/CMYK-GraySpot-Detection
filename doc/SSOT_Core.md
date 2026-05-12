@@ -16,7 +16,7 @@ This document defines the core SSOT principles, terminology, and document invent
 2. [핵심 용어 / Glossary](#2-핵심-용어--glossary)
 3. [상태 아이콘 범례 / Icon Legend](#3-상태-아이콘-범례--icon-legend)
 4. [프로젝트 정체성 / Project Identity](#4-프로젝트-정체성--project-identity)
-5. [SOLID 설계 원칙 / SOLID Design Principles](#5-solid-설계-원칙--solid-design-principles)
+5. [SOLID 설계 원칙 / SOLID Design Principles](#5-solid-설계-원칙--solid-design-principles) (§5.1 SRP · §5.2 OCP · §5.3 LSP · §5.4 ISP · §5.5 DIP · §5.6 요약 · §5.7 리팩토링 우선순위)
 6. [코딩 컨벤션 / Coding Conventions](#6-코딩-컨벤션--coding-conventions)
 7. [Fail-Fast 정책 / Fail-Fast Policy](#7-fail-fast-정책--fail-fast-policy)
 8. [Hard / Soft SSOT 분류 / Classification](#8-hard--soft-ssot-분류--classification)
@@ -118,10 +118,22 @@ All Python code in this project uses SOLID principles as **design criteria**. Cu
 
 **SRP 위반 판단 기준 / SRP violation test**: 함수/클래스 설명에 "그리고(and)"가 필요하면 책임이 두 개다. / If describing a function/class requires the word "and", it has more than one responsibility.
 
-**현재 상태 / Current Status**: ✅ **대부분 준수**
-- `Phase0Trainer` / `Phase2Trainer` — 각 Phase 학습만 담당
-- `ClassifierHead` / `ProjectionHead` — 각 head 구조 정의만 담당
-- `utils_config.py` / `utils_model.py` / `logger.py` — 관심사 분리 완료
+**현재 상태 / Current Status**: ⚠️ **부분 위반**
+- `Phase0Trainer` / `Phase2Trainer` — 각 Phase 학습만 담당 ✅
+- `ClassifierHead` / `ProjectionHead` — 각 head 구조 정의만 담당 ✅
+- `utils_config.py` / `utils_model.py` / `logger.py` — 관심사 분리 완료 ✅
+- **`evaluator.py` — SRP 심각 위반** ❌: ~950줄 단일 파일에 추론(inference) + 지표 계산(metrics) + CSV/JSON/HTML 저장 + 차트 생성(7종) + 오분류 추출이 혼재. 변경 이유(reason to change)가 7개 이상 존재.
+
+**리팩토링 우선순위 / Refactoring Priority**: 🔴 **1순위** — 즉시 분해 대상
+- **분해 대상 / Decomposition Plan**:
+
+| 분리 모듈 / Proposed Module | 책임 / Responsibility |
+|---|---|
+| `evaluator_inference.py` | 모델 추론, 배치 처리 / Model inference, batch processing |
+| `evaluator_metrics.py` | 지표 계산 (Acc, F1, MAE, Confusion Matrix) / Metric computation |
+| `evaluator_export.py` | CSV / JSON / HTML 저장 / CSV, JSON, HTML export |
+| `evaluator_charts.py` | 차트 7종 생성 / 7 chart builders |
+| `evaluator.py` (조율자 / Orchestrator) | 위 모듈 조합, 진입점 / Orchestrates submodules, entry point |
 
 ---
 
@@ -234,13 +246,22 @@ class GrayspotModel(nn.Module):
 | 평가·추론은 eval 인터페이스만 의존 / Evaluator/Predictor depend only on eval interface | `Evaluator`, `GrayspotPredictor` → `model.eval()` + `model.forward()` 만 사용 / Use only `model.eval()` + `model.forward()` |
 | 설정 주입 분리 / Separate config injection | 모듈은 자신이 필요한 cfg 키만 접근. 전체 cfg를 내부 저장하되 필요한 키만 읽음 / Access only needed cfg keys — store full cfg but read selectively |
 
-**현재 상태 / Current Status**: ⚠️ **경미한 우려** (기능 영향 없음 / no functional impact)
-- `GrayspotModel`의 `switch_to_phase2()`가 Phase 0 학습 컨텍스트에도 노출
-- Python의 duck typing 특성상 실제 강제 의존성은 없으나, 인터페이스 명확성 측면에서 주의
+**현재 상태 / Current Status**: ⚠️ **복합 우려** (기능 영향: GrayspotModel 경미, evaluator.py 심각)
+
+- `GrayspotModel`의 `switch_to_phase2()`가 Phase 0 학습 컨텍스트에도 노출 — Python duck typing 특성상 실제 강제 의존성은 없으나 인터페이스 명확성 측면에서 주의
+- **`evaluator.py` — ISP 심각 위반** ❌: 단일 `Evaluator` 인터페이스가 추론 클라이언트 · 지표 클라이언트 · 리포트 클라이언트 · 시각화 클라이언트가 필요로 하는 메서드를 모두 노출. 각 클라이언트는 다른 클라이언트의 메서드에 의존하도록 강요된다.
+
+**준수 가이드라인 / Compliance Guidelines**:
+
+| 원칙 / Rule | 설명 / Description |
+|---|---|
+| Trainer는 필요한 모델 메서드만 호출 / Trainers call only needed model methods | `Phase0Trainer` → `model.forward()` 만 호출. `switch_to_phase2()` 절대 호출 금지 / Call only `model.forward()`; never call `switch_to_phase2()` |
+| 평가·추론은 eval 인터페이스만 의존 / Evaluator/Predictor depend only on eval interface | `Evaluator`, `GrayspotPredictor` → `model.eval()` + `model.forward()` 만 사용 / Use only `model.eval()` + `model.forward()` |
+| 설정 주입 분리 / Separate config injection | 모듈은 자신이 필요한 cfg 키만 접근. 전체 cfg를 내부 저장하되 필요한 키만 읽음 / Access only needed cfg keys — store full cfg but read selectively |
 
 **리팩토링 필요 여부 / Refactoring Assessment**:
-> **현재 규모에서 불필요**. `GrayspotModel`을 `Phase0Model` / `Phase2Model`로 분리하면 ISP를 완전히 준수하나, Swing Architecture의 `switch_to_phase2()` 전환 메커니즘과 구조적으로 충돌한다. 현재 2-Phase 구조에서는 과설계(over-engineering)다.
-> **Not needed at current scale.** Splitting `GrayspotModel` into `Phase0Model`/`Phase2Model` would fully satisfy ISP but conflicts structurally with Swing Architecture's `switch_to_phase2()` mechanism. Over-engineering for a 2-phase system.
+- `GrayspotModel.switch_to_phase2()` 노출: **현재 규모에서 불필요**. Phase 수 ≥ 3 추가 시 재검토.
+- `evaluator.py` ISP 위반: **🔴 1순위 리팩토링 대상** — SRP 분해(§5.1)와 연동하여 동시에 해결. 책임별 분리 모듈이 ISP를 자연스럽게 만족시킨다.
 
 ---
 
@@ -277,6 +298,7 @@ class GrayspotModel(nn.Module):
 | `GrayspotModel` → `ClassifierHead` | `__init__` 내부에서 직접 `ClassifierHead(...)` 생성 | ⚠️ 구체 클래스 의존 |
 | `GrayspotModel` → `build_backbone()` | 함수 호출로 backbone 생성 — factory 함수가 구체 타입 결정 | ⚠️ 경미한 의존 |
 | config dict | 모든 모듈이 `dict`(추상화)를 수령 — 구체 Config 객체 아님 | ✅ 추상화 의존 |
+| **`optuna_tuner.py`** → `sys.modules` | `sys.modules` 직접 조작으로 호환 shim 주입 — 런타임 전역 상태 오염 | ❌ 심각한 DIP 위반 |
 
 **현재 준수 규칙 / Rules for This Project**:
 
@@ -287,23 +309,47 @@ class GrayspotModel(nn.Module):
 | Config 주입 / Config injection | 모든 컴포넌트는 `cfg: dict` 를 외부에서 주입받음 — 내부 파일 로드 금지 / All components receive `cfg: dict` from outside — no internal file loading |
 
 **리팩토링 필요 여부 / Refactoring Assessment**:
-> **현재 규모에서 선택적**. `GrayspotModel`이 `ClassifierHead`를 직접 인스턴스화하는 것은 DIP 관점에서 개선 가능하나, 2개 head 타입을 다루는 소규모 ML 파이프라인에서 의존성 주입 컨테이너(DI container) 도입은 과설계다. `nn.Module` 기반 추상화가 이미 실질적인 DIP 역할을 수행한다.
-> **Optional at current scale.** `GrayspotModel` directly instantiating `ClassifierHead` is improvable from a DIP perspective, but introducing a DI container for 2 head types in a small ML pipeline is over-engineering. `nn.Module`-based abstraction already serves the practical DIP purpose.
+- `GrayspotModel` → `ClassifierHead` 직접 인스턴스화: **현재 규모에서 선택적**. `nn.Module` 추상화가 실질적 DIP 역할을 수행. 테스트에서 Head 교체 필요 시 의존성 주입 적용.
+- **`optuna_tuner.py` sys.modules shim: 🟠 2순위 리팩토링 대상** — `sys.modules` 직접 조작은 전역 인터프리터 상태를 오염시키며 테스트 격리를 방해한다. 표준 import 또는 try/except 호환성 패턴으로 교체가 필요하다.
+
+```python
+# ❌ DIP 위반 — sys.modules 직접 조작으로 전역 상태 오염
+# Violation: global state contamination via sys.modules manipulation
+import sys
+sys.modules["some_module"] = compatibility_shim  # 모든 다른 모듈에 영향
+
+# ✅ DIP 준수 — 표준 호환성 패턴
+# Compliant: standard compatibility pattern
+try:
+    from some_module import target_func
+except ImportError:
+    from compat_module import target_func  # 동일 인터페이스 준수
+```
 
 ---
 
 ### 5.6 SOLID 준수 현황 요약 / SOLID Compliance Summary
 
-| 원칙 / Principle | 현재 상태 / Status | 리팩토링 필요 / Refactoring | 적용 시기 / When to Apply |
-|---|---|---|---|
-| **S** — SRP | ✅ 준수 / Compliant | 불필요 / Not needed | — |
-| **O** — OCP | ⚠️ 부분 위반 / Partial violation | 선택적 / Optional | Backbone 3번째 추가 시 Registry 패턴 도입 |
-| **L** — LSP | ✅ 준수 / Compliant | 불필요 / Not needed | — |
-| **I** — ISP | ⚠️ 경미한 우려 / Minor concern | 불필요 / Not needed | Phase 수 ≥ 3 추가 시 재검토 |
-| **D** — DIP | ⚠️ 부분 위반 / Partial violation | 선택적 / Optional | 테스트에서 Head 교체 필요 시 의존성 주입 적용 |
+| 원칙 / Principle | 현재 상태 / Status | 대상 파일 / Target File | 리팩토링 우선순위 / Priority | 적용 시기 / When to Apply |
+|---|---|---|---|---|
+| **S** — SRP | ✅ **해결됨** / Resolved | `evaluator.py` → 4 Mixin + Orchestrator | ✅ 완료 | 분해 완료 (2026-05-12) |
+| **O** — OCP | ⚠️ 부분 위반 / Partial violation | `grayspot_model.py`, `search_space.py` | 🟡 **3순위** | Phase 추가 시 / Backbone 3번째 추가 시 |
+| **L** — LSP | ✅ 준수 / Compliant | — | 불필요 / Not needed | — |
+| **I** — ISP | ✅ **해결됨** / Resolved | `evaluator.py` → SRP 분해로 동시 해결 | ✅ 완료 | 분해 완료 (2026-05-12) |
+| **D** — DIP | ✅ **해결됨** / Resolved | `optuna_tuner.py` shim 제거, try/except 적용 | ✅ 완료 | 완료 (2026-05-12) |
 
-> **결론 / Conclusion**: 전면 리팩토링은 불필요하다. 현재 코드는 이 규모의 ML 파이프라인에서 실용적 SOLID 균형점을 달성하고 있다. OCP 개선(Backbone Registry)은 3번째 backbone 추가 시점에 자연스럽게 도입하고, DIP/ISP 강화는 테스트 격리 필요성이 발생할 때 적용한다.
-> **Conclusion**: Full refactoring is not required. The current code achieves a pragmatic SOLID balance for this ML pipeline scale. Apply OCP improvement (Backbone Registry) when adding a 3rd backbone, and strengthen DIP/ISP when test isolation becomes necessary.
+### 5.7 리팩토링 우선순위 목록 / Refactoring Priority List
+
+| 순위 / Priority | 대상 / Target | 위반 원칙 / Violated | 핵심 문제 / Core Issue | 상태 / Status |
+|---|---|---|---|---|
+| 🔴 **1순위** | `evaluator.py` | SRP + ISP | ~950줄 단일 파일에 추론·지표·저장·차트 7종 혼재 | ✅ **완료** — 4 Mixin + Orchestrator 분해 |
+| 🟠 **2순위** | `optuna_tuner.py` | DIP | `sys.modules` 직접 조작으로 전역 인터프리터 상태 오염 | ✅ **완료** — shim 제거, try/except 패턴 적용 |
+| 🟡 **3순위** | `grayspot_model.py` | OCP | Phase 분기 if/elif — Phase 추가 시 기존 코드 수정 필요 | Phase 추가 시 적용 |
+| ⏸ **보류** | `trainer.py` | OCP | optimizer 2종 if/elif — 현재 규모에서 Registry 과설계 | 보류 (optimizer 추가 시 검토) |
+| ⏸ **보류** | `scripts/*.py` | DIP | 진입점 스크립트의 직접 의존 — CLI 관례상 허용 범위 | 보류 (관례 허용) |
+
+> **결론 / Conclusion**: 전면 리팩토링은 불필요하다. `evaluator.py`(SRP+ISP) → `optuna_tuner.py`(DIP) 순서로 집중 개선하고, OCP는 확장 시점에 자연스럽게 도입한다. 현재 코드는 이 순서를 제외하면 이 규모의 ML 파이프라인에서 실용적 SOLID 균형점을 달성하고 있다.
+> **Conclusion**: Full refactoring is not required. Focus improvements in order: `evaluator.py` (SRP+ISP) → `optuna_tuner.py` (DIP). Apply OCP improvements at extension time. Excluding these targets, the current code achieves a pragmatic SOLID balance for this ML pipeline scale.
 
 ---
 
@@ -440,7 +486,7 @@ All Python code in this project **must** follow the three principles below.
 
 ---
 
-**Version**: 0.4.0
+**Version**: 0.5.0
 **Last Updated**: 2026-05-12
 **Python**: 3.11.5
 **PyTorch**: 2.x

@@ -324,6 +324,18 @@ model.load_state_dict(checkpoint, strict=False)
 
 ## 7. 평가 경계 계약 / Evaluation Boundary Contracts
 
+> ✅ **리팩토링 완료 / Refactoring Complete (2026-05-12)**: `evaluator.py`(~950줄)를 4 Mixin + Orchestrator 패턴으로 분해하여 SRP·ISP 위반 해결.
+>
+> **분해 결과 / Decomposition Result**:
+> - `evaluator_inference.py` — `_EvalDataset`, `InferenceMixin` (추론 전담 / Inference only)
+> - `evaluator_metrics.py` — `MetricsMixin` (지표 계산 전담 / Metrics only)
+> - `evaluator_export.py` — `ExportMixin` (CSV/JSON 저장 전담 / Export only)
+> - `evaluator_charts.py` — `ChartsMixin` (차트 7종 + Phase 3 판단 / Charts + Phase 3 decision)
+> - `evaluator.py` — `Evaluator` 조율자 (`__init__` + `save_report` / Orchestrator)
+>
+> 외부 API (`from evaluation.evaluator import Evaluator`) 및 §7.1–§7.5 계약은 변경 없음.
+> External API and §7.1–§7.5 contracts are unchanged.
+
 ### 7.1 `Evaluator` 입력 계약
 
 ```python
@@ -447,7 +459,7 @@ feedback = determine_swing_feedback(summary)
 
 ---
 
-**Version**: 0.2.0
+**Version**: 0.4.0
 **Last Updated**: 2026-05-12
 **Python**: 3.11.5
 **PyTorch**: 2.x
