@@ -308,28 +308,50 @@ class GrayspotPredictor(LoggerMixin):
                 del self.model_paths[ch]
                 self.logger.debug(f"[Predictor] Cache cleared for [{ch}]")
 
-    def get_model_info(self, channel: Optional[str] = None) -> Dict[str, Any]:
-        """로드된 모델 정보 조회 / Get loaded model information."""
-        if channel is None:
-            return {
-                ch: {
-                    "device"        : str(self.device),
-                    "model_path"    : str(self.model_paths.get(ch, "N/A")),
-                    "num_parameters": sum(
-                        p.numel() for p in self.models[ch].parameters()
-                    ),
-                }
-                for ch in self.models
-            }
+    def export_to_onnx(
+        self,
+        channel: str,
+        onnx_path: str | Path,
+        sample_input: Optional[torch.Tensor] = None,
+        opset_version: int = 11,
+    ) -> None:
+        """
+        Export loaded model to ONNX format for optimized inference.
 
-        ch = channel.upper()
-        if ch not in self.models:
-            return {"error": f"Model not loaded for [{ch}]"}
+        Args:
+            channel      : Channel name (Y/M/C/K)
+            onnx_path    : Path to save ONNX model
+            sample_input : Sample input tensor (N, C, H, W). If None, uses dummy input.
+            opset_version: ONNX opset version (default 11 for PyTorch compatibility)
+        """
+        channel = channel.upper()
+        if channel not in self.models:
+            raise RuntimeError(f"Model not loaded for [{channel}]. Call load_model() first.")
 
-        return {
-            "device"        : str(self.device),
-            "model_path"    : str(self.model_paths[ch]),
-            "num_parameters": sum(
-                p.numel() for p in self.models[ch].parameters()
-            ),
-        }
+        model = self.models[channel]
+        model.eval()
+
+        if sample_input is None:
+            # Create dummy input: (1, 3, 128, 128) — matches expected image shape
+            sample_input = torch.randn(1, 3, self.image_size, self.image_size, device=self.device)
+
+        onnx_path = Path(onnx_path)
+        onnx_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.logger.info(f"[Predictor] Exporting [{channel}] model to ONNX: {onnx_path}")
+
+        # Export with dynamic batch size
+        torch.onnx.export(
+            model,
+            sample_input,
+            str(onnx_path),
+            export_params=True,
+            verbose=False,
+            opset_version=opset_version,
+            do_constant_folding=True,
+            input_names=['input'],
+            output_names=['output'],
+            dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}}
+        )
+
+        self.logger.info(f"  ✓ ONNX export complete: {onnx_path}")

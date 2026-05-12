@@ -373,6 +373,37 @@ images_dict = {
 results = predictor.predict_batch(images_dict)
 ```
 
+### ONNX Export / ONNX 내보내기
+
+```python
+from src.inference.predictor import GrayspotPredictor
+
+predictor = GrayspotPredictor()
+predictor.load_model(channel="Y")
+
+# Export to ONNX for optimized inference
+predictor.export_to_onnx(
+    channel="Y",
+    onnx_path="models/grayspot_Y.onnx",
+    opset_version=11
+)
+```
+
+### Docker Inference / Docker 추론
+
+```bash
+# Run inference in container
+docker run --rm -it \
+  -v ${PWD}/models:/app/models \
+  -v ${PWD}/data:/app/data \
+  grayspot:latest python -c "
+from src.inference.predictor import GrayspotPredictor
+predictor = GrayspotPredictor()
+predictor.load_model('Y', 'models/best_Y.pt')
+# ... inference code ...
+"
+```
+
 ---
 
 ## Docker Usage
