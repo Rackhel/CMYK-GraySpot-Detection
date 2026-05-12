@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
@@ -24,8 +24,8 @@ from utils.utils_config import (
     create_directories,
 )
 
-
 # ── get_nested ──────────────────────────────────────────────────────────────
+
 
 class TestGetNested:
     def test_top_level_key(self):
@@ -59,6 +59,7 @@ class TestGetNested:
 
 # ── _resolve_device ─────────────────────────────────────────────────────────
 
+
 class TestResolveDevice:
     def test_cpu_returns_cpu(self):
         assert _resolve_device("cpu") == "cpu"
@@ -77,6 +78,7 @@ class TestResolveDevice:
 
     def test_cuda_unavailable_raises_or_fallback(self):
         import torch
+
         if not torch.cuda.is_available():
             # CUDA 없으면 RuntimeError 또는 MPS/CPU fallback
             try:
@@ -87,6 +89,7 @@ class TestResolveDevice:
 
     def test_mps_unavailable_raises(self):
         import torch
+
         has_mps = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
         if not has_mps:
             with pytest.raises(RuntimeError):
@@ -94,6 +97,7 @@ class TestResolveDevice:
 
 
 # ── load_config ─────────────────────────────────────────────────────────────
+
 
 class TestLoadConfig:
     def test_loads_and_returns_dict(self, minimal_config_file, tmp_path):
@@ -123,6 +127,7 @@ class TestLoadConfig:
 
 # ── validate_config ─────────────────────────────────────────────────────────
 
+
 class TestValidateConfig:
     def test_valid_config_returns_true(self, minimal_cfg):
         assert validate_config(minimal_cfg) is True
@@ -150,14 +155,15 @@ class TestValidateConfig:
 
 # ── create_directories ──────────────────────────────────────────────────────
 
+
 class TestCreateDirectories:
     def test_creates_all_storage_dirs(self, minimal_cfg, tmp_path):
         minimal_cfg["storage"] = {
-            "data_root":   str(tmp_path / "data_set"),
+            "data_root": str(tmp_path / "data_set"),
             "labeled_dir": str(tmp_path / "data_set/labeled"),
-            "models_dir":  str(tmp_path / "data_set/models"),
+            "models_dir": str(tmp_path / "data_set/models"),
             "reports_dir": str(tmp_path / "data_set/reports"),
-            "logs_dir":    str(tmp_path / "outputs/logs"),
+            "logs_dir": str(tmp_path / "outputs/logs"),
         }
         create_directories(minimal_cfg)
         assert (tmp_path / "data_set/models").exists()

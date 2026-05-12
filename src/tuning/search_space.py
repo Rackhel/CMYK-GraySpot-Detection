@@ -23,38 +23,30 @@ def get_phase2_search_space(trial: optuna.Trial, cfg: dict = None) -> dict:
         cfg = {}
 
     backbone_name = cfg.get("model", {}).get("backbone", "efficientnet_b0")
-    ss_root       = cfg.get("optuna", {}).get("search_space", {})
+    ss_root = cfg.get("optuna", {}).get("search_space", {})
 
     # backbone별 탐색 공간 우선, 없으면 최상위 fallback
     # Backbone-specific space first, then top-level fallback
     ss = ss_root.get(backbone_name, ss_root)
 
     lr_range = ss.get("learning_rate", [1e-5, 1e-2])
-    wd_range = ss.get("weight_decay",  [1e-6, 1e-3])
-    bs_opts  = ss.get("batch_size",    [16, 32, 64])
-    ep_range = ss.get("epochs",        [10, 30])
-    do_range = ss.get("dropout",       [0.1, 0.5])
-    hd_opts  = ss.get("hidden_dim",    [128, 256])
+    wd_range = ss.get("weight_decay", [1e-6, 1e-3])
+    bs_opts = ss.get("batch_size", [16, 32, 64])
+    ep_range = ss.get("epochs", [10, 30])
+    do_range = ss.get("dropout", [0.1, 0.5])
+    hd_opts = ss.get("hidden_dim", [128, 256])
 
     params = {
         "learning_rate": trial.suggest_float(
             "learning_rate", lr_range[0], lr_range[1], log=True
         ),
-        "batch_size": trial.suggest_categorical(
-            "batch_size", bs_opts
-        ),
+        "batch_size": trial.suggest_categorical("batch_size", bs_opts),
         "weight_decay": trial.suggest_float(
             "weight_decay", wd_range[0], wd_range[1], log=True
         ),
-        "epochs": trial.suggest_int(
-            "epochs", ep_range[0], ep_range[1]
-        ),
-        "dropout": trial.suggest_float(
-            "dropout", do_range[0], do_range[1]
-        ),
-        "hidden_dim": trial.suggest_categorical(
-            "hidden_dim", hd_opts
-        ),
+        "epochs": trial.suggest_int("epochs", ep_range[0], ep_range[1]),
+        "dropout": trial.suggest_float("dropout", do_range[0], do_range[1]),
+        "hidden_dim": trial.suggest_categorical("hidden_dim", hd_opts),
     }
 
     # ResNet-50 전용: 중간 압축 차원 탐색 / ResNet-50 only: intermediate compression dim

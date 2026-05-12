@@ -17,13 +17,13 @@ import torch
 from torch.utils.data import DataLoader
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
 from tests.smoke.conftest import data_exists
 from models.grayspot_model import GrayspotModel
-from training.trainer      import CMYKDataset, Phase2Trainer
+from training.trainer import CMYKDataset, Phase2Trainer
 
 CHANNELS = ["Y", "M", "C", "K"]
 
@@ -37,7 +37,7 @@ def _find_phase0_backbone(cfg: dict, channel: str) -> Path | None:
 @pytest.mark.smoke
 def test_config_has_evaluation_keys(cfg):
     assert "evaluation" in cfg
-    assert "targets"    in cfg["evaluation"]
+    assert "targets" in cfg["evaluation"]
 
 
 @pytest.mark.smoke
@@ -47,8 +47,8 @@ def test_cmyk_dataset_splits(cfg, channel):
         pytest.skip(f"[{channel}] 데이터 없음")
 
     train_ds = CMYKDataset(cfg, channel, split="train", augment=False, oversample=False)
-    val_ds   = CMYKDataset(cfg, channel, split="val",   augment=False, oversample=False)
-    test_ds  = CMYKDataset(cfg, channel, split="test",  augment=False, oversample=False)
+    val_ds = CMYKDataset(cfg, channel, split="val", augment=False, oversample=False)
+    test_ds = CMYKDataset(cfg, channel, split="test", augment=False, oversample=False)
 
     assert len(train_ds) + len(val_ds) + len(test_ds) > 0
 
@@ -61,8 +61,8 @@ def test_cmyk_dataset_splits(cfg, channel):
 @pytest.mark.smoke
 def test_phase2_model_init(cfg):
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    model  = GrayspotModel(cfg, phase=2).to(device)
-    size   = cfg["data"]["image_size"]
+    model = GrayspotModel(cfg, phase=2).to(device)
+    size = cfg["data"]["image_size"]
 
     with torch.no_grad():
         out = model(torch.randn(2, 3, size, size).to(device))
@@ -76,9 +76,13 @@ def test_phase2_mini_training(mini_cfg, channel):
     if not data_exists(mini_cfg, channel):
         pytest.skip(f"[{channel}] 데이터 없음")
 
-    device   = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    train_ds = CMYKDataset(mini_cfg, channel, split="train", augment=True,  oversample=True)
-    val_ds   = CMYKDataset(mini_cfg, channel, split="val",   augment=False, oversample=False)
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    train_ds = CMYKDataset(
+        mini_cfg, channel, split="train", augment=True, oversample=True
+    )
+    val_ds = CMYKDataset(
+        mini_cfg, channel, split="val", augment=False, oversample=False
+    )
 
     if len(train_ds) == 0:
         pytest.skip(f"[{channel}] 학습 데이터 없음")
@@ -86,12 +90,15 @@ def test_phase2_mini_training(mini_cfg, channel):
     train_loader = DataLoader(
         train_ds,
         batch_size=min(mini_cfg["phase2"]["batch_size"], len(train_ds)),
-        shuffle=True, drop_last=True, num_workers=0,
+        shuffle=True,
+        drop_last=True,
+        num_workers=0,
     )
     val_loader = DataLoader(
         val_ds,
         batch_size=min(mini_cfg["phase2"]["batch_size"], max(len(val_ds), 1)),
-        shuffle=False, num_workers=0,
+        shuffle=False,
+        num_workers=0,
     )
 
     model = GrayspotModel(mini_cfg, phase=2).to(device)
@@ -105,7 +112,7 @@ def test_phase2_mini_training(mini_cfg, channel):
 
     assert len(history) > 0, "학습 이력이 비어 있음"
     assert "train_acc" in history[-1]
-    assert "val_acc"   in history[-1]
+    assert "val_acc" in history[-1]
 
 
 @pytest.mark.smoke
@@ -134,7 +141,7 @@ def test_phase2_performance_targets(cfg, channel):
         pytest.skip(f"[{channel}] 테스트 데이터 없음")
 
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    model  = GrayspotModel(cfg, phase=2).to(device)
+    model = GrayspotModel(cfg, phase=2).to(device)
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
@@ -144,11 +151,11 @@ def test_phase2_performance_targets(cfg, channel):
     with torch.no_grad():
         for x, labels in loader:
             x, labels = x.to(device), labels.to(device)
-            preds     = model(x).argmax(1)
-            correct  += (preds == labels).sum().item()
-            total    += len(labels)
+            preds = model(x).argmax(1)
+            correct += (preds == labels).sum().item()
+            total += len(labels)
 
-    acc        = correct / max(total, 1)
+    acc = correct / max(total, 1)
     target_acc = cfg["evaluation"]["targets"]["per_color_accuracy"]
 
     # 성능 미달은 FAIL이 아닌 경고로 처리 (데이터 부족 가능)

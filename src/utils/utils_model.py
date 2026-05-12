@@ -18,13 +18,14 @@ import torch
 import torch.nn as nn
 
 # ── 경로 상수 / Path constants ─────────────────────────────────────────────────
-_UTILS_DIR = Path(__file__).resolve().parent          # src/utils/
-_SRC_DIR   = _UTILS_DIR.parent                        # src/
+_UTILS_DIR = Path(__file__).resolve().parent  # src/utils/
+_SRC_DIR = _UTILS_DIR.parent  # src/
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 시드 설정 / Seed setup
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def set_seed(seed: int, cfg: Optional[dict] = None) -> None:
     """
@@ -42,12 +43,13 @@ def set_seed(seed: int, cfg: Optional[dict] = None) -> None:
     if cfg is not None:
         cuda_cfg = cfg.get("cuda", {})
         torch.backends.cudnn.deterministic = cuda_cfg.get("deterministic", True)
-        torch.backends.cudnn.benchmark     = cuda_cfg.get("benchmark", False)
+        torch.backends.cudnn.benchmark = cuda_cfg.get("benchmark", False)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Backbone 약어 / Backbone abbreviation
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def backbone_tag(backbone_name: str) -> str:
     """
@@ -60,7 +62,7 @@ def backbone_tag(backbone_name: str) -> str:
     """
     _MAP = {
         "efficientnet_b0": "effb0",
-        "resnet50":        "res50",
+        "resnet50": "res50",
     }
     return _MAP.get(backbone_name, backbone_name.replace("_", "")[:8])
 
@@ -68,6 +70,7 @@ def backbone_tag(backbone_name: str) -> str:
 # ──────────────────────────────────────────────────────────────────────────────
 # 모델 빌더 / Model builder
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def build_model(cfg: dict, checkpoint: Path, device: torch.device) -> nn.Module:
     """
@@ -83,6 +86,7 @@ def build_model(cfg: dict, checkpoint: Path, device: torch.device) -> nn.Module:
         eval 모드로 설정된 GrayspotModel / GrayspotModel set to eval mode
     """
     import sys
+
     sys.path.insert(0, str(_SRC_DIR))
     from models.grayspot_model import GrayspotModel
 

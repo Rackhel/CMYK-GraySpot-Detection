@@ -23,11 +23,12 @@ history_file = baseline_dir / f"phase2_history_{channel}.csv"
 
 if history_file.exists():
     import pandas as pd
+
     df = pd.read_csv(history_file)
-    
+
     st.write(f"**Training History - Channel {channel}**")
     st.line_chart(df.set_index(df.columns[0]))
-    
+
     st.write("**Raw Data:**")
     st.dataframe(df)
 else:

@@ -17,9 +17,9 @@ Exports neural network components for the Grayspot Detection system.
     model = GrayspotModel(cfg, phase=2)
 """
 
-from .grayspot_model  import GrayspotModel
-from .backbone        import build_backbone
-from .classifier      import ClassifierHead
+from .grayspot_model import GrayspotModel
+from .backbone import build_backbone
+from .classifier import ClassifierHead
 from .projection_head import ProjectionHead
 
 __all__ = [

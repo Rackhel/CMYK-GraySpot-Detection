@@ -14,14 +14,14 @@ import pytest
 import torch
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
 from utils.utils_model import backbone_tag, set_seed
 
-
 # ── backbone_tag ────────────────────────────────────────────────────────────
+
 
 class TestBackboneTag:
     def test_efficientnet_b0_returns_effb0(self):
@@ -44,6 +44,7 @@ class TestBackboneTag:
 
 
 # ── set_seed ────────────────────────────────────────────────────────────────
+
 
 class TestSetSeed:
     def test_same_seed_produces_same_torch_random(self):

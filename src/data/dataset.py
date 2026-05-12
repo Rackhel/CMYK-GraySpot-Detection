@@ -22,7 +22,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms as T
 
 from data.preprocessing import preprocess
-from data.augmentation  import augment_supervised, augment_contrastive
+from data.augmentation import augment_supervised, augment_contrastive
 
 _IMAGENET_NORMALIZE = T.Normalize(
     mean=[0.485, 0.456, 0.406],
@@ -33,6 +33,7 @@ _IMAGENET_NORMALIZE = T.Normalize(
 # ──────────────────────────────────────────────────────────────
 # Supervised Dataset / Phase 2
 # ──────────────────────────────────────────────────────────────
+
 
 class CMYKDataset(Dataset):
     """
@@ -56,16 +57,16 @@ class CMYKDataset(Dataset):
 
     def __init__(
         self,
-        cfg:       dict,
-        channel:   str,
-        split:     str  = "train",
-        augment:   bool = True,
+        cfg: dict,
+        channel: str,
+        split: str = "train",
+        augment: bool = True,
         oversample: bool = True,
     ):
-        self.augment      = augment and (split == "train")
-        self.image_size   = cfg["data"]["image_size"]
-        self.num_levels   = cfg["data"]["num_levels"]
-        self.sup_aug_cfg  = cfg["phase2"].get("augmentation", {})
+        self.augment = augment and (split == "train")
+        self.image_size = cfg["data"]["image_size"]
+        self.num_levels = cfg["data"]["num_levels"]
+        self.sup_aug_cfg = cfg["phase2"].get("augmentation", {})
 
         labeled_dir = Path(cfg["storage"]["labeled_dir"])
         all_samples: list[tuple[Path, int]] = []
@@ -85,24 +86,29 @@ class CMYKDataset(Dataset):
         for sample in all_samples:
             level_groups[sample[1]].append(sample)
 
-        ratios  = cfg["data"]["split_ratios"]
+        ratios = cfg["data"]["split_ratios"]
         train_s, val_s, test_s = [], [], []
         for lv, items in level_groups.items():
             random.shuffle(items)
-            n       = len(items)
+            n = len(items)
             n_train = max(1, int(n * ratios["train"]))
-            n_val   = max(1, int(n * ratios["val"]))
+            n_val = max(1, int(n * ratios["val"]))
             train_s.extend(items[:n_train])
-            val_s.extend(items[n_train:n_train + n_val])
-            test_s.extend(items[n_train + n_val:])
+            val_s.extend(items[n_train : n_train + n_val])
+            test_s.extend(items[n_train + n_val :])
 
         split_map = {"train": train_s, "val": val_s, "test": test_s}
         self.samples: list[tuple[Path, int]] = split_map[split]
 
         # 소수 클래스 오버샘플링 / Minority class oversampling
-        if split == "train" and oversample and cfg["phase2"].get("oversample", True) and self.samples:
+        if (
+            split == "train"
+            and oversample
+            and cfg["phase2"].get("oversample", True)
+            and self.samples
+        ):
             level_counts = Counter(lv for _, lv in self.samples)
-            max_count    = max(level_counts.values())
+            max_count = max(level_counts.values())
             oversampled: list[tuple[Path, int]] = []
             for level in range(self.num_levels):
                 level_s = [(p, lv) for p, lv in self.samples if lv == level]
@@ -138,6 +144,7 @@ class CMYKDataset(Dataset):
 # Contrastive Dataset / Phase 0
 # ──────────────────────────────────────────────────────────────
 
+
 class ContrastiveDataset(Dataset):
     """
     Contrastive Learning(Phase 0, SimCLR)용 Dataset.
@@ -154,9 +161,9 @@ class ContrastiveDataset(Dataset):
     _EXTS = {".png", ".jpg", ".jpeg", ".tiff", ".tif"}
 
     def __init__(self, cfg: dict, channel: str):
-        self.image_size  = cfg["data"]["image_size"]
-        self.num_levels  = cfg["data"]["num_levels"]
-        self.aug_cfg     = cfg["phase0"].get("augmentation", {})
+        self.image_size = cfg["data"]["image_size"]
+        self.num_levels = cfg["data"]["num_levels"]
+        self.aug_cfg = cfg["phase0"].get("augmentation", {})
         self.image_paths: list[Path] = []
 
         labeled_dir = Path(cfg["storage"]["labeled_dir"])

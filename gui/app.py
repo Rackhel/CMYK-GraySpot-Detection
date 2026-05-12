@@ -17,7 +17,7 @@ from pathlib import Path
 # Add src to path for imports
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / 'src'))
+sys.path.insert(0, str(ROOT / "src"))
 
 st.set_page_config(
     page_title="Grayspot Classification System",
@@ -36,19 +36,17 @@ st.sidebar.markdown("---")
 page = st.sidebar.radio(
     "Navigation",
     ["Dashboard", "Inference", "Model Info", "Configuration"],
-    icons=["📊", "🔍", "🧠", "⚙️"]
+    icons=["📊", "🔍", "🧠", "⚙️"],
 )
 
 st.sidebar.markdown("---")
-st.sidebar.info(
-    """
+st.sidebar.info("""
     **Grayspot Defect Classification**
     
     CMYK Printer Defect Detection using Deep Learning
     
     [GitHub](https://github.com/) | [Docs](/)
-    """
-)
+    """)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Page Routing
@@ -58,17 +56,17 @@ if page == "Dashboard":
     st.title("📊 Dashboard")
     st.write("Model performance summary, metrics, and evaluation results.")
     # TODO: Import and run pages.dashboard module
-    
+
 elif page == "Inference":
     st.title("🔍 Inference")
     st.write("Upload images and get defect predictions.")
     # TODO: Import and run pages.inference module
-    
+
 elif page == "Model Info":
     st.title("🧠 Model Architecture & Training History")
     st.write("Model architecture details, training curves, and checkpoint info.")
     # TODO: Import and run pages.model_info module
-    
+
 elif page == "Configuration":
     st.title("⚙️ Configuration")
     st.write("Select model checkpoint, adjust inference settings.")

@@ -16,12 +16,13 @@ import pytest
 import torch
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
 
 # ── Confidence threshold 분기 로직 / Confidence threshold branching ──────────
+
 
 class TestConfidenceThresholdLogic:
     """
@@ -30,8 +31,8 @@ class TestConfidenceThresholdLogic:
     """
 
     def _classify_confidence(self, confidence: float, thresholds: dict) -> str:
-        auto   = thresholds["auto_accept"]
-        warn   = thresholds["warn_threshold"]
+        auto = thresholds["auto_accept"]
+        warn = thresholds["warn_threshold"]
         manual = thresholds["manual_review"]
         if confidence >= auto:
             return "AUTO"
@@ -76,19 +77,26 @@ class TestConfidenceThresholdLogic:
 
 # ── GrayspotPredictor 초기화 / Initialization ────────────────────────────────
 
+
 class TestGrayspotPredictorInit:
     def test_predictor_instantiates_without_error(self):
         from inference.predictor import GrayspotPredictor
+
         predictor = GrayspotPredictor()
         assert predictor is not None
 
     def test_predictor_has_no_loaded_models_on_init(self):
         from inference.predictor import GrayspotPredictor
+
         predictor = GrayspotPredictor()
-        assert not hasattr(predictor, "_models") or len(getattr(predictor, "_models", {})) == 0
+        assert (
+            not hasattr(predictor, "_models")
+            or len(getattr(predictor, "_models", {})) == 0
+        )
 
 
 # ── Model Loading & Prediction Integration / Model Loading & Prediction ──────
+
 
 class TestGrayspotPredictorIntegration:
     """
@@ -99,6 +107,7 @@ class TestGrayspotPredictorIntegration:
     @pytest.fixture
     def predictor(self):
         from inference.predictor import GrayspotPredictor
+
         return GrayspotPredictor()
 
     @pytest.fixture
@@ -228,6 +237,7 @@ class TestGrayspotPredictorIntegration:
 
 # ── ONNX Export Integration / ONNX Export ────────────────────────────────────
 
+
 class TestGrayspotPredictorONNX:
     """
     Integration tests for ONNX export functionality.
@@ -236,6 +246,7 @@ class TestGrayspotPredictorONNX:
     @pytest.fixture
     def predictor(self):
         from inference.predictor import GrayspotPredictor
+
         return GrayspotPredictor()
 
     @pytest.fixture

@@ -42,7 +42,7 @@ def compute_confusion_matrix(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     6x6 혼동 행렬을 계산한다. / Computes the 6x6 confusion matrix.
-    
+
     Args:
         y_true      : 정답 라벨 / True labels (N,)
         y_pred      : 예측 라벨 / Predicted labels (N,)
@@ -54,12 +54,12 @@ def compute_confusion_matrix(
         cm_raw  : raw count matrix
         cm_norm : row-normalized (or same as cm_raw if normalize=False)
     """
-    labels  = list(range(num_classes))
-    cm_raw  = sk_confusion_matrix(y_true, y_pred, labels=labels)
+    labels = list(range(num_classes))
+    cm_raw = sk_confusion_matrix(y_true, y_pred, labels=labels)
 
     if normalize:
         row_sums = cm_raw.sum(axis=1, keepdims=True)
-        cm_norm  = np.where(row_sums > 0, cm_raw / row_sums, 0.0)
+        cm_norm = np.where(row_sums > 0, cm_raw / row_sums, 0.0)
     else:
         cm_norm = cm_raw.astype(float)
 
@@ -89,40 +89,42 @@ def plot_confusion_matrix(
     Returns:
         go.Figure
     """
-    labels      = list(range(num_classes))
+    labels = list(range(num_classes))
     level_names = [f"Level {i}" for i in labels]
-    cm_raw, z   = compute_confusion_matrix(y_true, y_pred, normalize, num_classes)
+    cm_raw, z = compute_confusion_matrix(y_true, y_pred, normalize, num_classes)
 
     if normalize:
-        z_text     = [[f"{v:.2f}" for v in row] for row in z]
+        z_text = [[f"{v:.2f}" for v in row] for row in z]
         cbar_title = "Proportion / 비율"
         vmin, vmax = 0.0, 1.0
     else:
-        z_text     = [[str(int(v)) for v in row] for row in z]
+        z_text = [[str(int(v)) for v in row] for row in z]
         cbar_title = "Count / 개수"
         vmin, vmax = None, None
 
     # y축 반전: Level 0 을 상단에 배치 / Reverse y-axis: Level 0 at top
-    z_flip      = z[::-1]
+    z_flip = z[::-1]
     z_text_flip = z_text[::-1]
-    y_labels    = level_names[::-1]
+    y_labels = level_names[::-1]
 
-    fig = go.Figure(go.Heatmap(
-        z=z_flip,
-        x=level_names,
-        y=y_labels,
-        text=z_text_flip,
-        texttemplate="%{text}",
-        colorscale="Blues",
-        zmin=vmin,
-        zmax=vmax,
-        colorbar=dict(title=cbar_title),
-        hovertemplate=(
-            "Predicted / 예측: %{x}<br>"
-            "True / 실제: %{y}<br>"
-            "Value: %{text}<extra></extra>"
-        ),
-    ))
+    fig = go.Figure(
+        go.Heatmap(
+            z=z_flip,
+            x=level_names,
+            y=y_labels,
+            text=z_text_flip,
+            texttemplate="%{text}",
+            colorscale="Blues",
+            zmin=vmin,
+            zmax=vmax,
+            colorbar=dict(title=cbar_title),
+            hovertemplate=(
+                "Predicted / 예측: %{x}<br>"
+                "True / 실제: %{y}<br>"
+                "Value: %{text}<extra></extra>"
+            ),
+        )
+    )
 
     fig.update_layout(
         title=dict(text=title, font=dict(size=15)),
@@ -130,7 +132,8 @@ def plot_confusion_matrix(
         yaxis_title="True Level / 실제 레벨",
         font=dict(family=FONT_FAMILY, size=FONT_SIZE),
         template=PLOTLY_TEMPLATE,
-        width=600, height=520,
+        width=600,
+        height=520,
         margin=dict(l=40, r=40, t=60, b=40),
     )
 
@@ -153,7 +156,7 @@ def plot_all_channels(
     """
     색상별 + 전체 혼동 행렬 HTML 을 일괄 생성한다.
     Generates confusion matrix HTMLs for each channel and overall.
-    
+
     Args:
         results      : {'Y': {'y_true': ..., 'y_pred': ...}, ...}
         output_dir   : HTML 저장 디렉토리 / Output directory for HTMLs
@@ -177,13 +180,14 @@ def plot_all_channels(
     overall_acc = compute_metrics(all_true, all_pred, num_classes)["accuracy"]
 
     for ch in channels:
-        yt  = results[ch]["y_true"]
-        yp  = results[ch]["y_pred"]
+        yt = results[ch]["y_true"]
+        yp = results[ch]["y_pred"]
         acc = compute_metrics(yt, yp, num_classes)["accuracy"]
 
         path = str(output_dir / f"cm_{ch}.html")
         plot_confusion_matrix(
-            yt, yp,
+            yt,
+            yp,
             title=f"[{ch}] Confusion Matrix  Acc={acc:.4f}",
             normalize=normalize,
             output_path=path,
@@ -194,7 +198,8 @@ def plot_all_channels(
 
     overall_path = str(output_dir / "cm_overall.html")
     plot_confusion_matrix(
-        all_true, all_pred,
+        all_true,
+        all_pred,
         title=f"[Overall] Confusion Matrix  Acc={overall_acc:.4f}",
         normalize=normalize,
         output_path=overall_path,

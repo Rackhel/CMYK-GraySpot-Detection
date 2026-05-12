@@ -12,21 +12,21 @@ import numpy as np
 import pytest
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
 from evaluation.confusion import compute_confusion_matrix, plot_confusion_matrix
 
-
 # ── compute_confusion_matrix ─────────────────────────────────────────────────
+
 
 class TestComputeConfusionMatrix:
     def test_output_shape_is_6x6(self):
         y_true = np.arange(6)
         y_pred = np.arange(6)
         cm_raw, cm_norm = compute_confusion_matrix(y_true, y_pred)
-        assert cm_raw.shape  == (6, 6)
+        assert cm_raw.shape == (6, 6)
         assert cm_norm.shape == (6, 6)
 
     def test_perfect_prediction_diagonal_ones(self):
@@ -73,9 +73,11 @@ class TestComputeConfusionMatrix:
 
 # ── plot_confusion_matrix ─────────────────────────────────────────────────────
 
+
 class TestPlotConfusionMatrix:
     def test_returns_plotly_figure(self):
         import plotly.graph_objects as go
+
         y_true = np.repeat(np.arange(6), 5)
         y_pred = np.repeat(np.arange(6), 5)
         fig = plot_confusion_matrix(y_true, y_pred, title="Test CM")

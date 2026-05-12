@@ -18,12 +18,13 @@ import torch
 
 # ── sys.path 설정 / sys.path setup ─────────────────────────────────────────
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent  # CMYK_MAIN/
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
 
 # ── Config Fixtures ─────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def minimal_cfg():
@@ -77,8 +78,8 @@ def minimal_cfg():
                 "noise_range": 10,
             },
             "heads": {
-                "efficientnet_b0": {"mid_dim": None,  "hidden_dim": 256, "dropout": 0.2},
-                "resnet50":        {"mid_dim": 512,   "hidden_dim": 256, "dropout": 0.4},
+                "efficientnet_b0": {"mid_dim": None, "hidden_dim": 256, "dropout": 0.2},
+                "resnet50": {"mid_dim": 512, "hidden_dim": 256, "dropout": 0.4},
             },
         },
         "evaluation": {
@@ -133,6 +134,7 @@ def minimal_config_file(tmp_path, minimal_cfg):
 
 # ── Tensor / Array Fixtures ─────────────────────────────────────────────────
 
+
 @pytest.fixture
 def dummy_image_np():
     """(128, 128, 3) uint8 NumPy BGR 이미지."""
@@ -155,6 +157,7 @@ def dummy_batch():
 
 
 # ── Prediction Fixtures ─────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def perfect_predictions():

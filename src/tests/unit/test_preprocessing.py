@@ -12,14 +12,14 @@ import numpy as np
 import pytest
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
 from data.preprocessing import preprocess
 
-
 # ── 출력 shape / dtype / range ──────────────────────────────────────────────
+
 
 class TestPreprocessOutputSpec:
     def test_output_shape_default_size(self, dummy_image_np):
@@ -44,6 +44,7 @@ class TestPreprocessOutputSpec:
 
 
 # ── 엣지케이스 / Edge cases ──────────────────────────────────────────────────
+
 
 class TestPreprocessEdgeCases:
     def test_all_black_image_outputs_zeros(self):

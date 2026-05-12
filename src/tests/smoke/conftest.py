@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
@@ -25,6 +25,7 @@ sys.path.insert(0, str(SRC_DIR))
 def cfg():
     """실제 config.json을 로드한 설정 dict."""
     from utils.utils_config import load_config
+
     return load_config()
 
 
@@ -32,9 +33,9 @@ def cfg():
 def mini_cfg(cfg):
     """학습 epoch/batch를 최소화한 smoke용 config."""
     c = copy.deepcopy(cfg)
-    c["phase0"]["epochs"]     = 3
+    c["phase0"]["epochs"] = 3
     c["phase0"]["batch_size"] = 4
-    c["phase2"]["epochs"]     = 3
+    c["phase2"]["epochs"] = 3
     c["phase2"]["batch_size"] = 4
     c["phase2"]["early_stopping"]["enabled"] = False
     return c

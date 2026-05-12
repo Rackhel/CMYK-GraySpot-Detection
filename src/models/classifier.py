@@ -36,9 +36,14 @@ class ClassifierHead(nn.Module):
                      Intermediate compression dim — ResNet-50 only, None = single-layer head
     """
 
-    def __init__(self, in_dim: int, hidden_dim: int = 256,
-                 num_classes: int = 6, dropout: float = 0.3,
-                 mid_dim: int | None = None):
+    def __init__(
+        self,
+        in_dim: int,
+        hidden_dim: int = 256,
+        num_classes: int = 6,
+        dropout: float = 0.3,
+        mid_dim: int | None = None,
+    ):
         super().__init__()
 
         if mid_dim is not None:

@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
@@ -33,8 +33,8 @@ from evaluation.metrics import (
     determine_swing_feedback,
 )
 
-
 # ── compute_metrics ──────────────────────────────────────────────────────────
+
 
 class TestComputeMetrics:
     def test_perfect_accuracy(self, perfect_predictions):
@@ -110,6 +110,7 @@ class TestComputeMetrics:
 
 # ── compute_per_class_metrics ────────────────────────────────────────────────
 
+
 class TestComputePerClassMetrics:
     def test_returns_list_of_length_num_levels(self, perfect_predictions):
         result = compute_per_class_metrics(
@@ -146,6 +147,7 @@ class TestComputePerClassMetrics:
 
 # ── compute_all_channels ─────────────────────────────────────────────────────
 
+
 class TestComputeAllChannels:
     def test_overall_key_always_present(self, multi_channel_results):
         result = compute_all_channels(multi_channel_results)
@@ -167,6 +169,7 @@ class TestComputeAllChannels:
 
 
 # ── check_targets ─────────────────────────────────────────────────────────────
+
 
 class TestCheckTargets:
     def test_perfect_metrics_all_pass(self, perfect_predictions):
@@ -201,6 +204,7 @@ class TestCheckTargets:
 
 # ── build_evaluation_summary ──────────────────────────────────────────────────
 
+
 class TestBuildEvaluationSummary:
     def test_returns_evaluation_summary_type(self, multi_channel_results):
         summary = build_evaluation_summary(multi_channel_results)
@@ -216,16 +220,24 @@ class TestBuildEvaluationSummary:
         assert "M" in summary.by_channel
 
     def test_swing_thresholds_injected_from_cfg(self, multi_channel_results):
-        cfg = {"evaluation": {"swing_thresholds": {"acc_retry": 0.60, "f1_retry": 0.55, "mae_retry": 0.90}}}
+        cfg = {
+            "evaluation": {
+                "swing_thresholds": {
+                    "acc_retry": 0.60,
+                    "f1_retry": 0.55,
+                    "mae_retry": 0.90,
+                }
+            }
+        }
         summary = build_evaluation_summary(multi_channel_results, cfg=cfg)
         assert summary.targets["swing_acc_retry"] == pytest.approx(0.60)
-        assert summary.targets["swing_f1_retry"]  == pytest.approx(0.55)
+        assert summary.targets["swing_f1_retry"] == pytest.approx(0.55)
         assert summary.targets["swing_mae_retry"] == pytest.approx(0.90)
 
     def test_swing_thresholds_use_defaults_without_cfg(self, multi_channel_results):
         summary = build_evaluation_summary(multi_channel_results)
         assert "swing_acc_retry" in summary.targets
-        assert "swing_f1_retry"  in summary.targets
+        assert "swing_f1_retry" in summary.targets
         assert "swing_mae_retry" in summary.targets
 
     def test_empty_results_does_not_raise(self):
@@ -240,64 +252,72 @@ class TestBuildEvaluationSummary:
 
 # ── determine_swing_feedback ──────────────────────────────────────────────────
 
+
 class TestDetermineSwingFeedback:
     def _make_summary(self, acc: float, f1: float, mae: float) -> EvaluationSummary:
         """테스트용 EvaluationSummary 생성 헬퍼."""
-        per_class = [PerClassMetric(level=i, precision=f1, recall=f1, f1=f1) for i in range(6)]
-        overall   = ChannelMetrics(accuracy=acc, macro_f1=f1, mae=mae, n_samples=10, per_class=per_class)
-        channel_m = ChannelMetrics(accuracy=acc, macro_f1=f1, mae=mae, n_samples=10, per_class=per_class)
-        summary   = EvaluationSummary(
-            overall    = overall,
-            by_channel = {"Y": channel_m},
-            targets    = {
-                "overall_accuracy":   TARGET_OVERALL_ACC,
+        per_class = [
+            PerClassMetric(level=i, precision=f1, recall=f1, f1=f1) for i in range(6)
+        ]
+        overall = ChannelMetrics(
+            accuracy=acc, macro_f1=f1, mae=mae, n_samples=10, per_class=per_class
+        )
+        channel_m = ChannelMetrics(
+            accuracy=acc, macro_f1=f1, mae=mae, n_samples=10, per_class=per_class
+        )
+        summary = EvaluationSummary(
+            overall=overall,
+            by_channel={"Y": channel_m},
+            targets={
+                "overall_accuracy": TARGET_OVERALL_ACC,
                 "per_color_accuracy": TARGET_PER_COLOR_ACC,
-                "per_class_f1":       TARGET_PER_CLASS_F1,
-                "mae":                TARGET_MAE,
-                "swing_acc_retry":    0.80,
-                "swing_f1_retry":     0.70,
-                "swing_mae_retry":    0.80,
+                "per_class_f1": TARGET_PER_CLASS_F1,
+                "mae": TARGET_MAE,
+                "swing_acc_retry": 0.80,
+                "swing_f1_retry": 0.70,
+                "swing_mae_retry": 0.80,
             },
         )
         return summary
 
     def test_perfect_metrics_terminate_true(self):
         summary = self._make_summary(acc=0.95, f1=0.90, mae=0.20)
-        result  = determine_swing_feedback(summary, channels=["Y"])
+        result = determine_swing_feedback(summary, channels=["Y"])
         assert result["terminate"] is True
         assert result["decisions"] == []
 
     def test_low_accuracy_produces_decisions(self):
         summary = self._make_summary(acc=0.50, f1=0.90, mae=0.20)
-        result  = determine_swing_feedback(summary, channels=["Y"])
+        result = determine_swing_feedback(summary, channels=["Y"])
         assert result["terminate"] is False
         assert len(result["decisions"]) > 0
 
     def test_low_f1_produces_decisions(self):
         summary = self._make_summary(acc=0.95, f1=0.60, mae=0.20)
-        result  = determine_swing_feedback(summary, channels=["Y"])
+        result = determine_swing_feedback(summary, channels=["Y"])
         assert result["terminate"] is False
         assert len(result["decisions"]) > 0
 
     def test_high_mae_produces_decisions(self):
         summary = self._make_summary(acc=0.95, f1=0.90, mae=0.90)
-        result  = determine_swing_feedback(summary, channels=["Y"])
+        result = determine_swing_feedback(summary, channels=["Y"])
         assert result["terminate"] is False
         assert len(result["decisions"]) > 0
 
     def test_result_has_required_keys(self):
         summary = self._make_summary(acc=0.95, f1=0.90, mae=0.20)
-        result  = determine_swing_feedback(summary, channels=["Y"])
+        result = determine_swing_feedback(summary, channels=["Y"])
         assert "terminate" in result
         assert "decisions" in result
 
     def test_decisions_is_list(self):
         summary = self._make_summary(acc=0.50, f1=0.50, mae=1.0)
-        result  = determine_swing_feedback(summary, channels=["Y"])
+        result = determine_swing_feedback(summary, channels=["Y"])
         assert isinstance(result["decisions"], list)
 
 
 # ── ChannelMetrics 프로퍼티 / properties ────────────────────────────────────
+
 
 class TestChannelMetricsProperties:
     def test_acc_pass_true_above_threshold(self):

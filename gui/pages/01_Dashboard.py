@@ -17,9 +17,9 @@ summary_file = baseline_dir / "baseline_summary.json"
 if summary_file.exists():
     with open(summary_file) as f:
         summary = json.load(f)
-    
+
     st.write("**Baseline Model Summary:**")
-    
+
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Mode", summary.get("mode", "N/A"))
@@ -29,7 +29,7 @@ if summary_file.exists():
         st.metric("Epochs", summary.get("epochs", "N/A"))
     with col4:
         st.metric("Channels", len(summary.get("results", [])))
-    
+
     st.markdown("---")
     st.write("**Per-Channel Results:**")
     st.json(summary.get("results", []))
