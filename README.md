@@ -1,5 +1,7 @@
 # CMYK Printer Grayspot Detection Pipeline
 
+[![CI Pipeline](https://github.com/Rackhel/CMYK_MAIN/actions/workflows/ci.yml/badge.svg)](https://github.com/Rackhel/CMYK_MAIN/actions/workflows/ci.yml)
+
 **Grayspot Defect Classification System** — Deep learning-based automated detection and classification of printer defects using CMYK channel analysis.
 
 **Grayspot 결함 분류 시스템** — CMYK 채널 분석을 사용한 프린터 결함의 딥러닝 기반 자동 감지 및 분류.

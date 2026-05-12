@@ -5,14 +5,21 @@ on:
     branches: [ main, Optimization(Rackhel) ]
   pull_request:
     branches: [ main, Optimization(Rackhel) ]
+  workflow_dispatch:
 
 jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.10", "3.11"]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.10"
+          - os: ubuntu-latest
+            python-version: "3.11"
+          - os: windows-latest
+            python-version: "3.11"
 
     steps:
     - uses: actions/checkout@v4
@@ -21,43 +28,45 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Cache pip dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        cache: 'pip'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-cov
+        python -m pip install -r requirements.txt
 
     - name: Run unit tests
       run: |
-        pytest src/tests/unit/ -v --tb=short --cov=src --cov-report=xml
+        python -m pytest src/tests/unit --cov=src --cov-report=xml
 
-    - name: Run integration tests (smoke only)
+    - name: Run integration tests (not slow)
       run: |
-        pytest src/tests/integration/ -v --tb=short -m "not slow"
+        python -m pytest src/tests/integration -m "not slow"
 
     - name: Run smoke tests
       run: |
-        pytest src/tests/smoke/ -v --tb=short -m smoke
-      continue-on-error: true  # Smoke tests may require data/models
+        python -m pytest src/tests/smoke -m smoke
+      continue-on-error: true
 
     - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
-        file: ./coverage.xml
+        files: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
 
-  lint:
+    - name: Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.os }}-py${{ matrix.python-version }}
+        path: |
+          coverage.xml
+          .pytest_cache/
+        retention-days: 7
+
+  build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -66,25 +75,49 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip build wheel
+
+    - name: Validate pyproject.toml
+      run: |
+        python -c "import tomllib; tomllib.loads(open('src/config/pyproject.toml').read())" && echo "pyproject.toml is valid"
+
+    - name: Check requirements.txt
+      run: |
+        python -c "import ast; [ast.literal_eval(line.split('#')[0].strip()) for line in open('requirements.txt') if line.strip() and not line.startswith('#')]" && echo "requirements.txt is valid"
+
+  lint:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+        cache: 'pip'
 
     - name: Install linting dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 black isort mypy
+        python -m pip install flake8 black isort mypy
 
     - name: Run linting
       run: |
-        # stop the build if there are Python syntax errors or undefined names
         flake8 src --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings
         flake8 src --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
     - name: Check formatting
       run: |
-        black --check --diff src
-        isort --check-only --diff src
+        python -m black --check --diff src
+        python -m isort --check-only --diff src
 
   docker:
+    needs: test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
