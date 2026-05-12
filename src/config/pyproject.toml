@@ -1,58 +1,200 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "grayspot"
-version = "0.1.0"
-description = "CMYK Grayspot defect classification pipeline"
+version = "1.0.0"
+description = "CMYK Printer Grayspot Defect Classification Pipeline"
+authors = [
+    {name = "HP Printer Project Team", email = "team@example.com"},
+]
+readme = "../../README.md"
+license = {text = "MIT"}
+keywords = ["CMYK", "printer", "defect", "classification", "deep-learning", "pytorch"]
 requires-python = ">=3.10"
-
-dependencies = [
-    "torch>=2.1.0",
-    "torchvision>=0.16.0",
-    "efficientnet-pytorch>=0.7.1",
-    "opencv-python>=4.8.0",
-    "numpy>=1.24.0",
-    "pandas>=2.0.0",
-    "scikit-learn>=1.3.0",
-    "albumentations>=1.3.0",
-    "PyYAML>=6.0",
-    "optuna>=3.4.0",
-    "plotly>=5.17.0",
-    "jinja2>=3.1.0",
-    "onnx>=1.15.0",
-    "onnxruntime>=1.16.0",
-    "umap-learn>=0.5.4",
-    "PyQt6>=6.6.0",
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+# Core dependencies / 핵심 의존성
+dependencies = [
+    # PyTorch ecosystem / PyTorch 생태계
+    "torch>=2.1.0",
+    "torchvision>=0.16.0",
+    "torchmetrics>=0.11.0",
+    
+    # Data processing & analysis / 데이터 처리 및 분석
+    "opencv-python>=4.8.0",
+    "numpy>=1.24.0,<2.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.5.0",
+    "scipy>=1.11.0",
+    "albumentations>=1.3.0",
+    
+    # Configuration & utilities / 설정 및 유틸리티
+    "PyYAML>=6.0",
+    "python-dotenv>=1.0.0",
+    
+    # Hyperparameter tuning / 하이퍼파라미터 튜닝
+    "optuna>=3.4.0",
+    
+    # Visualization & reporting / 시각화 및 리포팅
+    "plotly>=5.17.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    
+    # Dimension reduction / 차원 축소
+    "umap-learn>=0.5.4",
+    "scikit-optimize>=0.9.0",
+    
+    # Data download utility / 데이터 다운로드
+    "gdown>=4.7.0",
+]
+
+# Optional dependencies for different use cases / 다양한 사용 사례를 위한 선택적 의존성
 [project.optional-dependencies]
+# Development tools / 개발 도구
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
+    "pytest-xdist>=3.3.0",
     "ruff>=0.1.0",
     "black>=23.0.0",
     "mypy>=1.6.0",
     "pre-commit>=3.5.0",
+    "ipython>=8.0.0",
 ]
 
+# Jupyter environment / Jupyter 환경
+jupyter = [
+    "jupyter>=1.0.0",
+    "jupyterlab>=4.0.0",
+    "ipykernel>=6.25.0",
+    "ipywidgets>=8.1.0",
+]
+
+# GPU acceleration / GPU 가속화 (CUDA 11.8)
+gpu = [
+    "torch>=2.1.0",
+    "torchvision>=0.16.0",
+]
+
+# MLOps & experiment tracking / MLOps 및 실험 추적
+mlops = [
+    "wandb>=0.15.0",
+    "tensorboard>=2.14.0",
+]
+
+# Documentation / 문서화
+docs = [
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=1.3.0",
+    "sphinx-autodoc-typehints>=1.24.0",
+]
+
+# Minimal installation / 최소 설치 (핵심만)
+minimal = [
+    "torch>=2.1.0",
+    "torchvision>=0.16.0",
+    "opencv-python>=4.8.0",
+    "numpy>=1.24.0,<2.0",
+    "pandas>=2.0.0",
+    "PyYAML>=6.0",
+]
+
+# Full installation (all optional) / 전체 설치 (모든 선택사항 포함)
+all = [
+    "grayspot[dev,jupyter,mlops,docs]",
+]
+
+[project.urls]
+Repository = "https://github.com/your-org/cmyk-printer"
+Documentation = "https://cmyk-printer.readthedocs.io"
+"Bug Tracker" = "https://github.com/your-org/cmyk-printer/issues"
+
+# Ruff configuration / Ruff 설정
 [tool.ruff]
 line-length = 100
-select = ["E", "F", "W", "I"]
-ignore = ["E501"]
+target-version = "py310"
 
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+]
+
+ignore = [
+    "E501",  # line too long (handled by black)
+    "E203",  # whitespace before ':'
+]
+
+extend-exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "venv",
+    "notebooks",
+]
+
+# Black configuration / Black 설정
 [tool.black]
 line-length = 100
-target-version = ["py310"]
+target-version = ['py310', 'py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.git
+  | \.venv
+  | __pycache__
+  | venv
+  | notebooks
+)/
+'''
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "--cov=grayspot --cov-report=html"
-
+# MyPy configuration / MyPy 설정
 [tool.mypy]
 python_version = "3.10"
+disallow_untyped_defs = false
 ignore_missing_imports = true
-```
+warn_unused_ignores = true
+warn_redundant_casts = true
 
----
+# Pytest configuration / Pytest 설정
+[tool.pytest.ini_options]
+testpaths = ["src/tests/unit", "src/tests/integration", "src/tests/smoke"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "slow: pretrained weight 다운로드가 필요한 테스트 (deselect with '-m not slow')",
+    "smoke: 실제 데이터/학습이 필요한 전체 파이프라인 테스트 (select with '-m smoke')",
+]
+
+# Coverage configuration / Coverage 설정
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

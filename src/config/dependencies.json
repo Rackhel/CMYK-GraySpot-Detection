@@ -1,0 +1,291 @@
+{
+  "_comment": "모듈 의존성 관계도 / Module dependency graph — CMYK Grayspot Detection System",
+  "_version": "0.3.0",
+  "_last_updated": "2026-05-08",
+
+  "environment_constraints": {
+    "_note": "외부 패키지 버전 제약 / External package version constraints",
+    "numpy": {
+      "required": ">=1.24.0,<2.0",
+      "reason": "Anaconda 기본 환경의 pyarrow / pandas / scipy가 NumPy 1.x 기준으로 컴파일돼 있어 NumPy 2.x 로드 시 ImportError 발생. numpy<2 로 고정. / Anaconda default env packages (pyarrow, pandas, scipy) are compiled against NumPy 1.x — upgrading to 2.x causes ImportError. Pinned to <2.",
+      "affected_packages": ["pyarrow", "pandas", "scipy", "scikit-learn"]
+    },
+    "scikit-learn": {
+      "required": ">=1.5.0",
+      "reason": "NumPy 1.x 호환 최신 안정 버전 / Latest stable version compatible with NumPy 1.x"
+    },
+    "scipy": {
+      "required": ">=1.11.0",
+      "reason": "evaluation/metrics.py 의 sklearn 간접 의존 — requirements.txt에 명시 / Indirect dependency via sklearn used in evaluation/metrics.py — explicitly listed in requirements.txt"
+    }
+  },
+
+  "modules": {
+
+    "utils": {
+      "description":  "로거 · 설정 로딩 · 모델 유틸리티 / Logger, config loading, and model utilities",
+      "files": [
+        "utils/logger.py",
+        "utils/utils_config.py",
+        "utils/utils_model.py",
+        "utils/__init__.py"
+      ],
+      "depends_on":   [],
+      "depended_by":  [
+        "models",
+        "data",
+        "training",
+        "evaluation",
+        "inference",
+        "reporting",
+        "tuning",
+        "scripts"
+      ],
+      "exports": [
+        "get_logger",
+        "setup_logging",
+        "LoggerMixin",
+        "log_training_config",
+        "log_epoch_summary",
+        "log_inference_summary",
+        "log_prediction_stats",
+        "log_report_generation",
+        "log_pipeline_error",
+        "log_snapshot",
+        "load_config",
+        "validate_config",
+        "create_directories",
+        "get_nested",
+        "set_seed",
+        "backbone_tag",
+        "build_model"
+      ],
+      "sub_modules": {
+        "logger.py":       "로깅 헬퍼 / Logging helpers — LoggerMixin, get_logger, setup_logging, log_*",
+        "utils_config.py": "설정 로딩 / Config loading — load_config() → dict, validate_config, create_directories, get_nested",
+        "utils_model.py":  "모델 유틸리티 / Model utilities — set_seed, backbone_tag, build_model"
+      }
+    },
+
+    "config": {
+      "description":  "설정 데이터 파일 디렉토리 (코드 없음) / Config data files directory — no Python code",
+      "files":        ["config/__init__.py"],
+      "data_files":   ["config/config.json", "config/dependencies.json"],
+      "depends_on":   [],
+      "depended_by":  [],
+      "exports":      [],
+      "migration_note": "config_manager.py 및 ConfigManager 클래스 삭제됨 — 설정 로딩 로직은 utils/utils_config.py 로 이전 / config_manager.py and ConfigManager deleted — config loading logic moved to utils/utils_config.py"
+    },
+
+    "data": {
+      "description":  "데이터셋 · 전처리 · 증강 / Dataset, preprocessing, augmentation",
+      "files": [
+        "data/dataset.py",
+        "data/preprocessing.py",
+        "data/augmentation.py",
+        "data/__init__.py"
+      ],
+      "depends_on":   ["utils"],
+      "depended_by":  ["training", "evaluation", "scripts"],
+      "exports": [
+        "CMYKDataset",
+        "ContrastiveDataset",
+        "preprocess",
+        "augment_supervised",
+        "augment_contrastive"
+      ],
+      "data_flow": "labeled/{channel}/{level}/*.png → preprocess() → [augment()] → Tensor"
+    },
+
+    "models": {
+      "description":  "신경망 구성 요소 / Neural network components",
+      "files": [
+        "models/grayspot_model.py",
+        "models/backbone.py",
+        "models/classifier.py",
+        "models/projection_head.py",
+        "models/__init__.py"
+      ],
+      "depends_on":   ["utils"],
+      "depended_by":  ["training", "evaluation", "inference", "scripts"],
+      "exports": [
+        "GrayspotModel",
+        "build_backbone",
+        "ClassifierHead",
+        "ProjectionHead"
+      ],
+      "phase_map": {
+        "phase0": "GrayspotModel(phase=0) → Backbone + ProjectionHead",
+        "phase2": "GrayspotModel(phase=2) → Backbone + ClassifierHead"
+      }
+    },
+
+    "training": {
+      "description":  "Phase 0/2 학습기 · 손실 함수 / Trainers and loss functions",
+      "files": [
+        "training/trainer.py",
+        "training/contrastive_loss.py",
+        "training/losses.py",
+        "training/__init__.py"
+      ],
+      "depends_on":   ["utils", "data", "models"],
+      "depended_by":  ["scripts"],
+      "exports": [
+        "Phase0Trainer",
+        "Phase2Trainer",
+        "backbone_tag",
+        "InfoNCELoss",
+        "get_loss"
+      ],
+      "re_exports": {
+        "CMYKDataset":        "from data.dataset (backward compatibility)",
+        "ContrastiveDataset": "from data.dataset (backward compatibility)",
+        "backbone_tag":       "local copy in trainer.py — canonical export is utils.backbone_tag"
+      }
+    },
+
+    "evaluation": {
+      "description":  "지표 계산 · 리포트 생성 / Metrics computation and report generation",
+      "files": [
+        "evaluation/metrics.py",
+        "evaluation/confusion.py",
+        "evaluation/evaluator.py",
+        "evaluation/__init__.py"
+      ],
+      "depends_on":   ["utils", "models"],
+      "depended_by":  ["scripts", "reporting"],
+      "exports": [
+        "Evaluator",
+        "compute_metrics",
+        "compute_all_channels",
+        "check_targets",
+        "build_evaluation_summary",
+        "EvaluationSummary",
+        "ChannelMetrics",
+        "PerClassMetric",
+        "determine_swing_feedback",
+        "plot_confusion_matrix",
+        "plot_all_channels"
+      ],
+      "constants": {
+        "NUM_LEVELS": 6,
+        "TARGET_OVERALL_ACC": 0.90,
+        "TARGET_PER_COLOR_ACC": 0.85,
+        "TARGET_PER_CLASS_F1": 0.80,
+        "TARGET_MAE": 0.50,
+        "CONF_THRESH_AUTO": 0.8,
+        "CONF_THRESH_WARN": 0.5,
+        "CONF_THRESH_MANUAL": 0.3
+      }
+    },
+
+    "inference": {
+      "description":  "추론 파이프라인 / Inference pipeline",
+      "files":        ["inference/predictor.py", "inference/__init__.py"],
+      "depends_on":   ["utils", "models"],
+      "depended_by":  ["scripts"],
+      "exports":      ["GrayspotPredictor"]
+    },
+
+    "reporting": {
+      "description":  "HTML 보고서 생성 / HTML report generation",
+      "files":        ["reporting/html_report.py", "reporting/__init__.py"],
+      "depends_on":   ["utils", "evaluation"],
+      "depended_by":  ["scripts"],
+      "exports":      ["html_report"]
+    },
+
+    "tuning": {
+      "description":  "Optuna 하이퍼파라미터 튜닝 / Optuna hyperparameter tuning",
+      "files": [
+        "tuning/optuna_tuner.py",
+        "tuning/search_space.py",
+        "tuning/__init__.py"
+      ],
+      "depends_on":   ["utils", "data", "models", "training"],
+      "depended_by":  ["scripts"],
+      "exports":      ["optuna_tuner", "search_space"]
+    },
+
+    "scripts": {
+      "description":  "실행 스크립트 (라이브러리 API 없음) / Execution scripts (no library API)",
+      "files": [
+        "scripts/run_phase0.py",
+        "scripts/run_phase2.py",
+        "scripts/run_baseline.py",
+        "scripts/run_optuna.py",
+        "scripts/train.py",
+        "scripts/generate_baseline_report.py",
+        "scripts/__init__.py"
+      ],
+      "depends_on":   [
+        "utils", "data", "models",
+        "training", "evaluation", "inference", "tuning"
+      ],
+      "depended_by":  [],
+      "note": "스크립트는 라이브러리로 임포트하지 않는다 / Scripts are not imported as libraries"
+    }
+  },
+
+  "dependency_layers": {
+    "layer_0_foundation": {
+      "modules": ["utils"],
+      "description": "의존성 없는 기반 모듈 — 로거, 설정 로딩, 모델 유틸리티 포함 / Foundation module with no dependencies — includes logger, config loading, and model utilities"
+    },
+    "layer_1_config_data": {
+      "modules": ["config"],
+      "description": "설정 데이터 파일 디렉토리 (Python 코드 없음) / Config data files directory (no Python code)"
+    },
+    "layer_2_data_models": {
+      "modules": ["data", "models"],
+      "description": "데이터 및 모델 구성 요소 / Data and model components"
+    },
+    "layer_3_training": {
+      "modules": ["training"],
+      "description": "학습 파이프라인 / Training pipeline"
+    },
+    "layer_4_eval_infer": {
+      "modules": ["evaluation", "inference", "reporting", "tuning"],
+      "description": "평가 · 추론 · 보고 / Evaluation, inference, reporting"
+    },
+    "layer_5_scripts": {
+      "modules": ["scripts"],
+      "description": "실행 진입점 / Execution entry points"
+    }
+  },
+
+  "circular_dependency_check": {
+    "status": "PASS",
+    "note": "순환 의존성 없음 — 레이어 방향 단방향 / No circular dependencies — strict layered direction"
+  },
+
+  "key_interfaces": {
+    "config_to_all": {
+      "type":     "dict",
+      "format":   "utils_config.load_config() → dict (JSON → processed dict with resolved paths and device)",
+      "loader":   "src/utils/utils_config.py",
+      "used_by":  "모든 모듈 / All modules"
+    },
+    "dataset_to_trainer": {
+      "type":     "torch.utils.data.DataLoader",
+      "producer": "data.dataset.CMYKDataset / ContrastiveDataset",
+      "consumer": "training.trainer.Phase0Trainer / Phase2Trainer"
+    },
+    "trainer_to_checkpoint": {
+      "type":     ".pt file (torch.save)",
+      "format":   "phase0_backbone_{channel}_{tag}.pt / best_{channel}.pt",
+      "producer": "training.trainer.Phase0Trainer.save_backbone() / Phase2Trainer.train()",
+      "consumer": "models.grayspot_model.GrayspotModel.switch_to_phase2()"
+    },
+    "model_to_evaluator": {
+      "type":     "nn.Module (eval mode)",
+      "producer": "models.grayspot_model.GrayspotModel",
+      "consumer": "evaluation.evaluator.Evaluator"
+    },
+    "evaluator_to_report": {
+      "type":     "dict {channel: {y_true, y_pred, confidences}}",
+      "producer": "evaluation.evaluator.Evaluator.run()",
+      "consumer": "evaluation.evaluator.Evaluator.save_report()"
+    }
+  }
+}
