@@ -134,26 +134,52 @@ projection_dim = config["phase0"]["projection_dim"] = 128 ← Hard SSOT
 
 ## 5. ClassifierHead — Phase 2 Head
 
-Phase 2 Supervised Classification용 분류 Head. / Classification head for Phase 2 Supervised Classification.
+Phase 2 Supervised Classification용 분류 Head. Backbone별로 구조가 다르다. / Classification head for Phase 2 Supervised Classification. Structure differs per backbone.
+
+### 5.1 EfficientNet-B0 특화 / EfficientNet-B0 Specialized
+
+SE-attention이 backbone 내부에서 채널 선택을 완료하므로 직접 압축 구조를 사용한다. / SE-attention completes channel selection inside backbone — use direct compression.
 
 ```python
-# 구조 / Architecture
-Linear(feature_dim, hidden_dim) → BatchNorm → ReLU → Dropout(dropout)
+# 구조 / Architecture (mid_dim=None)
+Linear(feature_dim=1280, hidden_dim) → BatchNorm → ReLU → Dropout(dropout)
 → Linear(hidden_dim, num_levels)
 # 출력: raw logits (Softmax 없음 / No Softmax applied)
 
 # 파라미터 / Parameters
-feature_dim = 1280 (effb0) or 2048 (res50)      ← Hard SSOT
-hidden_dim  = config["phase2"]["hidden_dim"]  = 256  ← Hard SSOT
-num_levels  = config["data"]["num_levels"]    = 6    ← Hard SSOT
-dropout     = config["phase2"]["dropout"]     = 0.3  ← Soft SSOT
+feature_dim = 1280                                             ← Hard SSOT
+hidden_dim  = config["phase2"]["heads"]["efficientnet_b0"]["hidden_dim"] = 256  ← Hard SSOT
+dropout     = config["phase2"]["heads"]["efficientnet_b0"]["dropout"]    = 0.2  ← Soft SSOT
+num_levels  = config["data"]["num_levels"]                 = 6    ← Hard SSOT
 ```
 
-| 파라미터 / Parameter | config 키 / Key | 기본값 / Default | SSOT 분류 / Classification |
-|---|---|---|---|
-| `hidden_dim` | `phase2.hidden_dim` 🟢 | 256 | Hard |
-| `num_levels` | `data.num_levels` 🟢 | 6 | Hard |
-| `dropout` | `phase2.dropout` 🟢 | 0.3 | Soft |
+### 5.2 ResNet-50 특화 / ResNet-50 Specialized
+
+2048차원 비선별 features를 단계적으로 압축한다. / Staged compression of unfiltered 2048-dim features.
+
+```python
+# 구조 / Architecture (mid_dim=512)
+Linear(feature_dim=2048, mid_dim) → BatchNorm → ReLU → Dropout(dropout)
+→ Linear(mid_dim, hidden_dim) → BatchNorm → ReLU → Dropout(dropout)
+→ Linear(hidden_dim, num_levels)
+# 출력: raw logits (Softmax 없음 / No Softmax applied)
+
+# 파라미터 / Parameters
+feature_dim = 2048                                             ← Hard SSOT
+mid_dim     = config["phase2"]["heads"]["resnet50"]["mid_dim"]     = 512  ← Hard SSOT
+hidden_dim  = config["phase2"]["heads"]["resnet50"]["hidden_dim"]  = 256  ← Hard SSOT
+dropout     = config["phase2"]["heads"]["resnet50"]["dropout"]     = 0.4  ← Soft SSOT
+num_levels  = config["data"]["num_levels"]                     = 6    ← Hard SSOT
+```
+
+### 5.3 파라미터 비교 / Parameter Comparison
+
+| 파라미터 / Parameter | config 키 / Key | EfficientNet-B0 | ResNet-50 | SSOT 분류 / Classification |
+|---|---|---|---|---|
+| `mid_dim` | `phase2.heads.resnet50.mid_dim` 🟢 | — (없음 / absent) | 512 | Hard |
+| `hidden_dim` | `phase2.heads.{backbone}.hidden_dim` 🟢 | 256 | 256 | Hard |
+| `dropout` | `phase2.heads.{backbone}.dropout` 🟢 | 0.2 | 0.4 | Soft |
+| `num_levels` | `data.num_levels` 🟢 | 6 | 6 | Hard |
 
 ---
 
@@ -191,9 +217,11 @@ model.load_state_dict(checkpoint, strict=False)
 |---|---|---|---|
 | `num_levels` | 6 | `data.num_levels` | ClassifierHead 출력 차원 / Output dim |
 | `image_size` | 128 | `data.image_size` | 모델 입력 크기 / Model input size |
-| `backbone` | `efficientnet_b0` | `model.backbone` | 전체 구조 변경 / Entire architecture changed |
+| `backbone` | `efficientnet_b0` / `resnet50` | `model.backbone` | 전체 구조 변경 / Entire architecture changed |
 | `projection_dim` | 128 | `phase0.projection_dim` | Phase 0 head 구조 / Phase 0 head structure |
-| `hidden_dim` | 256 | `phase2.hidden_dim` | Phase 2 head 구조 / Phase 2 head structure |
+| `hidden_dim` (EffB0) | 256 | `phase2.heads.efficientnet_b0.hidden_dim` | Phase 2 head 구조 / Phase 2 head structure |
+| `hidden_dim` (Res50) | 256 | `phase2.heads.resnet50.hidden_dim` | Phase 2 head 구조 / Phase 2 head structure |
+| `mid_dim` (Res50 전용 / only) | 512 | `phase2.heads.resnet50.mid_dim` | ResNet-50 단계적 압축 구조 / ResNet-50 staged compression structure |
 | Phase 순서 / Phase ordering | Phase 0 → 2 | — | backbone 가중치 의존성 / Backbone weight dependency |
 | 색상 공간 / Color space | BGR [0, 1] | — | 입력 분포 / Input distribution |
 
@@ -208,6 +236,6 @@ model.load_state_dict(checkpoint, strict=False)
 
 ---
 
-**Version**: 0.2.0
-**Last Updated**: 2026-05-11
+**Version**: 0.3.0
+**Last Updated**: 2026-05-12
 **Applies to**: CMYK Grayspot Detection System v0.1.0+

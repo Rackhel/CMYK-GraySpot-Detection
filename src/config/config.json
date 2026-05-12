@@ -75,6 +75,20 @@
       "brightness_range": 30,
       "noise_prob":       0.5,
       "noise_range":      10
+    },
+    "heads": {
+      "resnet50": {
+        "_comment": "단계적 압축 — 2048 → mid_dim → hidden_dim → 6 / Staged compression",
+        "mid_dim":    512,
+        "hidden_dim": 256,
+        "dropout":    0.4
+      },
+      "efficientnet_b0": {
+        "_comment": "직접 압축 — SE가 이미 채널 선택 완료 / Direct compression — SE already selects channels",
+        "mid_dim":    null,
+        "hidden_dim": 256,
+        "dropout":    0.2
+      }
     }
   },
 
@@ -171,15 +185,33 @@
   "optuna": {
     "enabled":   false,
     "direction": "maximize",
-    "n_trials":  20,
+    "n_trials":  30,
     "n_jobs":    1,
     "sampler":   "tpe",
+    "pruner": {
+      "type":           "median",
+      "n_warmup_steps": 10
+    },
     "search_space": {
-      "learning_rate": [1.0e-5, 1.0e-2],
-      "weight_decay":  [1.0e-6, 1.0e-3],
-      "dropout":       [0.1, 0.5],
-      "batch_size":    [16, 32, 64],
-      "epochs":        [10, 30]
+      "resnet50": {
+        "_comment": "단계적 압축 head 전용 — regularization 강하게 / Heavy regularization for staged head",
+        "learning_rate": [1.0e-4, 5.0e-4],
+        "weight_decay":  [1.0e-3, 1.0e-2],
+        "dropout":       [0.3, 0.5],
+        "mid_dim":       [256, 512, 1024],
+        "hidden_dim":    [256, 512],
+        "batch_size":    [16, 32, 64],
+        "epochs":        [10, 30]
+      },
+      "efficientnet_b0": {
+        "_comment": "직접 압축 head 전용 — SE 선별 이후 compact / Post-SE compact head",
+        "learning_rate": [5.0e-5, 3.0e-4],
+        "weight_decay":  [1.0e-4, 1.0e-3],
+        "dropout":       [0.1, 0.3],
+        "hidden_dim":    [128, 256],
+        "batch_size":    [16, 32, 64],
+        "epochs":        [10, 30]
+      }
     }
   },
 

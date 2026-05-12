@@ -60,13 +60,15 @@ Parameters whose change only affects performance or speed — retraining is opti
 | `feature_dim` (res50) | `2048` | 🟡 하드코딩 / Hardcoded | `models/backbone.py` | Head 입력 차원 / Head input dim |
 | `projection_dim` | `128` | `phase0.projection_dim` 🟢 | `models/grayspot_model.py` | ProjectionHead 출력 차원 / Output dim |
 | `proj_hidden` (Phase 0 head) | `256` | `phase0.hidden_dim` 🟢 | `models/grayspot_model.py` | ProjectionHead 중간 차원 / Intermediate dim |
-| `cls_hidden` (Phase 2 head) | `256` | `phase2.hidden_dim` 🟢 | `models/grayspot_model.py` | ClassifierHead 중간 차원 / Intermediate dim |
+| `cls_hidden` (EffB0 head) | `256` | `phase2.heads.efficientnet_b0.hidden_dim` 🟢 | `models/grayspot_model.py` | ClassifierHead 최종 은닉 차원 / Final hidden dim |
+| `cls_hidden` (Res50 head) | `256` | `phase2.heads.resnet50.hidden_dim` 🟢 | `models/grayspot_model.py` | ClassifierHead 최종 은닉 차원 / Final hidden dim |
+| `mid_dim` (Res50 전용 / only) | `512` | `phase2.heads.resnet50.mid_dim` 🟢 | `models/grayspot_model.py` | ResNet-50 단계적 압축 중간 차원 / ResNet-50 staged compression dim |
 | `temperature` (τ) | `0.1` | `phase0.temperature` 🟢 | `training/contrastive_loss.py` | InfoNCE 손실 스케일 / InfoNCE loss scale |
 | Phase 순서 / Phase ordering | Phase 0 → Phase 2 | — 🟡 하드코딩 / Hardcoded | `scripts/run_phase2.py` | backbone 의존성 / Backbone dependency |
 | 색상 공간 / Color space | BGR | — 🟡 하드코딩 / Hardcoded | `data/preprocessing.py` | 입력 분포 / Input distribution |
 | 정규화 / Normalization | `/ 255.0` only | — 🟡 하드코딩 / Hardcoded | `data/preprocessing.py` | 입력 스케일 / Input scale |
 
-**Hard SSOT 수 / Count: 13개 / 13 (config 연결 8개 / 8 config-linked, 하드코딩 5개 / 5 hardcoded)**
+**Hard SSOT 수 / Count: 15개 / 15 (config 연결 10개 / 10 config-linked, 하드코딩 5개 / 5 hardcoded)**
 
 ---
 
@@ -82,7 +84,8 @@ Parameters whose change only affects performance or speed — retraining is opti
 | `lr` (phase2) | `1e-4` | `phase2.learning_rate` 🟢 | `training/trainer.py` | 성능 / Performance |
 | `weight_decay` (phase0) | `1e-5` | `phase0.weight_decay` 🟢 | `training/trainer.py` | 정규화 / Regularization |
 | `weight_decay` (phase2) | `1e-4` | `phase2.weight_decay` 🟢 | `training/trainer.py` | 정규화 / Regularization |
-| `dropout` | `0.3` | `phase2.dropout` 🟢 | `models/grayspot_model.py` | 정규화 / Regularization |
+| `dropout` (EffB0) | `0.2` | `phase2.heads.efficientnet_b0.dropout` 🟢 | `models/grayspot_model.py` | 정규화 (compact head) / Regularization (compact head) |
+| `dropout` (Res50) | `0.4` | `phase2.heads.resnet50.dropout` 🟢 | `models/grayspot_model.py` | 정규화 (staged head, 강하게) / Regularization (staged head, heavier) |
 | `epochs` (phase0) | `10` | `phase0.epochs` 🟢 | `training/trainer.py` | 수렴 / Convergence |
 | `epochs` (phase2) | `30` | `phase2.epochs` 🟢 | `training/trainer.py` | 수렴 / Convergence |
 | `num_workers` | `4` | `train.num_workers` 🟢 | DataLoader (`run_phase2.py`) | 데이터 로딩 속도 / Data loading speed |
@@ -98,7 +101,7 @@ Parameters whose change only affects performance or speed — retraining is opti
 | `betas` | `[0.9, 0.999]` | `train.betas` 🟢 | `_build_optimizer()` — AdamW | AdamW beta 파라미터 / AdamW beta parameters |
 | `gamma` | `0.1` | `train.gamma` 🟢 | `_build_scheduler()` — StepLR 선택 시 / when StepLR selected | StepLR 감쇠율 / StepLR decay rate |
 
-**Soft SSOT 수 / Count: 21개 / 21**
+**Soft SSOT 수 / Count: 22개 / 22**
 
 ---
 
@@ -158,6 +161,11 @@ config.json에 선언되었으나 코드에서 소비되지 않는 주요 키. /
 | `optuna.search_space.dropout` | `search_space.py` 에서 ss dict에 포함 (future use) / included in ss dict in `search_space.py` (future use) |
 | `optuna.search_space.batch_size` | `get_phase2_search_space(trial, cfg)` 에서 소비 (config에 신규 추가) / consumed in `get_phase2_search_space(trial, cfg)` (newly added to config) |
 | `optuna.search_space.epochs` | `get_phase2_search_space(trial, cfg)` 에서 소비 (config에 신규 추가) / consumed in `get_phase2_search_space(trial, cfg)` (newly added to config) |
+| `optuna.search_space.resnet50.*` | `get_phase2_search_space(trial, cfg)` backbone별 분기 탐색 / backbone-branched search in `get_phase2_search_space` |
+| `optuna.search_space.efficientnet_b0.*` | `get_phase2_search_space(trial, cfg)` backbone별 분기 탐색 / backbone-branched search in `get_phase2_search_space` |
+| `optuna.pruner.n_warmup_steps` | `run_optuna()` 에서 `MedianPruner(n_warmup_steps=...)` 소비 / consumed as `MedianPruner(n_warmup_steps=...)` in `run_optuna()` |
+| `phase2.heads.efficientnet_b0.*` | `grayspot_model.py` ClassifierHead 직접 압축 구조 소비 / consumed for direct-compression ClassifierHead in `grayspot_model.py` |
+| `phase2.heads.resnet50.*` | `grayspot_model.py` ClassifierHead 단계적 압축 구조 소비 / consumed for staged-compression ClassifierHead in `grayspot_model.py` |
 
 **config.json에서 제거된 Dead Config (플레이스홀더 삭제) / Dead Config removed from config.json (placeholders deleted)**:
 
@@ -199,7 +207,8 @@ image_size = 128         → 모든 전처리 파이프라인 영향 / Affects a
 backbone = efficientnet  → feature_dim 변경 → head 구조 변경 / feature_dim changes → head structure changes
 projection_dim = 128     → Phase 0 head 구조 변경 / Phase 0 head structure changes
 phase0.hidden_dim = 256  → ProjectionHead 중간 차원 변경 / ProjectionHead intermediate dim changes
-phase2.hidden_dim = 256  → ClassifierHead 중간 차원 변경 / ClassifierHead intermediate dim changes
+phase2.heads.{backbone}.hidden_dim = 256  → ClassifierHead 최종 은닉 차원 변경 / ClassifierHead final hidden dim changes
+phase2.heads.resnet50.mid_dim = 512       → ResNet-50 단계적 압축 구조 변경 / ResNet-50 staged compression structure changes
 temperature = 0.1        → InfoNCE 손실 스케일 변경 / InfoNCE loss scale changes
 색상 공간 = BGR          → 입력 분포 전면 변경 / Full input distribution change / Color space = BGR
 정규화 = /255.0 only     → 입력 스케일 변경 / Input scale changes / Normalization = /255.0 only
@@ -249,6 +258,6 @@ momentum, betas, gamma, eta_min
 
 ---
 
-**Version**: 0.4.0
-**Last Updated**: 2026-05-08
+**Version**: 0.5.0
+**Last Updated**: 2026-05-12
 **Applies to**: CMYK Grayspot Detection System v0.1.0+

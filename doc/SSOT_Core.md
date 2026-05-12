@@ -16,11 +16,12 @@ This document defines the core SSOT principles, terminology, and document invent
 2. [핵심 용어 / Glossary](#2-핵심-용어--glossary)
 3. [상태 아이콘 범례 / Icon Legend](#3-상태-아이콘-범례--icon-legend)
 4. [프로젝트 정체성 / Project Identity](#4-프로젝트-정체성--project-identity)
-5. [코딩 컨벤션 / Coding Conventions](#5-코딩-컨벤션--coding-conventions)
-6. [Fail-Fast 정책 / Fail-Fast Policy](#6-fail-fast-정책--fail-fast-policy)
-7. [Hard / Soft SSOT 분류 / Classification](#7-hard--soft-ssot-분류--classification)
-8. [SSOT 문서 목록 / Document Index](#8-ssot-문서-목록--document-index)
-9. [관련 문서 / Related Documents](#9-관련-문서--related-documents)
+5. [SOLID 설계 원칙 / SOLID Design Principles](#5-solid-설계-원칙--solid-design-principles)
+6. [코딩 컨벤션 / Coding Conventions](#6-코딩-컨벤션--coding-conventions)
+7. [Fail-Fast 정책 / Fail-Fast Policy](#7-fail-fast-정책--fail-fast-policy)
+8. [Hard / Soft SSOT 분류 / Classification](#8-hard--soft-ssot-분류--classification)
+9. [SSOT 문서 목록 / Document Index](#9-ssot-문서-목록--document-index)
+10. [관련 문서 / Related Documents](#10-관련-문서--related-documents)
 
 ---
 
@@ -97,17 +98,17 @@ This document defines the core SSOT principles, terminology, and document invent
 
 ---
 
-## 5. 코딩 컨벤션 / Coding Conventions
+## 5. SOLID 설계 원칙 / SOLID Design Principles
 
-이 프로젝트의 모든 Python 코드는 아래 세 원칙을 **의무적으로 준수**한다.
-All Python code in this project **must** follow the three principles below.
+이 프로젝트의 모든 Python 코드는 SOLID 5원칙을 **설계 기준**으로 사용한다. 각 원칙의 현재 준수 상태와 리팩토링 필요 여부를 함께 기술한다.
+All Python code in this project uses SOLID principles as **design criteria**. Current compliance and refactoring necessity are documented for each principle.
 
 ---
 
-### 5.1 단일 책임 원칙 (SRP) / Single Responsibility Principle
+### 5.1 S — 단일 책임 원칙 (SRP) / Single Responsibility Principle
 
-> **하나의 모듈/클래스/함수는 하나의 책임만 가진다.**
-> **Each module, class, and function has exactly one responsibility.**
+> **하나의 모듈/클래스/함수는 변경 이유(reason to change)가 하나여야 한다.**
+> **Each module, class, and function must have exactly one reason to change.**
 
 | 단위 / Unit | 원칙 / Rule | 위반 예시 / Bad Example | 준수 예시 / Good Example |
 |---|---|---|---|
@@ -117,9 +118,203 @@ All Python code in this project **must** follow the three principles below.
 
 **SRP 위반 판단 기준 / SRP violation test**: 함수/클래스 설명에 "그리고(and)"가 필요하면 책임이 두 개다. / If describing a function/class requires the word "and", it has more than one responsibility.
 
+**현재 상태 / Current Status**: ✅ **대부분 준수**
+- `Phase0Trainer` / `Phase2Trainer` — 각 Phase 학습만 담당
+- `ClassifierHead` / `ProjectionHead` — 각 head 구조 정의만 담당
+- `utils_config.py` / `utils_model.py` / `logger.py` — 관심사 분리 완료
+
 ---
 
-### 5.2 snake_case 명명 규칙 / snake_case Naming Convention
+### 5.2 O — 개방-폐쇄 원칙 (OCP) / Open-Closed Principle
+
+> **클래스/함수는 확장에는 열려 있고, 수정에는 닫혀 있어야 한다.**
+> **Classes and functions must be open for extension but closed for modification.**
+
+기존 코드를 수정하지 않고 새로운 기능을 추가할 수 있어야 한다. 조건 분기(`if/elif`)로 구현된 확장 지점은 OCP 위반이다.
+New functionality should be addable without modifying existing code. Conditional branching (`if/elif`) for extension points is an OCP violation.
+
+| 항목 / Item | 현재 패턴 / Current Pattern | OCP 준수 패턴 / OCP-Compliant Pattern |
+|---|---|---|
+| Backbone 추가 / Add backbone | `build_backbone()` 내부 `if/elif` 수정 필요 / Must modify internal `if/elif` | Registry dict에 등록만 추가 / Register entry in registry dict |
+| Optuna 탐색 공간 / Optuna search space | `search_space.py` 내 `if backbone_name == "resnet50"` 분기 수정 / Must modify backbone branch | backbone별 독립 search_space 함수 등록 / Register per-backbone function |
+| Head 구조 추가 / Add head variant | `ClassifierHead.__init__` 내 `if mid_dim is not None` 분기 / `if mid_dim` branch inside | Head 클래스를 상속·확장 / Inherit and extend head class |
+
+```python
+# ❌ OCP 위반 — 새 backbone마다 기존 함수 수정 / Violation: modify existing function for each new backbone
+def build_backbone(backbone_name):
+    if backbone_name == "efficientnet_b0":  ...
+    elif backbone_name == "resnet50":       ...
+    # resnet18 추가 시 여기를 수정해야 함 / Must add here for resnet18
+
+# ✅ OCP 준수 — Registry 패턴으로 확장 / Compliant: extend via Registry
+_BACKBONE_REGISTRY = {
+    "efficientnet_b0": _build_effb0,
+    "resnet50":        _build_res50,
+    # resnet18 추가 시 기존 코드 무수정 / No existing code change needed for resnet18
+}
+def build_backbone(backbone_name):
+    if backbone_name not in _BACKBONE_REGISTRY:
+        raise ValueError(f"Unsupported backbone: {backbone_name}")
+    return _BACKBONE_REGISTRY[backbone_name]()
+```
+
+**현재 상태 / Current Status**: ⚠️ **부분 위반**
+- `build_backbone()`: if/elif 체인 — backbone 추가 시 기존 함수 수정 필요
+- `get_phase2_search_space()`: `if backbone_name == "resnet50"` 분기
+
+**리팩토링 필요 여부 / Refactoring Assessment**:
+> **선택적 개선 권장** (즉시 필수 아님). Backbone이 2개뿐인 현재 규모에서 Registry 패턴은 낮은 비용으로 미래 확장성을 보장한다. 3번째 backbone 추가 시 반드시 적용.
+> **Optional improvement** (not immediately required). With only 2 backbones, a Registry pattern is low-cost insurance for future expansion. Apply when adding a 3rd backbone.
+
+---
+
+### 5.3 L — 리스코프 치환 원칙 (LSP) / Liskov Substitution Principle
+
+> **파생(서브)클래스는 기반(베이스)클래스를 완전히 대체할 수 있어야 한다.**
+> **Derived classes must be fully substitutable for their base class.**
+
+서브클래스가 베이스클래스의 계약(전제 조건, 후행 조건, 불변 조건)을 약화시키면 LSP 위반이다.
+A subclass violates LSP if it weakens the base class's contract (preconditions, postconditions, invariants).
+
+```python
+# ✅ LSP 준수 예시 — 베이스 클래스 계약을 유지 / Compliant: subclass honors base contract
+class BaseHead(nn.Module):
+    def forward(self, x: Tensor) -> Tensor:
+        """입력: (B, in_dim), 출력: (B, num_classes) logits"""
+        ...
+
+class ClassifierHead(BaseHead):   # 계약 완전 유지 / Contract fully honored
+    def forward(self, x):
+        return self.net(x)   # (B, in_dim) → (B, num_classes) ✅
+
+# ❌ LSP 위반 예시 — 출력 타입 변경 / Violation: changes output type
+class BrokenHead(BaseHead):
+    def forward(self, x):
+        return F.softmax(self.net(x), dim=1)  # Softmax 추가 — 계약 위반 / Breaks CrossEntropyLoss contract
+```
+
+**현재 준수 규칙 / Rules for This Project**:
+
+| 규칙 / Rule | 설명 / Description |
+|---|---|
+| `nn.Module` forward 계약 유지 / Honor `nn.Module` forward contract | `forward(x: Tensor) → Tensor` — 입출력 shape 계약 반드시 유지 / Always maintain I/O shape contract |
+| Softmax 위치 고정 / Fixed Softmax position | `ClassifierHead.forward()` 는 raw logits만 반환. 서브클래스도 동일. / Always return raw logits; subclasses must do the same |
+| Trainer 계약 유지 / Honor Trainer contract | `Phase0Trainer` / `Phase2Trainer` 를 상속할 경우 `train()` 반환 타입 `List[dict]` 유지 필수 / If subclassing trainers, `train()` must return `List[dict]` |
+
+**현재 상태 / Current Status**: ✅ **위반 없음**
+- `Phase0Trainer` / `Phase2Trainer`는 독립 클래스 — 상속 관계 없어 위반 불가
+- `ClassifierHead` / `ProjectionHead`는 모두 `nn.Module` forward 계약 완전 준수
+
+---
+
+### 5.4 I — 인터페이스 분리 원칙 (ISP) / Interface Segregation Principle
+
+> **클라이언트는 사용하지 않는 메서드에 의존하도록 강요받아서는 안 된다.**
+> **No client should be forced to depend on methods it does not use.**
+
+하나의 큰 인터페이스보다 목적별로 작은 인터페이스 여러 개가 낫다. / Many small purpose-specific interfaces are better than one large general-purpose interface.
+
+**현재 주의 지점 / Current Attention Point**:
+
+```python
+# ⚠️ ISP 잠재적 우려 — Phase 0 클라이언트가 Phase 2 메서드를 봄
+# Potential ISP concern: Phase 0 clients see Phase 2 methods
+class GrayspotModel(nn.Module):
+    def forward(self, x):  ...        # Phase 0/2 모두 사용 / Used by both
+    def switch_to_phase2(self, ...):  # Phase 2 클라이언트만 사용 / Phase 2 client only
+    # Phase 0 Trainer는 switch_to_phase2를 절대 호출하지 않음에도 인터페이스에 노출됨
+    # Phase 0 Trainer never calls switch_to_phase2, yet it is exposed
+```
+
+**준수 가이드라인 / Compliance Guidelines**:
+
+| 원칙 / Rule | 설명 / Description |
+|---|---|
+| Trainer는 필요한 모델 메서드만 호출 / Trainers call only needed model methods | `Phase0Trainer` → `model.forward()` 만 호출. `switch_to_phase2()` 절대 호출 금지 / Call only `model.forward()`; never call `switch_to_phase2()` |
+| 평가·추론은 eval 인터페이스만 의존 / Evaluator/Predictor depend only on eval interface | `Evaluator`, `GrayspotPredictor` → `model.eval()` + `model.forward()` 만 사용 / Use only `model.eval()` + `model.forward()` |
+| 설정 주입 분리 / Separate config injection | 모듈은 자신이 필요한 cfg 키만 접근. 전체 cfg를 내부 저장하되 필요한 키만 읽음 / Access only needed cfg keys — store full cfg but read selectively |
+
+**현재 상태 / Current Status**: ⚠️ **경미한 우려** (기능 영향 없음 / no functional impact)
+- `GrayspotModel`의 `switch_to_phase2()`가 Phase 0 학습 컨텍스트에도 노출
+- Python의 duck typing 특성상 실제 강제 의존성은 없으나, 인터페이스 명확성 측면에서 주의
+
+**리팩토링 필요 여부 / Refactoring Assessment**:
+> **현재 규모에서 불필요**. `GrayspotModel`을 `Phase0Model` / `Phase2Model`로 분리하면 ISP를 완전히 준수하나, Swing Architecture의 `switch_to_phase2()` 전환 메커니즘과 구조적으로 충돌한다. 현재 2-Phase 구조에서는 과설계(over-engineering)다.
+> **Not needed at current scale.** Splitting `GrayspotModel` into `Phase0Model`/`Phase2Model` would fully satisfy ISP but conflicts structurally with Swing Architecture's `switch_to_phase2()` mechanism. Over-engineering for a 2-phase system.
+
+---
+
+### 5.5 D — 의존 역전 원칙 (DIP) / Dependency Inversion Principle
+
+> **고수준 모듈은 저수준 모듈에 직접 의존해서는 안 된다. 둘 다 추상화에 의존해야 한다.**
+> **High-level modules must not depend directly on low-level modules. Both should depend on abstractions.**
+
+구체 클래스(concrete class)가 아닌 추상화(프로토콜·인터페이스·base class)에 의존해야 외부에서 구현체를 교체할 수 있다. / Depending on abstractions rather than concrete classes allows substituting implementations externally.
+
+```python
+# ❌ DIP 위반 — 고수준 모델이 구체 클래스를 직접 인스턴스화
+# Violation: high-level model directly instantiates concrete classes
+class GrayspotModel(nn.Module):
+    def __init__(self, cfg, phase):
+        self.head = ClassifierHead(...)   # 구체 클래스 직접 생성 / Direct concrete instantiation
+        # ClassifierHead를 MockHead로 교체하려면 GrayspotModel 수정 필요
+        # Replacing ClassifierHead with MockHead requires modifying GrayspotModel
+
+# ✅ DIP 준수 — 추상화(nn.Module)에 의존, 외부에서 주입
+# Compliant: depend on abstraction (nn.Module), inject from outside
+class GrayspotModel(nn.Module):
+    def __init__(self, backbone: nn.Module, head: nn.Module):
+        self.backbone = backbone  # 외부에서 주입된 nn.Module / nn.Module injected externally
+        self.head     = head      # 어떤 head든 교체 가능 / Any head is substitutable
+```
+
+**현재 이 프로젝트에서의 적용 수준 / Current Application Level**:
+
+| 의존 방식 / Dependency | 현재 코드 / Current Code | DIP 준수 여부 / DIP Status |
+|---|---|---|
+| `GrayspotModel` → `nn.Module` | `self.backbone`, `self.head` 모두 `nn.Module` 타입 | ✅ 추상화 의존 |
+| `Phase2Trainer` → `model` | `nn.Module` 타입의 model 수령 — 구체 타입 미강제 | ✅ 추상화 의존 |
+| `GrayspotModel` → `ClassifierHead` | `__init__` 내부에서 직접 `ClassifierHead(...)` 생성 | ⚠️ 구체 클래스 의존 |
+| `GrayspotModel` → `build_backbone()` | 함수 호출로 backbone 생성 — factory 함수가 구체 타입 결정 | ⚠️ 경미한 의존 |
+| config dict | 모든 모듈이 `dict`(추상화)를 수령 — 구체 Config 객체 아님 | ✅ 추상화 의존 |
+
+**현재 준수 규칙 / Rules for This Project**:
+
+| 규칙 / Rule | 설명 / Description |
+|---|---|
+| Trainer → Model: `nn.Module` 타입만 수령 / Accept only `nn.Module` | `Phase0Trainer(model, ...)` — `model`은 `nn.Module`이면 무엇이든 교체 가능 / Any `nn.Module` is acceptable |
+| Evaluator → Model: `model.eval()` + `model(x)` 만 의존 / Depend only on eval interface | Evaluator는 model 내부 구조를 알지 못함 / Evaluator has no knowledge of model internals |
+| Config 주입 / Config injection | 모든 컴포넌트는 `cfg: dict` 를 외부에서 주입받음 — 내부 파일 로드 금지 / All components receive `cfg: dict` from outside — no internal file loading |
+
+**리팩토링 필요 여부 / Refactoring Assessment**:
+> **현재 규모에서 선택적**. `GrayspotModel`이 `ClassifierHead`를 직접 인스턴스화하는 것은 DIP 관점에서 개선 가능하나, 2개 head 타입을 다루는 소규모 ML 파이프라인에서 의존성 주입 컨테이너(DI container) 도입은 과설계다. `nn.Module` 기반 추상화가 이미 실질적인 DIP 역할을 수행한다.
+> **Optional at current scale.** `GrayspotModel` directly instantiating `ClassifierHead` is improvable from a DIP perspective, but introducing a DI container for 2 head types in a small ML pipeline is over-engineering. `nn.Module`-based abstraction already serves the practical DIP purpose.
+
+---
+
+### 5.6 SOLID 준수 현황 요약 / SOLID Compliance Summary
+
+| 원칙 / Principle | 현재 상태 / Status | 리팩토링 필요 / Refactoring | 적용 시기 / When to Apply |
+|---|---|---|---|
+| **S** — SRP | ✅ 준수 / Compliant | 불필요 / Not needed | — |
+| **O** — OCP | ⚠️ 부분 위반 / Partial violation | 선택적 / Optional | Backbone 3번째 추가 시 Registry 패턴 도입 |
+| **L** — LSP | ✅ 준수 / Compliant | 불필요 / Not needed | — |
+| **I** — ISP | ⚠️ 경미한 우려 / Minor concern | 불필요 / Not needed | Phase 수 ≥ 3 추가 시 재검토 |
+| **D** — DIP | ⚠️ 부분 위반 / Partial violation | 선택적 / Optional | 테스트에서 Head 교체 필요 시 의존성 주입 적용 |
+
+> **결론 / Conclusion**: 전면 리팩토링은 불필요하다. 현재 코드는 이 규모의 ML 파이프라인에서 실용적 SOLID 균형점을 달성하고 있다. OCP 개선(Backbone Registry)은 3번째 backbone 추가 시점에 자연스럽게 도입하고, DIP/ISP 강화는 테스트 격리 필요성이 발생할 때 적용한다.
+> **Conclusion**: Full refactoring is not required. The current code achieves a pragmatic SOLID balance for this ML pipeline scale. Apply OCP improvement (Backbone Registry) when adding a 3rd backbone, and strengthen DIP/ISP when test isolation becomes necessary.
+
+---
+
+## 6. 코딩 컨벤션 / Coding Conventions
+
+이 프로젝트의 모든 Python 코드는 아래 세 원칙을 **의무적으로 준수**한다.
+All Python code in this project **must** follow the three principles below.
+
+---
+
+### 6.1 snake_case 명명 규칙 / snake_case Naming Convention
 
 > **모든 Python 식별자는 snake_case를 사용한다. 단, 클래스명은 PascalCase.**
 > **All Python identifiers use snake_case. Class names use PascalCase.**
@@ -137,7 +332,7 @@ All Python code in this project **must** follow the three principles below.
 
 ---
 
-### 5.3 명시적 명명 / Explicit Naming
+### 6.2 명시적 명명 / Explicit Naming
 
 > **모든 객체는 역할과 의미를 즉시 알 수 있는 이름을 가진다. 축약·단문자·매직 넘버 금지.**
 > **Every object must have a name that immediately conveys its role. No abbreviations, single letters, or magic numbers.**
@@ -154,14 +349,14 @@ All Python code in this project **must** follow the three principles below.
 
 ---
 
-## 6. Fail-Fast 정책 / Fail-Fast Policy
+## 7. Fail-Fast 정책 / Fail-Fast Policy
 
-### 6.1 핵심 선언 / Core Declaration
+### 7.1 핵심 선언 / Core Declaration
 
 > **SSOT 위반은 즉시 실패해야 한다. 우회(fallback), 임시 생성, 추측 금지.**
 > **SSOT violations must fail immediately. No fallbacks, no temporary creation, no guessing.**
 
-### 6.2 즉시 오류 발생 조건 / Immediate Failure Conditions
+### 7.2 즉시 오류 발생 조건 / Immediate Failure Conditions
 
 | 조건 / Condition | SSOT 코드 / Code | 설명 / Description |
 |------|-----------|------|
@@ -173,7 +368,7 @@ All Python code in this project **must** follow the three principles below.
 | Dead Config 감지 / Dead config detected | `SSOT-CF02` | config 키 선언은 있으나 코드에서 미소비 / Config key declared but not consumed by code |
 | Seed 재현 실패 / Seed reproducibility | `SSOT-SD01` | 동일 seed에서 다른 결과 (비결정론적 분할) / Same seed produces different results |
 
-### 6.3 Fail-Fast 등급 체계 / Severity Levels
+### 7.3 Fail-Fast 등급 체계 / Severity Levels
 
 | 등급 / Level | 이름 / Name | 동작 / Action | 예시 / Example |
 |------|------|------|------|
@@ -182,7 +377,7 @@ All Python code in this project **must** follow the three principles below.
 | **Level 2** | Warning + Continue | 경고 로그 + 실행 계속 / Log warning and continue | Dead Config 키 감지 (SSOT-CF02) / Dead config key detected |
 | **Level 3** | Info | 기록만, 실행 계속 / Log only, continue execution | 권장값과 다른 설정 / Settings different from recommended values |
 
-### 6.4 금지 행위 / Prohibited Actions
+### 7.4 금지 행위 / Prohibited Actions
 
 | 위반 유형 / Violation | 설명 / Description |
 |-----------|------|
@@ -193,14 +388,14 @@ All Python code in this project **must** follow the three principles below.
 
 ---
 
-## 7. Hard / Soft SSOT 분류 / Classification
+## 8. Hard / Soft SSOT 분류 / Classification
 
 | 구분 / Category | 예시 / Examples | 변경 영향 / Impact | 변경 시 조치 / Action |
 |------|------|----------|-------------|
 | **Hard SSOT** | `num_levels=6`, `image_size=128`, `backbone`, Phase 순서, 색상 공간 | 하위 결과 전체 무효 / All downstream results invalidated | 재학습 필수 / Retrain required |
 | **Soft SSOT** | `batch_size`, `num_workers`, 로깅 레벨, 리포트 포맷 | 간접 영향 (성능·속도) / Indirect effect on performance or speed | 재학습 선택 / Retrain optional |
 
-### 7.1 판단 기준 / Decision Criteria
+### 8.1 판단 기준 / Decision Criteria
 
 > **Hard SSOT 기준 / Hard SSOT when:**
 >
@@ -215,13 +410,13 @@ All Python code in this project **must** follow the three principles below.
 
 ---
 
-## 8. SSOT 문서 목록 / Document Index
+## 9. SSOT 문서 목록 / Document Index
 
 모든 SSOT 문서는 `doc/` 폴더에 위치한다. / All SSOT documents reside in the `doc/` folder.
 
 | 문서 / Document | 역할 / Role | 핵심 관심사 / Key Concerns |
 |------|------|------------|
-| [SSOT_Core.md](SSOT_Core.md) | 이 문서 — 핵심 원칙 / This document — core principles | SSOT 정의, 코딩 컨벤션, Fail-Fast, Hard/Soft 분류 / SSOT definition, coding conventions, Fail-Fast, Hard/Soft classification |
+| [SSOT_Core.md](SSOT_Core.md) | 이 문서 — 핵심 원칙 / This document — core principles | SSOT 정의, SOLID 원칙, 코딩 컨벤션, Fail-Fast, Hard/Soft 분류 / SSOT definition, SOLID principles, coding conventions, Fail-Fast, Hard/Soft classification |
 | [SSOT_Data_Pipeline.md](SSOT_Data_Pipeline.md) | 데이터 로딩, 분할, 전처리, 증강 / Data loading, split, preprocessing, augmentation | 입력 분포, 분할 재현성 / Input distribution, split reproducibility |
 | [SSOT_Model_Architecture.md](SSOT_Model_Architecture.md) | 모델 구조, backbone, head 정의 / Model structure, backbone, head | 레이어 구성, feature dim / Layer structure, feature dim |
 | [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | 학습 루프, optimizer, loss 정의 / Training loop, optimizer, loss | Phase 순서, 실제 학습 파라미터 / Phase ordering, actual training parameters |
@@ -233,7 +428,7 @@ All Python code in this project **must** follow the three principles below.
 
 ---
 
-## 9. 관련 문서 / Related Documents
+## 10. 관련 문서 / Related Documents
 
 | 문서 / Document | 경로 / Path | 역할 / Role |
 |------|------|------|
@@ -245,8 +440,8 @@ All Python code in this project **must** follow the three principles below.
 
 ---
 
-**Version**: 0.3.0
-**Last Updated**: 2026-05-08
+**Version**: 0.4.0
+**Last Updated**: 2026-05-12
 **Python**: 3.11.5
 **PyTorch**: 2.x
 **Applies to**: CMYK Grayspot Detection System v0.1.0+

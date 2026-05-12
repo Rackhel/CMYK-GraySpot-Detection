@@ -194,9 +194,21 @@ model = GrayspotModel(cfg, phase=0)
 
 # Phase 2 모델 생성 / Phase 2 model construction
 model = GrayspotModel(cfg, phase=2)
-# 필수 cfg 키 / Required cfg keys: model.backbone, model.frozen_backbone,
-#              data.num_levels, phase2.hidden_dim, phase2.dropout
+# 필수 cfg 키 / Required cfg keys: model.backbone, model.frozen_backbone, data.num_levels
+# backbone별 head cfg / Backbone-specific head cfg (fallback to phase2.hidden_dim/dropout if absent):
+#   phase2.heads.efficientnet_b0.{hidden_dim, dropout}         → 직접 압축 구조 / Direct compression
+#   phase2.heads.resnet50.{mid_dim, hidden_dim, dropout}       → 단계적 압축 구조 / Staged compression
 ```
+
+### 4.2.1 Backbone별 ClassifierHead 생성 규칙 / Backbone-Specific ClassifierHead Build Rules
+
+| Backbone | `mid_dim` | ClassifierHead 구조 / Structure |
+|---|---|---|
+| `efficientnet_b0` | `None` | `in_dim(1280) → hidden_dim → num_levels` |
+| `resnet50` | `512` | `in_dim(2048) → mid_dim → hidden_dim → num_levels` |
+
+`phase2.heads.{backbone}` 부재 시 → `phase2.hidden_dim` / `phase2.dropout` fallback.
+If `phase2.heads.{backbone}` absent → fallback to `phase2.hidden_dim` / `phase2.dropout`.
 
 ### 4.3 `build_backbone()` 계약
 
@@ -418,14 +430,14 @@ feedback = determine_swing_feedback(summary)
 | `data.dataset` | `data.channels`, `data.num_levels`, `data.image_size`, `data.split_ratios.*`, `storage.labeled_dir`, `train.seed` |
 | `data.augmentation` (Phase 0) | `phase0.augmentation.*` (flip/crop/color_jitter/contrast/blur) |
 | `data.augmentation` (Phase 2) | `phase2.augmentation.*` (flip/brightness/noise), `phase2.oversample` |
-| `models.grayspot_model` | `model.backbone`, `model.frozen_backbone`, `data.num_levels`, `phase0.projection_dim`, `phase0.hidden_dim`, `phase2.hidden_dim`, `phase2.dropout` |
+| `models.grayspot_model` | `model.backbone`, `model.frozen_backbone`, `data.num_levels`, `phase0.projection_dim`, `phase0.hidden_dim`, `phase2.heads.{backbone}.hidden_dim`, `phase2.heads.{backbone}.dropout`, `phase2.heads.resnet50.mid_dim` (resnet50 시 / when resnet50) |
 | `training.trainer` (Phase 0) | `phase0.epochs`, `phase0.batch_size`, `phase0.learning_rate`, `phase0.weight_decay`, `phase0.temperature`, `train.optimizer`, `train.scheduler`, `train.gradient_clip`, `train.eta_min`, `storage.models_dir` |
 | `training.trainer` (Phase 2) | `phase2.epochs`, `phase2.batch_size`, `phase2.learning_rate`, `phase2.weight_decay`, `phase2.early_stopping.*`, `train.*`, `storage.models_dir`, `storage.reports_dir` |
 | `training.losses` | `phase0.temperature`, `data.num_levels` |
 | `evaluation.evaluator` | `inference.confidence_thresholds.*`, `evaluation.swing_thresholds.*` |
 | `evaluation.metrics` | `evaluation.targets.*`, `data.num_levels` |
 | `tuning.optuna_tuner` | `optuna.*`, `system.device`, `train.seed` |
-| `tuning.search_space` | `optuna.search_space.*` |
+| `tuning.search_space` | `optuna.search_space.{backbone}.*` (backbone별 분기 / backbone-branched) |
 | `utils.utils_config` | — (config 자체를 로드하므로 의존 없음 / loads config itself, no dependencies) |
 | `utils.utils_model` | `model.backbone`, `storage.models_dir`, `system.device` (`build_model` 사용 시 / when using build_model) |
 | `scripts.run_phase0` | `data.channels`, `system.device`, `train.seed`, `storage.*` |
@@ -435,8 +447,8 @@ feedback = determine_swing_feedback(summary)
 
 ---
 
-**Version**: 0.1.0
-**Last Updated**: 2026-05-08
+**Version**: 0.2.0
+**Last Updated**: 2026-05-12
 **Python**: 3.11.5
 **PyTorch**: 2.x
 **Applies to**: CMYK Grayspot Detection System v0.1.0+

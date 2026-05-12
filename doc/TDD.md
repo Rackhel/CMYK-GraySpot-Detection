@@ -136,10 +136,13 @@ def test_augment_contrastive_produces_different_views():
 | 클래스/함수 / Class / Function | 테스트 항목 / Test Items |
 |------------|------------|
 | `build_backbone("efficientnet_b0")` | 출력 feature_dim `1280` / Output feature_dim `1280` |
-| `ClassifierHead(in_dim, num_classes=6)` | 출력 shape `(batch, 6)` / Output shape `(batch, 6)` |
+| `build_backbone("resnet50")` | 출력 feature_dim `2048` / Output feature_dim `2048` |
+| `ClassifierHead(in_dim=1280, mid_dim=None)` | EfficientNet-B0 직접 압축 — 출력 shape `(batch, 6)` / Direct compression — output shape `(batch, 6)` |
+| `ClassifierHead(in_dim=2048, mid_dim=512)` | ResNet-50 단계적 압축 — 출력 shape `(batch, 6)` / Staged compression — output shape `(batch, 6)` |
 | `ProjectionHead(in_dim, proj_dim=128)` | 출력 shape `(batch, 128)` / Output shape `(batch, 128)` |
 | `GrayspotModel(cfg, phase=0)` | 출력 shape `(batch, projection_dim)` / Output shape `(batch, projection_dim)` |
-| `GrayspotModel(cfg, phase=2)` | 출력 shape `(batch, num_levels=6)` / Output shape `(batch, num_levels=6)` |
+| `GrayspotModel(cfg, phase=2)` (EffB0) | 출력 shape `(batch, 6)`, head에 mid_dim 없음 / No mid_dim in head |
+| `GrayspotModel(cfg, phase=2)` (Res50) | 출력 shape `(batch, 6)`, head에 mid_dim=512 반영 / mid_dim=512 applied |
 
 ```python
 # 예시 / Example
@@ -150,10 +153,31 @@ def test_grayspot_model_phase0_output_shape(minimal_cfg):
         out = model(dummy)
     assert out.shape == (2, minimal_cfg["phase0"]["projection_dim"])
 
-def test_classifier_head_output_shape():
-    head = ClassifierHead(in_dim=1280, num_classes=6)
+def test_classifier_head_effb0_direct_compression():
+    head = ClassifierHead(in_dim=1280, hidden_dim=256, num_classes=6, dropout=0.2, mid_dim=None)
     x = torch.randn(4, 1280)
     assert head(x).shape == (4, 6)
+
+def test_classifier_head_resnet50_staged_compression():
+    head = ClassifierHead(in_dim=2048, hidden_dim=256, num_classes=6, dropout=0.4, mid_dim=512)
+    x = torch.randn(4, 2048)
+    assert head(x).shape == (4, 6)
+
+def test_grayspot_model_phase2_effb0_output_shape(minimal_cfg):
+    minimal_cfg["model"]["backbone"] = "efficientnet_b0"
+    model = GrayspotModel(minimal_cfg, phase=2)
+    dummy = torch.randn(2, 3, 128, 128)
+    with torch.no_grad():
+        out = model(dummy)
+    assert out.shape == (2, 6)
+
+def test_grayspot_model_phase2_resnet50_output_shape(minimal_cfg):
+    minimal_cfg["model"]["backbone"] = "resnet50"
+    model = GrayspotModel(minimal_cfg, phase=2)
+    dummy = torch.randn(2, 3, 128, 128)
+    with torch.no_grad():
+        out = model(dummy)
+    assert out.shape == (2, 6)
 ```
 
 ---
@@ -296,7 +320,11 @@ def minimal_cfg():
         "phase2":   {"dropout": 0.3, "hidden_dim": 256, "epochs": 1, "batch_size": 2,
                      "learning_rate": 1e-4, "weight_decay": 1e-4, "oversample": False,
                      "early_stopping": {"enabled": False, "patience": 5, "min_delta": 1e-4},
-                     "augmentation": {}},
+                     "augmentation": {},
+                     "heads": {
+                         "efficientnet_b0": {"mid_dim": None,  "hidden_dim": 256, "dropout": 0.2},
+                         "resnet50":        {"mid_dim": 512,   "hidden_dim": 256, "dropout": 0.4},
+                     }},
         "evaluation": {"targets": {"overall_accuracy": 0.90, "per_color_accuracy": 0.85,
                                    "per_class_f1": 0.80, "mae": 0.50},
                        "swing_thresholds": {"acc_retry": 0.80, "f1_retry": 0.70, "mae_retry": 0.80}},

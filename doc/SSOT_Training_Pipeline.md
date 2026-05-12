@@ -18,9 +18,10 @@ This document is the authoritative reference for training loops, optimizers, and
 4. [손실 함수 / Loss Functions](#4-손실-함수--loss-functions)
 5. [Optimizer / Scheduler](#5-optimizer--scheduler)
 6. [학습 파라미터 요약 / Parameter Summary](#6-학습-파라미터-요약--parameter-summary)
-7. [실행 명령어 / Run Commands](#7-실행-명령어--run-commands)
-8. [멀티 채널 실행 / Multi-Channel Execution](#8-멀티-채널-실행--multi-channel-execution)
-9. [SSOT 위반 현황 / Violations](#9-ssot-위반-현황--violations)
+7. [Optuna 하이퍼파라미터 탐색 / Optuna Hyperparameter Search](#7-optuna-하이퍼파라미터-탐색--optuna-hyperparameter-search)
+8. [실행 명령어 / Run Commands](#8-실행-명령어--run-commands)
+9. [멀티 채널 실행 / Multi-Channel Execution](#9-멀티-채널-실행--multi-channel-execution)
+10. [SSOT 위반 현황 / Violations](#10-ssot-위반-현황--violations)
 
 ---
 
@@ -125,8 +126,6 @@ trainer.save_history(history)
 | batch_size | `phase2.batch_size` | 16 | 🟢 |
 | learning_rate | `phase2.learning_rate` | 1e-4 | 🟢 |
 | weight_decay | `phase2.weight_decay` | 1e-4 | 🟢 |
-| hidden_dim | `phase2.hidden_dim` | 256 | 🟢 (Hard SSOT — ClassifierHead 중간 차원 / intermediate dimension) |
-| dropout | `phase2.dropout` | 0.3 | 🟢 |
 | oversample | `phase2.oversample` | true | 🟢 |
 | early_stopping.enabled | `phase2.early_stopping.enabled` | true | 🟢 |
 | early_stopping.patience | `phase2.early_stopping.patience` | 5 | 🟢 |
@@ -134,6 +133,20 @@ trainer.save_history(history)
 | optimizer | `train.optimizer` | `"adamw"` | 🟢 (`_build_optimizer()`) |
 | scheduler | `train.scheduler` | `"cosine"` | 🟢 (`_build_scheduler()`) |
 | gradient_clip | `train.gradient_clip` | 1.0 | 🟢 |
+
+### 3.3 Backbone별 ClassifierHead 파라미터 / Backbone-Specific ClassifierHead Parameters
+
+Head 구조와 정규화 강도가 backbone에 따라 다르다. `phase2.heads.{backbone}` 에서 읽는다.
+Head structure and regularization strength differ per backbone. Read from `phase2.heads.{backbone}`.
+
+| 파라미터 / Parameter | config 키 / Key | EfficientNet-B0 | ResNet-50 | Hard SSOT |
+|---|---|---|---|---|
+| `mid_dim` | `phase2.heads.resnet50.mid_dim` 🟢 | — (없음 / absent) | 512 | ✅ |
+| `hidden_dim` | `phase2.heads.{backbone}.hidden_dim` 🟢 | 256 | 256 | ✅ |
+| `dropout` | `phase2.heads.{backbone}.dropout` 🟢 | 0.2 | 0.4 | Soft |
+
+> `phase2.heads.{backbone}` 키가 없으면 `phase2.hidden_dim` / `phase2.dropout` 최상위 기본값으로 fallback한다.
+> Falls back to top-level `phase2.hidden_dim` / `phase2.dropout` if `phase2.heads.{backbone}` is absent.
 
 ### 3.3 Best Model 기준 / Best Model Criteria
 
@@ -275,7 +288,34 @@ snap_path = log_snapshot(
 
 ---
 
-## 7. 실행 명령어 / Run Commands
+## 7. Optuna 하이퍼파라미터 탐색 / Optuna Hyperparameter Search
+
+### 7.1 Backbone별 탐색 공간 분리 / Backbone-Specific Search Space
+
+`optuna.search_space.{backbone_name}` 에서 backbone별 독립 범위를 읽는다.
+Reads backbone-specific ranges from `optuna.search_space.{backbone_name}`.
+
+| 파라미터 / Parameter | EfficientNet-B0 탐색 범위 / Range | ResNet-50 탐색 범위 / Range | 근거 / Rationale |
+|---|---|---|---|
+| `learning_rate` | `[5e-5, 3e-4]` | `[1e-4, 5e-4]` | Res50 head 크므로 lr 범위 넓게 / Larger head needs wider lr range |
+| `weight_decay` | `[1e-4, 1e-3]` | `[1e-3, 1e-2]` | Res50 파라미터 많아 regularization 강하게 / More params → heavier regularization |
+| `dropout` | `[0.1, 0.3]` | `[0.3, 0.5]` | SE 선별 후 compact → 낮게 / Post-SE compact → lower |
+| `hidden_dim` | `[128, 256]` | `[256, 512]` | Res50 압축 여유 많음 / More compression room |
+| `mid_dim` (Res50 전용) | — | `[256, 512, 1024]` | 단계적 압축 중간 차원 / Intermediate compression dim |
+| `batch_size` | `[16, 32, 64]` | `[16, 32, 64]` | 공통 / Common |
+| `epochs` | `[10, 30]` | `[10, 30]` | 공통 / Common |
+
+### 7.2 소규모 데이터셋 Optuna 주의사항 / Small Dataset Optuna Cautions
+
+| 위험 / Risk | 대응 / Mitigation |
+|---|---|
+| Trial 수가 많으면 탐색 자체가 test set에 과적합 / Many trials overfit to test set | `n_trials: 30`으로 제한 / Cap at 30 |
+| val_acc 단일 지표의 운에 좌우됨 / val_acc vulnerable to random variation | 목적함수를 `macro_f1` 또는 k-fold 평균으로 변경 고려 / Consider `macro_f1` or k-fold mean |
+| MedianPruner 조기 종료 오판 / MedianPruner premature termination | `n_warmup_steps: 10` 보장 (`optuna.pruner.n_warmup_steps`) |
+
+---
+
+## 8. 실행 명령어 / Run Commands
 
 ```bash
 # Phase 0 — SimCLR 사전 학습 / Contrastive pretraining
@@ -296,7 +336,7 @@ python -m src.scripts.train
 
 ---
 
-## 8. 멀티 채널 실행 / Multi-Channel Execution
+## 9. 멀티 채널 실행 / Multi-Channel Execution
 
 4개 CMYK 채널은 **독립적으로** 학습된다. 모델을 공유하지 않으며, 채널별로 Phase 0 → Phase 2 전체 파이프라인이 개별 실행된다.
 The 4 CMYK channels are trained **independently**. No model is shared — each channel runs through the full Phase 0 → Phase 2 pipeline separately.
@@ -325,7 +365,7 @@ for channel in channels:
 
 ---
 
-## 9. SSOT 위반 현황 / Violations
+## 10. SSOT 위반 현황 / Violations
 
 | 코드 / Code | 위반 내용 / Violation | 등급 / Level | 해결 방법 / Fix |
 |---|---|---|---|
@@ -340,6 +380,6 @@ for channel in channels:
 
 ---
 
-**Version**: 0.3.0
-**Last Updated**: 2026-05-11
+**Version**: 0.4.0
+**Last Updated**: 2026-05-12
 **Applies to**: CMYK Grayspot Detection System v0.1.0+

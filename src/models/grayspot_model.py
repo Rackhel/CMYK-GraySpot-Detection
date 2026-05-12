@@ -35,8 +35,14 @@ class GrayspotModel(nn.Module, LoggerMixin):
         num_levels    = cfg["data"]["num_levels"]        # 6
         proj_dim      = cfg["phase0"]["projection_dim"]  # 128
         proj_hidden   = cfg["phase0"]["hidden_dim"]      # 256 — Phase 0 head hidden dim
-        cls_hidden    = cfg["phase2"]["hidden_dim"]      # 256 — Phase 2 head hidden dim
-        dropout       = cfg["phase2"]["dropout"]         # 0.3
+
+        # backbone별 특화 head config 읽기 / Read backbone-specific head config
+        # phase2.heads.{backbone}이 없으면 phase2 최상위 기본값으로 fallback
+        # Falls back to top-level phase2 defaults if phase2.heads.{backbone} absent
+        head_cfg   = cfg["phase2"].get("heads", {}).get(backbone_name, {})
+        cls_hidden = head_cfg.get("hidden_dim", cfg["phase2"]["hidden_dim"])
+        dropout    = head_cfg.get("dropout",    cfg["phase2"]["dropout"])
+        mid_dim    = head_cfg.get("mid_dim",    None)  # None → EfficientNet-B0, int → ResNet-50
 
         # Backbone 로드 / Load backbone
         self.backbone, self.feature_dim = build_backbone(backbone_name)
@@ -59,6 +65,7 @@ class GrayspotModel(nn.Module, LoggerMixin):
                 hidden_dim=cls_hidden,
                 num_classes=num_levels,
                 dropout=dropout,
+                mid_dim=mid_dim,
             )
         else:
             raise ValueError(
@@ -104,12 +111,20 @@ class GrayspotModel(nn.Module, LoggerMixin):
         else:
             self.logger.info("[WARN] backbone 키 없음 — pretrained weights 유지 / No backbone keys found")
 
+        # backbone별 특화 head config / Backbone-specific head config
+        backbone_name = cfg["model"]["backbone"]
+        head_cfg      = cfg["phase2"].get("heads", {}).get(backbone_name, {})
+        cls_hidden    = head_cfg.get("hidden_dim", cfg["phase2"]["hidden_dim"])
+        dropout       = head_cfg.get("dropout",    cfg["phase2"]["dropout"])
+        mid_dim       = head_cfg.get("mid_dim",    None)
+
         # Head를 ClassifierHead로 교체 / Replace head with ClassifierHead
-        self.head  = ClassifierHead(
+        self.head = ClassifierHead(
             in_dim=self.feature_dim,
-            hidden_dim=cfg["phase2"]["hidden_dim"],
+            hidden_dim=cls_hidden,
             num_classes=cfg["data"]["num_levels"],
-            dropout=cfg["phase2"]["dropout"],
+            dropout=dropout,
+            mid_dim=mid_dim,
         )
         self.phase = 2
         self.logger.info("[PASS] Head 교체 완료 / Head replaced: ProjectionHead → ClassifierHead")
