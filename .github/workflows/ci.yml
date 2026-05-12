@@ -33,7 +33,7 @@ jobs:
 
     - name: Auto-format code with Black and Isort
       run: |
-        python -m isort src
+        python -m isort src --profile black
         python -m black src
 
     - name: Commit layout updates
@@ -118,8 +118,14 @@ jobs:
 
     - name: Validate pyproject.toml
       run: |
-        python -m pip install tomli # Fallback parser for older environment setups
-        python -c "import tomllib if hasattr(import, 'tomllib') else tomli as tomllib; tomllib.loads(open('src/config/pyproject.toml').read())" && echo "pyproject.toml is valid"
+        python -c "
+        try:
+            import tomllib
+        except ImportError:
+            import tomli as tomllib
+        tomllib.loads(open('src/config/pyproject.toml').read())
+        print('pyproject.toml is valid')
+        "
 
     - name: Check requirements.txt
       run: |
