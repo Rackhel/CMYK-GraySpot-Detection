@@ -27,29 +27,61 @@ This document is the authoritative reference for evaluation metrics, targets, co
 
 ## 1. Evaluator 개요 / Evaluator Overview
 
+`Evaluator`는 4개의 Mixin을 조합한 **조율자(Orchestrator)** 클래스로, SRP/ISP 원칙에 따라 분리된 내부 모듈을 단일 공개 인터페이스로 노출한다.
+
+`Evaluator` is an **Orchestrator** composing 4 Mixins. Its internal modules are separated per SRP/ISP and exposed via a single public interface.
+
+```
+evaluation/
+├── evaluator_inference.py  — InferenceMixin  (추론 루프 / Inference loop)
+├── evaluator_metrics.py    — MetricsMixin    (지표·오분류 / Metrics & misclassification)
+├── evaluator_export.py     — ExportMixin     (CSV/JSON 내보내기 / CSV/JSON export)
+├── evaluator_charts.py     — ChartsMixin     (7개 Plotly 차트 / 7 Plotly charts)
+└── evaluator.py            — Evaluator       (__init__ + save_report 조율자 / Orchestrator)
+```
+
 ```python
-from evaluation import Evaluator
+from evaluation.evaluator import Evaluator
+from pathlib import Path
+import torch
 
-evaluator = Evaluator(cfg, model, channel="Y")
-results = evaluator.run()
-# results: {"y_true": np.ndarray, "y_pred": np.ndarray, "confidences": np.ndarray}
+ev = Evaluator(
+    model       = model,           # nn.Module (model.eval() 상태)
+    labeled_dir = Path("data_set/labeled"),
+    labels_csv  = Path("data_set/labels_v0.csv"),
+    output_dir  = Path("outputs/reports"),
+    device      = torch.device("cpu"),
+    cfg         = cfg,             # 신뢰도·swing 임계값 주입 / confidence & swing threshold injection
+)
 
-evaluator.save_report(results, name="baseline_Y")
-# → outputs/reports/evaluation_results_baseline_Y.csv
-# → outputs/reports/metrics_summary_baseline_Y.json
+results = ev.run(channels=["Y", "M", "C", "K"])
+# results: {"Y": {"y_true": ndarray, "y_pred": ndarray, "confidences": ndarray}, ...}
+
+metrics = ev.compute(results)
+ev.save_report(results, metrics, experiment_name="baseline")
+# → outputs/reports/eval_dashboard.html
+# → outputs/reports/evaluation_results_baseline.csv
+# → outputs/reports/metrics_summary_baseline.json
 ```
 
 ### 1.1 공개 API / Public API
 
-| 함수 / Function | 모듈 / Module | 설명 / Description |
-|---|---|---|
-| `Evaluator` | `evaluation.evaluator` | 추론 + 지표 + 리포트 통합 클래스 / Unified inference + metrics + report class |
-| `compute_metrics` | `evaluation.metrics` | 단일 채널 지표 계산 / Single-channel metrics computation |
-| `compute_all_channels` | `evaluation.metrics` | 전 채널 지표 일괄 계산 / Batch metrics for all channels |
-| `EvaluationSummary` | `evaluation.metrics` | 지표 결과 데이터클래스 / Metrics result dataclass |
-| `determine_swing_feedback` | `evaluation.metrics` | Swing 재실행 여부 결정 / Determine whether to retry Swing |
-| `plot_confusion_matrix` | `evaluation.confusion` | 채널별 혼동 행렬 시각화 / Per-channel confusion matrix visualization |
-| `plot_all_channels` | `evaluation.confusion` | 전 채널 혼동 행렬 일괄 생성 / Batch confusion matrix for all channels |
+| 함수 / Function | 모듈 / Module | Mixin / 역할 | 설명 / Description |
+|---|---|---|---|
+| `Evaluator.__init__` | `evaluation.evaluator` | Orchestrator | 상태 초기화 / State initialisation |
+| `Evaluator.run` | `evaluation.evaluator_inference` | `InferenceMixin` | 채널별 추론 실행 / Per-channel inference |
+| `Evaluator.load_labels` | `evaluation.evaluator_inference` | `InferenceMixin` | CSV → DataFrame 레이블 로딩 / Labels CSV loading |
+| `Evaluator.compute` | `evaluation.evaluator_metrics` | `MetricsMixin` | 전 채널 지표 계산 / All-channel metrics computation |
+| `Evaluator.get_misclassified` | `evaluation.evaluator_metrics` | `MetricsMixin` | 오분류 DataFrame 추출 / Misclassified samples extraction |
+| `Evaluator.save_csv` | `evaluation.evaluator_export` | `ExportMixin` | 예측 결과 CSV 저장 / Prediction results CSV export |
+| `Evaluator.save_json` | `evaluation.evaluator_export` | `ExportMixin` | 지표 요약 JSON 저장 / Metrics summary JSON export |
+| `Evaluator.save_report` | `evaluation.evaluator` | Orchestrator | HTML + CSV + JSON 전체 리포트 생성 / Full HTML+CSV+JSON report |
+| `compute_metrics` | `evaluation.metrics` | — | 단일 채널 지표 계산 / Single-channel metrics computation |
+| `compute_all_channels` | `evaluation.metrics` | — | 전 채널 지표 일괄 계산 / Batch metrics for all channels |
+| `EvaluationSummary` | `evaluation.metrics` | — | 지표 결과 데이터클래스 / Metrics result dataclass |
+| `determine_swing_feedback` | `evaluation.metrics` | — | Swing 재실행 여부 결정 / Determine whether to retry Swing |
+| `plot_confusion_matrix` | `evaluation.confusion` | — | 채널별 혼동 행렬 시각화 / Per-channel confusion matrix |
+| `plot_all_channels` | `evaluation.confusion` | — | 전 채널 혼동 행렬 일괄 생성 / Batch confusion matrices |
 
 ---
 
@@ -96,11 +128,11 @@ TARGET_MAE          = 0.50   # evaluation.targets.mae
 | `CONF_THRESH_MANUAL` | 0.3 | 수동 검토 대기 / Queue for manual review | `inference.confidence_thresholds.manual_review` 🟢 |
 
 ```python
-# evaluation/evaluator.py — Evaluator.__init__(cfg=...)
+# evaluation/evaluator.py — Evaluator.__init__(model, labeled_dir, labels_csv, output_dir, device, ..., cfg=None)
 ct = (cfg or {}).get("inference", {}).get("confidence_thresholds", {})
-self.conf_thresh_auto   = ct.get("auto_accept",   0.8)   # 🟢 inference.confidence_thresholds.auto_accept
-self.conf_thresh_warn   = ct.get("warn_threshold", 0.5)  # 🟢 inference.confidence_thresholds.warn_threshold
-self.conf_thresh_manual = ct.get("manual_review",  0.3)  # 🟢 inference.confidence_thresholds.manual_review
+self.conf_thresh_auto   = float(ct.get("auto_accept",    0.8))   # 🟢 inference.confidence_thresholds.auto_accept
+self.conf_thresh_warn   = float(ct.get("warn_threshold", 0.5))   # 🟢 inference.confidence_thresholds.warn_threshold
+self.conf_thresh_manual = float(ct.get("manual_review",  0.3))   # 🟢 inference.confidence_thresholds.manual_review
 ```
 
 > `CONF_THRESH_*` 상수는 `evaluation/metrics.py`에 backward-compatibility용으로 유지되나,
@@ -319,6 +351,6 @@ SSOT validation codes triggered in the evaluation pipeline. See [SSOT_Validation
 
 ---
 
-**Version**: 0.3.0
-**Last Updated**: 2026-05-11
+**Version**: 0.4.0
+**Last Updated**: 2026-05-12
 **Applies to**: CMYK Grayspot Detection System v0.1.0+

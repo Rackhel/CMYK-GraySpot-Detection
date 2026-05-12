@@ -483,6 +483,8 @@ All Python code in this project **must** follow the three principles below.
 | Config 로딩 인터페이스 / Config loading interface | `src/utils/utils_config.py` | `load_config()` → `dict`, `validate_config()`, `create_directories()`, `get_nested()` |
 | 모델 유틸리티 / Model utilities | `src/utils/utils_model.py` | `set_seed()`, `backbone_tag()`, `build_model()` |
 | Markdown 가이드 / Markdown guide | `doc/Markdown_guide.md` | 문서 작성 스타일 가이드 / Document writing style guide |
+| 인터페이스 계약 / Interface Contract | `doc/Contract.md` | 모듈 간 공개 API 계약 — PRD → SSOT 아래, BDD 위 / Public API contracts between modules (sits below PRD→SSOT, above BDD) |
+| 행위 명세 / BDD | `doc/BDD.md` | Gherkin 시나리오 — 액터 관점 동작 명세 (PRD → SSOT/Contract → BDD → TDD → Code) / Gherkin scenarios from actor perspective |
 
 ---
 

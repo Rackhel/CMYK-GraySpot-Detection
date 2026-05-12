@@ -76,6 +76,36 @@ class TestClassifierHead:
         x    = torch.randn(4, 1280)
         assert head(x).shape == (4, 6)
 
+    # ── mid_dim 파라미터 (backbone-specific) ──────────────────────────────
+
+    def test_effb0_direct_compression_mid_dim_none(self):
+        """EfficientNet-B0 경로: mid_dim=None → 1280 → hidden_dim → 6."""
+        head = ClassifierHead(in_dim=1280, hidden_dim=256, num_classes=6,
+                              dropout=0.2, mid_dim=None)
+        x    = torch.randn(4, 1280)
+        assert head(x).shape == (4, 6)
+
+    def test_resnet50_staged_compression_mid_dim_512(self):
+        """ResNet-50 경로: mid_dim=512 → 2048 → 512 → hidden_dim → 6."""
+        head = ClassifierHead(in_dim=2048, hidden_dim=256, num_classes=6,
+                              dropout=0.4, mid_dim=512)
+        x    = torch.randn(4, 2048)
+        assert head(x).shape == (4, 6)
+
+    def test_effb0_head_layer_count_is_2_linear(self):
+        """EfficientNet-B0 head(mid_dim=None)는 Linear 레이어가 2개여야 한다."""
+        import torch.nn as nn
+        head    = ClassifierHead(in_dim=1280, hidden_dim=256, num_classes=6, mid_dim=None)
+        linears = [m for m in head.net if isinstance(m, nn.Linear)]
+        assert len(linears) == 2
+
+    def test_resnet50_head_layer_count_is_3_linear(self):
+        """ResNet-50 head(mid_dim=512)는 Linear 레이어가 3개여야 한다."""
+        import torch.nn as nn
+        head    = ClassifierHead(in_dim=2048, hidden_dim=256, num_classes=6, mid_dim=512)
+        linears = [m for m in head.net if isinstance(m, nn.Linear)]
+        assert len(linears) == 3
+
 
 # ── ProjectionHead ───────────────────────────────────────────────────────────
 
@@ -148,3 +178,41 @@ class TestGrayspotModel:
         from models.grayspot_model import GrayspotModel
         model = GrayspotModel(minimal_cfg, phase=2)
         assert model.phase == 2
+
+    def test_phase2_effb0_head_has_no_mid_dim(self, minimal_cfg):
+        """EfficientNet-B0 Phase 2 모델의 head는 mid_dim이 없어야 한다."""
+        import torch.nn as nn
+        from models.grayspot_model import GrayspotModel
+        minimal_cfg["model"]["backbone"] = "efficientnet_b0"
+        model   = GrayspotModel(minimal_cfg, phase=2)
+        linears = [m for m in model.head.net if isinstance(m, nn.Linear)]
+        assert len(linears) == 2
+
+    def test_phase2_resnet50_head_has_mid_dim(self, minimal_cfg):
+        """ResNet-50 Phase 2 모델의 head는 mid_dim이 있어야 한다(Linear 3개)."""
+        import torch.nn as nn
+        from models.grayspot_model import GrayspotModel
+        minimal_cfg["model"]["backbone"] = "resnet50"
+        model   = GrayspotModel(minimal_cfg, phase=2)
+        linears = [m for m in model.head.net if isinstance(m, nn.Linear)]
+        assert len(linears) == 3
+
+    def test_phase2_effb0_output_shape(self, minimal_cfg):
+        from models.grayspot_model import GrayspotModel
+        minimal_cfg["model"]["backbone"] = "efficientnet_b0"
+        model = GrayspotModel(minimal_cfg, phase=2)
+        model.eval()
+        x = torch.randn(2, 3, 128, 128)
+        with torch.no_grad():
+            out = model(x)
+        assert out.shape == (2, minimal_cfg["data"]["num_levels"])
+
+    def test_phase2_resnet50_output_shape(self, minimal_cfg):
+        from models.grayspot_model import GrayspotModel
+        minimal_cfg["model"]["backbone"] = "resnet50"
+        model = GrayspotModel(minimal_cfg, phase=2)
+        model.eval()
+        x = torch.randn(2, 3, 128, 128)
+        with torch.no_grad():
+            out = model(x)
+        assert out.shape == (2, minimal_cfg["data"]["num_levels"])

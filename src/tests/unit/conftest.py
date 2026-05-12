@@ -76,6 +76,10 @@ def minimal_cfg():
                 "noise_prob": 0.5,
                 "noise_range": 10,
             },
+            "heads": {
+                "efficientnet_b0": {"mid_dim": None,  "hidden_dim": 256, "dropout": 0.2},
+                "resnet50":        {"mid_dim": 512,   "hidden_dim": 256, "dropout": 0.4},
+            },
         },
         "evaluation": {
             "targets": {

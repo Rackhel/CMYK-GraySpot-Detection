@@ -1,7 +1,7 @@
 ---
 title: TDD 전략 / Test-Driven Development Strategy
-version: 0.1.0
-last_updated: 2026-05-08
+version: 0.2.0
+last_updated: 2026-05-12
 scope: CMYK Grayspot Detection System — 전체 모듈 / All modules
 ---
 
@@ -137,12 +137,12 @@ def test_augment_contrastive_produces_different_views():
 |------------|------------|
 | `build_backbone("efficientnet_b0")` | 출력 feature_dim `1280` / Output feature_dim `1280` |
 | `build_backbone("resnet50")` | 출력 feature_dim `2048` / Output feature_dim `2048` |
-| `ClassifierHead(in_dim=1280, mid_dim=None)` | EfficientNet-B0 직접 압축 — 출력 shape `(batch, 6)` / Direct compression — output shape `(batch, 6)` |
-| `ClassifierHead(in_dim=2048, mid_dim=512)` | ResNet-50 단계적 압축 — 출력 shape `(batch, 6)` / Staged compression — output shape `(batch, 6)` |
+| `ClassifierHead(in_dim=1280, mid_dim=None)` | EfficientNet-B0 직접 압축 — 출력 shape `(batch, 6)`, Linear 2개 / Direct compression — output shape `(batch, 6)`, 2 Linear layers |
+| `ClassifierHead(in_dim=2048, mid_dim=512)` | ResNet-50 단계적 압축 — 출력 shape `(batch, 6)`, Linear 3개 / Staged compression — output shape `(batch, 6)`, 3 Linear layers |
 | `ProjectionHead(in_dim, proj_dim=128)` | 출력 shape `(batch, 128)` / Output shape `(batch, 128)` |
 | `GrayspotModel(cfg, phase=0)` | 출력 shape `(batch, projection_dim)` / Output shape `(batch, projection_dim)` |
-| `GrayspotModel(cfg, phase=2)` (EffB0) | 출력 shape `(batch, 6)`, head에 mid_dim 없음 / No mid_dim in head |
-| `GrayspotModel(cfg, phase=2)` (Res50) | 출력 shape `(batch, 6)`, head에 mid_dim=512 반영 / mid_dim=512 applied |
+| `GrayspotModel(cfg, phase=2)` (EffB0) | 출력 shape `(batch, 6)`, head Linear 2개 (mid_dim 없음) / output shape `(batch, 6)`, 2 Linear layers (no mid_dim) |
+| `GrayspotModel(cfg, phase=2)` (Res50) | 출력 shape `(batch, 6)`, head Linear 3개 (mid_dim=512 반영) / output shape `(batch, 6)`, 3 Linear layers (mid_dim=512) |
 
 ```python
 # 예시 / Example

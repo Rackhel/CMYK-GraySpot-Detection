@@ -213,7 +213,7 @@ CMYK_MAIN/
 │   ├── data/                        dataset.py, augmentation.py, preprocessing.py
 │   ├── models/                      backbone.py, classifier.py, grayspot_model.py, projection_head.py
 │   ├── training/                    trainer.py, contrastive_loss.py, losses.py
-│   ├── evaluation/                  metrics.py, confusion.py, evaluator.py
+│   ├── evaluation/                  metrics.py, confusion.py, evaluator.py (Orchestrator), evaluator_inference.py, evaluator_metrics.py, evaluator_export.py, evaluator_charts.py
 │   ├── inference/                   predictor.py
 │   ├── reporting/                   html_report.py
 │   ├── tuning/                      optuna_tuner.py, search_space.py
