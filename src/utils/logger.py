@@ -19,9 +19,9 @@ import logging.handlers
 import platform
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
 
 
 class ColoredFormatter(logging.Formatter):

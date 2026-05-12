@@ -8,13 +8,14 @@ Phase 0: Backbone + ProjectionHead  → embedding (contrastive learning)
 Phase 2: Backbone + ClassifierHead  → logits    (supervised classification)
 """
 
-import torch
-import torch.nn as nn
 from pathlib import Path
 
+import torch
+import torch.nn as nn
+
 from models.backbone import build_backbone
-from models.projection_head import ProjectionHead
 from models.classifier import ClassifierHead
+from models.projection_head import ProjectionHead
 
 try:
     from utils.logger import LoggerMixin

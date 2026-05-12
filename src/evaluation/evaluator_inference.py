@@ -18,9 +18,8 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-
 from sklearn.metrics import accuracy_score
+from torch.utils.data import DataLoader, Dataset
 
 # ---------------------------------------------------------------------------
 # Internal Dataset / 내부 Dataset

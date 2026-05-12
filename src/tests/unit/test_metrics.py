@@ -16,22 +16,13 @@ SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
-from evaluation.metrics import (
-    NUM_LEVELS,
-    TARGET_MAE,
-    TARGET_OVERALL_ACC,
-    TARGET_PER_CLASS_F1,
-    TARGET_PER_COLOR_ACC,
-    ChannelMetrics,
-    EvaluationSummary,
-    PerClassMetric,
-    build_evaluation_summary,
-    check_targets,
-    compute_all_channels,
-    compute_metrics,
-    compute_per_class_metrics,
-    determine_swing_feedback,
-)
+from evaluation.metrics import (NUM_LEVELS, TARGET_MAE, TARGET_OVERALL_ACC,
+                                TARGET_PER_CLASS_F1, TARGET_PER_COLOR_ACC,
+                                ChannelMetrics, EvaluationSummary,
+                                PerClassMetric, build_evaluation_summary,
+                                check_targets, compute_all_channels,
+                                compute_metrics, compute_per_class_metrics,
+                                determine_swing_feedback)
 
 # ── compute_metrics ──────────────────────────────────────────────────────────
 

@@ -19,9 +19,9 @@ Exports dataset, preprocessing, and augmentation modules.
     from data import CMYKDataset, ContrastiveDataset, preprocess
 """
 
+from .augmentation import augment_contrastive, augment_supervised
 from .dataset import CMYKDataset, ContrastiveDataset
 from .preprocessing import preprocess
-from .augmentation import augment_supervised, augment_contrastive
 
 __all__ = [
     "CMYKDataset",

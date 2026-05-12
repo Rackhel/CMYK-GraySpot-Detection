@@ -48,26 +48,15 @@ _SRC_DIR = Path(__file__).resolve().parents[1]  # src/
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
 
-from evaluation.metrics import (
-    NUM_LEVELS,
-    TARGET_OVERALL_ACC,
-    TARGET_PER_CLASS_F1,
-    TARGET_PER_COLOR_ACC,
-    TARGET_MAE,
-    CONF_THRESH_AUTO,
-    CONF_THRESH_WARN,
-    CONF_THRESH_MANUAL,
-    compute_metrics,
-    compute_per_class_metrics,
-    compute_all_channels,
-    check_targets,
-    print_summary,
-)
-from evaluation.confusion import (
-    compute_confusion_matrix,
-    plot_confusion_matrix,
-)
+from evaluation.confusion import (compute_confusion_matrix,
+                                  plot_confusion_matrix)
 from evaluation.evaluator import Evaluator
+from evaluation.metrics import (CONF_THRESH_AUTO, CONF_THRESH_MANUAL,
+                                CONF_THRESH_WARN, NUM_LEVELS, TARGET_MAE,
+                                TARGET_OVERALL_ACC, TARGET_PER_CLASS_F1,
+                                TARGET_PER_COLOR_ACC, check_targets,
+                                compute_all_channels, compute_metrics,
+                                compute_per_class_metrics, print_summary)
 
 # ---------------------------------------------------------------------------
 # Fixtures / 픽스처

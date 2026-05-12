@@ -26,17 +26,6 @@ Python 3.11.5 | macOS & Windows compatible
 from __future__ import annotations
 
 import json
-import webbrowser
-from datetime import datetime
-from pathlib import Path
-from typing import Optional
-
-# ── Third-party / 서드파티 ────────────────────────────────────────────────
-import numpy as np
-import plotly.graph_objects as go
-import plotly.io as pio
-from plotly.subplots import make_subplots
-
 # ── Internal / 내부 ───────────────────────────────────────────────────────
 # Absolute import so this module works both standalone and as part of the package
 # 패키지 일부 및 단독 실행 모두 동작하도록 절대 임포트 사용
@@ -50,6 +39,16 @@ from plotly.subplots import make_subplots
 # Path chain: html_report.py → reporting/ → src/
 # 경로 체인: html_report.py → reporting/ → src/
 import sys
+import webbrowser
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+# ── Third-party / 서드파티 ────────────────────────────────────────────────
+import numpy as np
+import plotly.graph_objects as go
+import plotly.io as pio
+from plotly.subplots import make_subplots
 
 _SRC_DIR = Path(__file__).parent.parent.resolve()  # src/
 if str(_SRC_DIR) not in sys.path:
@@ -65,23 +64,14 @@ except ImportError:
 
     _logger = logging.getLogger(__name__)
 
-from evaluation.metrics import (
-    EvaluationSummary,
-    ChannelMetrics,
-    summary_to_dict,
-    CHANNELS,
-    NUM_LEVELS,
-    DEFAULT_TARGET_OVERALL_ACC,
-    DEFAULT_TARGET_PER_CLASS_F1,
-    DEFAULT_TARGET_PER_COLOR_ACC,
-    DEFAULT_TARGET_MAE,
-)
-from evaluation.confusion import (
-    CMYK_COLORS,
-    PLOTLY_TEMPLATE,
-    FONT_FAMILY,
-    FONT_SIZE,
-)
+from evaluation.confusion import (CMYK_COLORS, FONT_FAMILY, FONT_SIZE,
+                                  PLOTLY_TEMPLATE)
+from evaluation.metrics import (CHANNELS, DEFAULT_TARGET_MAE,
+                                DEFAULT_TARGET_OVERALL_ACC,
+                                DEFAULT_TARGET_PER_CLASS_F1,
+                                DEFAULT_TARGET_PER_COLOR_ACC, NUM_LEVELS,
+                                ChannelMetrics, EvaluationSummary,
+                                summary_to_dict)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 0. Style constants — matches 04_evaluation.ipynb color palette

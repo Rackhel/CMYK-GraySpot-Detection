@@ -70,14 +70,8 @@ _utils_shim.log_epoch_summary = _logger_mod.log_epoch_summary
 sys.modules["utils"] = _utils_shim
 
 # ── 이후 임포트 / Imports after shim ──────────────────────────────────────
-from src.utils import (
-    setup_logging,
-    get_logger,
-    load_config,
-    validate_config,
-    create_directories,
-    get_nested,
-)
+from src.utils import (create_directories, get_logger, get_nested, load_config,
+                       setup_logging, validate_config)
 
 CHANNELS = ["Y", "M", "C", "K"]
 
@@ -95,10 +89,13 @@ def step_train(cfg, channels: list[str], device, logger) -> bool:
     Returns:
         True if all channels succeeded, False otherwise.
     """
+    import json
+    from pathlib import Path
+
+    import torch
+
     from src.scripts.run_baseline import run_baseline
     from src.utils import set_seed
-    import torch, json
-    from pathlib import Path
 
     logger.info("=" * 60)
     logger.info("STEP 1 — Naive Baseline Training")
@@ -185,26 +182,21 @@ def step_report(cfg, channels: list[str], device, open_browser: bool, logger) ->
     generate_baseline_report 의 핵심 로직을 실행한다.
     Runs the core logic of generate_baseline_report.
     """
-    import numpy as np
-    import torch
-    import torch.nn as nn
     from datetime import datetime
     from pathlib import Path
 
-    from src.utils import build_model
-    from src.scripts.generate_baseline_report import (
-        load_baseline_summary,
-        summary_to_cards,
-        build_baseline_html,
-    )
-    from evaluation.evaluator import Evaluator
-    from evaluation.metrics import (
-        NUM_LEVELS,
-        TARGET_PER_COLOR_ACC,
-        TARGET_MAE,
-        compute_all_channels,
-    )
+    import numpy as np
+    import torch
+    import torch.nn as nn
+
     from evaluation.confusion import plot_confusion_matrix
+    from evaluation.evaluator import Evaluator
+    from evaluation.metrics import (NUM_LEVELS, TARGET_MAE,
+                                    TARGET_PER_COLOR_ACC, compute_all_channels)
+    from src.scripts.generate_baseline_report import (build_baseline_html,
+                                                      load_baseline_summary,
+                                                      summary_to_cards)
+    from src.utils import build_model
 
     logger.info("=" * 60)
     logger.info("STEP 3 — Report Generation")

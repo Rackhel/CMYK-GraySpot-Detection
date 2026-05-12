@@ -16,13 +16,8 @@ SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
-from utils.utils_config import (
-    _resolve_device,
-    get_nested,
-    load_config,
-    validate_config,
-    create_directories,
-)
+from utils.utils_config import (_resolve_device, create_directories,
+                                get_nested, load_config, validate_config)
 
 # ── get_nested ──────────────────────────────────────────────────────────────
 

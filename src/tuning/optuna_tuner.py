@@ -59,8 +59,8 @@ def objective(trial: optuna.Trial, channel: str) -> float:
     Optuna 목적 함수
     Baseline 학습을 실행하고 validation accuracy를 반환
     """
-    from src.utils import load_config
     from src.scripts.run_baseline import run_baseline
+    from src.utils import load_config
 
     cfg = load_config()
 
@@ -135,8 +135,8 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
 
     Optuna 하이퍼파라미터 튜닝 실행
     """
-    from src.utils import load_config
     from src.scripts.run_baseline import run_baseline  # noqa: F401
+    from src.utils import load_config
 
     channel = channel.lower()
 

@@ -22,7 +22,7 @@ SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
-from data.augmentation import augment_supervised, augment_contrastive
+from data.augmentation import augment_contrastive, augment_supervised
 
 # ── augment_supervised ───────────────────────────────────────────────────────
 

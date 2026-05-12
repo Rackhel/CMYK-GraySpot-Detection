@@ -22,9 +22,9 @@ SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
-from data.preprocessing import preprocess
-from data.augmentation import augment_supervised, augment_contrastive
+from data.augmentation import augment_contrastive, augment_supervised
 from data.dataset import CMYKDataset, ContrastiveDataset
+from data.preprocessing import preprocess
 
 # ── preprocess → tensor 변환 흐름 / preprocess → tensor conversion ───────────
 

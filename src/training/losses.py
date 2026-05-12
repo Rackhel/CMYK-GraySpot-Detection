@@ -8,9 +8,10 @@ Phase 0: InfoNCELoss (Contrastive Learning)
 Phase 2: CrossEntropyLoss (Supervised Classification)
 """
 
+from collections import Counter
+
 import torch
 import torch.nn as nn
-from collections import Counter
 
 from training.contrastive_loss import InfoNCELoss
 

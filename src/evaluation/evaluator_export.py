@@ -16,13 +16,9 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-from evaluation.metrics import (
-    TARGET_OVERALL_ACC,
-    TARGET_PER_CLASS_F1,
-    TARGET_PER_COLOR_ACC,
-    TARGET_MAE,
-    check_targets,
-)
+from evaluation.metrics import (TARGET_MAE, TARGET_OVERALL_ACC,
+                                TARGET_PER_CLASS_F1, TARGET_PER_COLOR_ACC,
+                                check_targets)
 
 
 class ExportMixin:

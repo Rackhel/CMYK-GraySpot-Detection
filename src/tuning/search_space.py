@@ -31,9 +31,9 @@ def get_phase2_search_space(trial: optuna.Trial, cfg: dict = None) -> dict:
 
     lr_range = ss.get("learning_rate", [1e-5, 1e-2])
     wd_range = ss.get("weight_decay", [1e-6, 1e-3])
-    bs_opts = ss.get("batch_size", [16, 32, 64])
-    ep_range = ss.get("epochs", [10, 30])
-    do_range = ss.get("dropout", [0.1, 0.5])
+    bs_opts = ss.get("batch_size", [4, 16, 32, 64])
+    ep_range = ss.get("epochs", [1, 10, 30])
+    do_range = ss.get("dropout", [0.0, 0.5])
     hd_opts = ss.get("hidden_dim", [128, 256])
 
     params = {

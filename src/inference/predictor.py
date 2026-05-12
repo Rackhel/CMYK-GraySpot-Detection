@@ -38,7 +38,7 @@ from torch.utils.data import DataLoader, TensorDataset
 # Logger setup — works regardless of whether the full utils package is loaded
 # ---------------------------------------------------------------------------
 try:
-    from utils.logger import get_logger, LoggerMixin
+    from utils.logger import LoggerMixin, get_logger
 
     _module_logger = get_logger(__name__)
 except ImportError:

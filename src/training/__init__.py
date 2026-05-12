@@ -20,9 +20,9 @@ Exports Phase 0 (Contrastive) and Phase 2 (Supervised) training components.
     from training import InfoNCELoss, get_loss
 """
 
-from .trainer import Phase0Trainer, Phase2Trainer, backbone_tag
 from .contrastive_loss import InfoNCELoss
 from .losses import get_loss
+from .trainer import Phase0Trainer, Phase2Trainer, backbone_tag
 
 __all__ = [
     "Phase0Trainer",

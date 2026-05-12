@@ -21,8 +21,8 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import transforms as T
 
+from data.augmentation import augment_contrastive, augment_supervised
 from data.preprocessing import preprocess
-from data.augmentation import augment_supervised, augment_contrastive
 
 _IMAGENET_NORMALIZE = T.Normalize(
     mean=[0.485, 0.456, 0.406],

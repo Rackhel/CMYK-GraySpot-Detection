@@ -67,7 +67,8 @@ sys.path.insert(0, str(SRC_DIR))
 # top-level utils 모듈을 등록한다.
 # Register top-level utils so that evaluator.py etc.
 # can resolve `from utils import ...` without modification.
-import importlib, types as _types
+import importlib
+import types as _types
 
 _logger_mod = importlib.import_module("src.utils.logger")
 _utils_shim = _types.ModuleType("utils")
@@ -78,20 +79,12 @@ _utils_shim.log_training_config = _logger_mod.log_training_config
 _utils_shim.log_epoch_summary = _logger_mod.log_epoch_summary
 sys.modules["utils"] = _utils_shim
 
-from src.utils import (
-    setup_logging,
-    get_logger,
-    log_training_config,
-    log_snapshot,
-    set_seed,
-    load_config,
-    backbone_tag,
-    validate_config,
-    create_directories,
-    get_nested,
-)
-from models.grayspot_model import GrayspotModel
 from data.dataset import CMYKDataset
+from models.grayspot_model import GrayspotModel
+from src.utils import (backbone_tag, create_directories, get_logger,
+                       get_nested, load_config, log_snapshot,
+                       log_training_config, set_seed, setup_logging,
+                       validate_config)
 from training.trainer import Phase2Trainer
 
 warnings.filterwarnings("ignore")

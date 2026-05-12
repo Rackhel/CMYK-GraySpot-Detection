@@ -24,7 +24,9 @@ try:
     from utils.logger import get_logger
 except ImportError:
     from src.utils.logger import get_logger
-from data.dataset import CMYKDataset, ContrastiveDataset  # noqa: F401 — re-export
+
+from data.dataset import (CMYKDataset,  # noqa: F401 — re-export
+                          ContrastiveDataset)
 from models.grayspot_model import GrayspotModel
 from training.losses import get_loss
 

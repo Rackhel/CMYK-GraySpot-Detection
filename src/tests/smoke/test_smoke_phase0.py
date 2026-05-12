@@ -24,8 +24,8 @@ SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
-from tests.smoke.conftest import data_exists
 from models.grayspot_model import GrayspotModel
+from tests.smoke.conftest import data_exists
 from training.trainer import ContrastiveDataset, Phase0Trainer
 
 CHANNELS = ["Y", "M", "C", "K"]

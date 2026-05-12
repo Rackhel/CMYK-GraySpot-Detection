@@ -193,6 +193,7 @@ class TestGrayspotModel:
     def test_phase2_effb0_head_has_no_mid_dim(self, minimal_cfg):
         """EfficientNet-B0 Phase 2 모델의 head는 mid_dim이 없어야 한다."""
         import torch.nn as nn
+
         from models.grayspot_model import GrayspotModel
 
         minimal_cfg["model"]["backbone"] = "efficientnet_b0"
@@ -203,6 +204,7 @@ class TestGrayspotModel:
     def test_phase2_resnet50_head_has_mid_dim(self, minimal_cfg):
         """ResNet-50 Phase 2 모델의 head는 mid_dim이 있어야 한다(Linear 3개)."""
         import torch.nn as nn
+
         from models.grayspot_model import GrayspotModel
 
         minimal_cfg["model"]["backbone"] = "resnet50"
