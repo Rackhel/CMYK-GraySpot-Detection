@@ -68,7 +68,8 @@ class TestInfoNCELoss:
 
     def test_gradients_flow_through_loss(self):
         loss_fn = InfoNCELoss(temperature=0.1)
-        z1 = F.normalize(torch.randn(8, 128, requires_grad=True), dim=1)
+        z1 = F.normalize(torch.randn(8, 128), dim=1)
+        z1.requires_grad_(True) 
         z2 = F.normalize(torch.randn(8, 128), dim=1)
         loss = loss_fn(z1, z2)
         loss.backward()
