@@ -485,6 +485,7 @@ All Python code in this project **must** follow the three principles below.
 | Markdown 가이드 / Markdown guide | `doc/Markdown_guide.md` | 문서 작성 스타일 가이드 / Document writing style guide |
 | 인터페이스 계약 / Interface Contract | `doc/Contract.md` | 모듈 간 공개 API 계약 — PRD → SSOT 아래, BDD 위 / Public API contracts between modules (sits below PRD→SSOT, above BDD) |
 | 행위 명세 / BDD | `doc/BDD.md` | Gherkin 시나리오 — 액터 관점 동작 명세 (PRD → SSOT/Contract → BDD → TDD → Code) / Gherkin scenarios from actor perspective |
+| 설계 연쇄 체계 결정 / Design chain ADR | `doc/ADR_Design_Doc_Chain.md` | PRD → SSOT/Contract → BDD → TDD → Code 채택 근거 / Rationale for adopting the design document chain |
 
 ---
 
