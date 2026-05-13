@@ -486,6 +486,7 @@ All Python code in this project **must** follow the three principles below.
 | 인터페이스 계약 / Interface Contract | `doc/Contract.md` | 모듈 간 공개 API 계약 — PRD → SSOT 아래, BDD 위 / Public API contracts between modules (sits below PRD→SSOT, above BDD) |
 | 행위 명세 / BDD | `doc/BDD.md` | Gherkin 시나리오 — 액터 관점 동작 명세 (PRD → SSOT/Contract → BDD → TDD → Code) / Gherkin scenarios from actor perspective |
 | 설계 연쇄 체계 결정 / Design chain ADR | `doc/ADR_Design_Doc_Chain.md` | PRD → SSOT/Contract → BDD → TDD → Code 채택 근거 / Rationale for adopting the design document chain |
+| 데이터셋 현황 감사 / Dataset audit | `doc/Data_Audit.md` | PRD 목표 대비 실제 데이터 수량, CSV-폴더 불일치, 라벨링 배치 이력 / Actual vs PRD target quantities, CSV-folder mismatch, labeling batch history |
 
 ---
 
