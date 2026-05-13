@@ -183,12 +183,12 @@ Because Contract froze `from evaluation.evaluator import Evaluator` first, the i
 
 | 참조 / Reference | 내용 / Content |
 |---|---|
-| [`doc/SSOT_Core.md`](SSOT_Core.md) | SSOT 핵심 원칙, SOLID 설계 원칙, 문서 목록 |
-| [`doc/Contract.md`](Contract.md) | 모듈 간 공개 API 계약 (Evaluator, Trainer, GrayspotModel 등) |
-| [`doc/BDD.md`](BDD.md) | Gherkin 시나리오 — 7 Features, 24 Scenarios |
-| [`doc/TDD.md`](TDD.md) | 단위·통합·스모크 테스트 전략 및 추적성 매트릭스 |
-| [`doc/ADR_Model_Select.md`](ADR_Model_Select.md) | 이 체계를 적용한 backbone/head 설계 결정 사례 |
-| [`src/evaluation/evaluator.py`](../src/evaluation/evaluator.py) | 설계 연쇄 적용 결과 — 4 Mixin + Orchestrator |
+| [`doc/SSOT_Core.md`](SSOT_Core.md) | SSOT 핵심 원칙, SOLID 설계 원칙, 문서 목록 / Core SSOT principles, SOLID design principles, document index |
+| [`doc/Contract.md`](Contract.md) | 모듈 간 공개 API 계약 (Evaluator, Trainer, GrayspotModel 등) / Public API contracts between modules (Evaluator, Trainer, GrayspotModel, etc.) |
+| [`doc/BDD.md`](BDD.md) | Gherkin 시나리오 — 7 Features, 24 Scenarios / Gherkin scenarios — 7 Features, 24 Scenarios |
+| [`doc/TDD.md`](TDD.md) | 단위·통합·스모크 테스트 전략 및 추적성 매트릭스 / Unit, integration, and smoke test strategy with traceability matrix |
+| [`doc/ADR_Model_Select.md`](ADR_Model_Select.md) | 이 체계를 적용한 backbone/head 설계 결정 사례 / Example of this chain applied to backbone/head design decisions |
+| [`src/evaluation/evaluator.py`](../src/evaluation/evaluator.py) | 설계 연쇄 적용 결과 — 4 Mixin + Orchestrator / Result of applying the design chain — 4 Mixins + Orchestrator |
 
 ---
 
