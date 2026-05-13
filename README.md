@@ -183,6 +183,7 @@ CMYK_MAIN/
 │   ├── SSOT_Validation_Codes.md
 │   ├── Contract.md              # Module interface contracts
 │   ├── ADR_Encoder_Scaler.md    # Architecture Decision Record
+│   ├── CI_Setup.md              # CI setup and workflow documentation
 │   └── TDD.md                   # Test-Driven Development strategy
 ├── src/
 │   ├── config/                  # Configuration
