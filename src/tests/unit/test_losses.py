@@ -14,15 +14,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
 from training.contrastive_loss import InfoNCELoss
 from training.losses import get_loss
 
-
 # ── InfoNCELoss ──────────────────────────────────────────────────────────────
+
 
 class TestInfoNCELoss:
     def test_output_is_scalar(self):
@@ -60,7 +60,7 @@ class TestInfoNCELoss:
         torch.manual_seed(0)
         z1 = F.normalize(torch.randn(8, 128), dim=1)
         z2 = F.normalize(torch.randn(8, 128), dim=1)
-        loss_low_temp  = InfoNCELoss(temperature=0.07)(z1, z2)
+        loss_low_temp = InfoNCELoss(temperature=0.07)(z1, z2)
         loss_high_temp = InfoNCELoss(temperature=1.0)(z1, z2)
         # 낮은 temperature = sharper distribution → 어려운 task → 일반적으로 높은 loss
         # 이 테스트는 두 값이 다름을 확인 (방향은 환경에 따라 다를 수 있음)
@@ -68,7 +68,8 @@ class TestInfoNCELoss:
 
     def test_gradients_flow_through_loss(self):
         loss_fn = InfoNCELoss(temperature=0.1)
-        z1 = F.normalize(torch.randn(8, 128, requires_grad=True), dim=1)
+        z1 = F.normalize(torch.randn(8, 128), dim=1)
+        z1.requires_grad_(True)
         z2 = F.normalize(torch.randn(8, 128), dim=1)
         loss = loss_fn(z1, z2)
         loss.backward()
@@ -83,6 +84,7 @@ class TestInfoNCELoss:
 
 
 # ── get_loss ─────────────────────────────────────────────────────────────────
+
 
 class TestGetLoss:
     def test_phase0_returns_infonce(self, minimal_cfg):

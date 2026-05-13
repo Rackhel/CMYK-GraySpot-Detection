@@ -40,6 +40,7 @@ to automatically search Phase 2 hyperparameters.
     python -m src.scripts.run_optuna --channel all
     python -m src.scripts.run_optuna --trials 10 --channel M
 """
+
 import json
 from functools import partial
 from pathlib import Path
@@ -58,8 +59,8 @@ def objective(trial: optuna.Trial, channel: str) -> float:
     Optuna 목적 함수
     Baseline 학습을 실행하고 validation accuracy를 반환
     """
-    from src.utils import load_config
     from src.scripts.run_baseline import run_baseline
+    from src.utils import load_config
 
     cfg = load_config()
 
@@ -70,9 +71,9 @@ def objective(trial: optuna.Trial, channel: str) -> float:
     # Apply sampled parameters to config
     # 샘플링한 파라미터를 config에 반영
     cfg["phase2"]["learning_rate"] = params["learning_rate"]
-    cfg["phase2"]["batch_size"]    = params["batch_size"]
-    cfg["phase2"]["weight_decay"]  = params["weight_decay"]
-    cfg["phase2"]["epochs"]        = params["epochs"]
+    cfg["phase2"]["batch_size"] = params["batch_size"]
+    cfg["phase2"]["weight_decay"] = params["weight_decay"]
+    cfg["phase2"]["epochs"] = params["epochs"]
 
     # backbone별 head 파라미터를 phase2.heads에 반영
     # Apply backbone-specific head params into phase2.heads
@@ -82,7 +83,7 @@ def objective(trial: optuna.Trial, channel: str) -> float:
     if backbone_name not in cfg["phase2"]["heads"]:
         cfg["phase2"]["heads"][backbone_name] = {}
 
-    cfg["phase2"]["heads"][backbone_name]["dropout"]    = params["dropout"]
+    cfg["phase2"]["heads"][backbone_name]["dropout"] = params["dropout"]
     cfg["phase2"]["heads"][backbone_name]["hidden_dim"] = params["hidden_dim"]
     if "mid_dim" in params:
         cfg["phase2"]["heads"][backbone_name]["mid_dim"] = params["mid_dim"]
@@ -134,8 +135,8 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
 
     Optuna 하이퍼파라미터 튜닝 실행
     """
-    from src.utils import load_config
     from src.scripts.run_baseline import run_baseline  # noqa: F401
+    from src.utils import load_config
 
     channel = channel.lower()
 
@@ -161,9 +162,9 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
         sampler = optuna.samplers.RandomSampler(seed=seed)
     else:  # tpe (default)
         sampler = optuna.samplers.TPESampler(seed=seed)
-    pruner_cfg      = cfg.get("optuna", {}).get("pruner", {})
-    n_warmup_steps  = int(pruner_cfg.get("n_warmup_steps", 10))
-    pruner          = optuna.pruners.MedianPruner(n_warmup_steps=n_warmup_steps)
+    pruner_cfg = cfg.get("optuna", {}).get("pruner", {})
+    n_warmup_steps = int(pruner_cfg.get("n_warmup_steps", 10))
+    pruner = optuna.pruners.MedianPruner(n_warmup_steps=n_warmup_steps)
 
     # Direction
     # 최적화 방향 (config에서 읽기)
@@ -211,12 +212,14 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     # trial 요약 저장
     trials_summary = []
     for t in study.trials:
-        trials_summary.append({
-            "number": t.number,
-            "value": t.value,
-            "state": str(t.state),
-            "params": t.params,
-        })
+        trials_summary.append(
+            {
+                "number": t.number,
+                "value": t.value,
+                "state": str(t.state),
+                "params": t.params,
+            }
+        )
 
     trials_summary_path = output_dir / f"trials_summary_{study_suffix}.json"
     with open(trials_summary_path, "w", encoding="utf-8") as f:

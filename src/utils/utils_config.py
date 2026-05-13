@@ -16,15 +16,16 @@ from typing import Any, Optional
 import torch
 
 # ── 경로 상수 / Path constants ─────────────────────────────────────────────────
-_UTILS_DIR  = Path(__file__).resolve().parent          # src/utils/
-_SRC_DIR    = _UTILS_DIR.parent                        # src/
-_ROOT_DIR   = _SRC_DIR.parent                          # CMYK_MAIN/
+_UTILS_DIR = Path(__file__).resolve().parent  # src/utils/
+_SRC_DIR = _UTILS_DIR.parent  # src/
+_ROOT_DIR = _SRC_DIR.parent  # CMYK_MAIN/
 _CONFIG_PATH = _SRC_DIR / "config" / "config.json"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 점 표기법 접근 / Dot-notation accessor
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def get_nested(cfg: dict, key: str, default: Any = None) -> Any:
     """
@@ -48,6 +49,7 @@ def get_nested(cfg: dict, key: str, default: Any = None) -> Any:
 # ──────────────────────────────────────────────────────────────────────────────
 # 내부 처리 함수 / Internal processing functions
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _resolve_device(raw: str) -> str:
     """
@@ -92,13 +94,13 @@ def _setup_device(cfg: dict) -> None:
     sys_cfg["device"] = selected
 
     if selected == "cuda":
-        sys_cfg["device_name"]  = f"cuda:{torch.cuda.current_device()}"
+        sys_cfg["device_name"] = f"cuda:{torch.cuda.current_device()}"
         sys_cfg["device_count"] = torch.cuda.device_count()
     elif selected == "mps":
-        sys_cfg["device_name"]  = "mps"
+        sys_cfg["device_name"] = "mps"
         sys_cfg["device_count"] = 1
     else:
-        sys_cfg["device_name"]  = "cpu"
+        sys_cfg["device_name"] = "cpu"
         sys_cfg["device_count"] = 1
 
 
@@ -106,9 +108,10 @@ def _setup_device(cfg: dict) -> None:
 # 공개 API / Public API
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def load_config(
     config_path: Optional[Path] = None,
-    root_dir:    Optional[Path] = None,
+    root_dir: Optional[Path] = None,
 ) -> dict:
     """
     config.json을 로드하고 처리된 dict를 반환한다.
@@ -127,7 +130,7 @@ def load_config(
         처리된 설정 dict / Processed config dict
     """
     path = Path(config_path) if config_path else _CONFIG_PATH
-    root = Path(root_dir)    if root_dir    else _ROOT_DIR
+    root = Path(root_dir) if root_dir else _ROOT_DIR
 
     if not path.exists():
         raise FileNotFoundError(
@@ -152,9 +155,9 @@ def validate_config(cfg: dict) -> bool:
         True if valid, False otherwise
     """
     required = [
-        ("data",   "channels"),
-        ("data",   "num_levels"),
-        ("model",  "backbone"),
+        ("data", "channels"),
+        ("data", "num_levels"),
+        ("model", "backbone"),
         ("phase2", "epochs"),
     ]
     for section, field in required:

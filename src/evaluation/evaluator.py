@@ -37,30 +37,31 @@ try:
 except ImportError:
     import logging
 
-    class LoggerMixin:                          # type: ignore[no-redef]
+    class LoggerMixin:  # type: ignore[no-redef]
         @property
         def logger(self):
-            if not hasattr(self, '_logger'):
+            if not hasattr(self, "_logger"):
                 self._logger = logging.getLogger(self.__class__.__name__)
             return self._logger
 
-    def get_logger(name=None):                  # type: ignore[misc]
-        return logging.getLogger(name or 'evaluation')
+    def get_logger(name=None):  # type: ignore[misc]
+        return logging.getLogger(name or "evaluation")
 
-from evaluation.metrics import (
-    NUM_LEVELS,
-    CONF_THRESH_AUTO,
-    CONF_THRESH_WARN,
-    CONF_THRESH_MANUAL,
-)
+
 from evaluation.confusion import plot_all_channels
+from evaluation.evaluator_charts import ChartsMixin
+from evaluation.evaluator_export import ExportMixin
 from evaluation.evaluator_inference import InferenceMixin
 from evaluation.evaluator_metrics import MetricsMixin
-from evaluation.evaluator_export import ExportMixin
-from evaluation.evaluator_charts import ChartsMixin
+from evaluation.metrics import (
+    CONF_THRESH_AUTO,
+    CONF_THRESH_MANUAL,
+    CONF_THRESH_WARN,
+    NUM_LEVELS,
+)
 
-_DEFAULT_CONF_AUTO   = CONF_THRESH_AUTO
-_DEFAULT_CONF_WARN   = CONF_THRESH_WARN
+_DEFAULT_CONF_AUTO = CONF_THRESH_AUTO
+_DEFAULT_CONF_WARN = CONF_THRESH_WARN
 _DEFAULT_CONF_MANUAL = CONF_THRESH_MANUAL
 
 
@@ -86,33 +87,35 @@ class Evaluator(InferenceMixin, MetricsMixin, ExportMixin, ChartsMixin, LoggerMi
 
     def __init__(
         self,
-        model       : nn.Module,
-        labeled_dir : Path,
-        labels_csv  : Path,
-        output_dir  : Path,
-        device      : torch.device,
-        image_size  : int = 128,
-        batch_size  : int = 32,
-        num_levels  : int = NUM_LEVELS,
-        cfg         : Optional[dict] = None,
+        model: nn.Module,
+        labeled_dir: Path,
+        labels_csv: Path,
+        output_dir: Path,
+        device: torch.device,
+        image_size: int = 128,
+        batch_size: int = 32,
+        num_levels: int = NUM_LEVELS,
+        cfg: Optional[dict] = None,
     ):
-        self.model       = model
+        self.model = model
         self.labeled_dir = Path(labeled_dir)
-        self.labels_csv  = Path(labels_csv)
-        self.output_dir  = Path(output_dir)
-        self.device      = device
-        self.image_size  = image_size
-        self.batch_size  = batch_size
-        self.num_levels  = num_levels
-        self.cfg         = cfg or {}
+        self.labels_csv = Path(labels_csv)
+        self.output_dir = Path(output_dir)
+        self.device = device
+        self.image_size = image_size
+        self.batch_size = batch_size
+        self.num_levels = num_levels
+        self.cfg = cfg or {}
 
         ct = self.cfg.get("inference", {}).get("confidence_thresholds", {})
-        self.conf_thresh_auto   = float(ct.get("auto_accept",    _DEFAULT_CONF_AUTO))
-        self.conf_thresh_warn   = float(ct.get("warn_threshold", _DEFAULT_CONF_WARN))
-        self.conf_thresh_manual = float(ct.get("manual_review",  _DEFAULT_CONF_MANUAL))
+        self.conf_thresh_auto = float(ct.get("auto_accept", _DEFAULT_CONF_AUTO))
+        self.conf_thresh_warn = float(ct.get("warn_threshold", _DEFAULT_CONF_WARN))
+        self.conf_thresh_manual = float(ct.get("manual_review", _DEFAULT_CONF_MANUAL))
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.logger.info(f'Evaluator initialized / 초기화 완료  output_dir={self.output_dir}')
+        self.logger.info(
+            f"Evaluator initialized / 초기화 완료  output_dir={self.output_dir}"
+        )
 
     # ------------------------------------------------------------------
     # Full report orchestration / 전체 리포트 조율
@@ -120,12 +123,12 @@ class Evaluator(InferenceMixin, MetricsMixin, ExportMixin, ChartsMixin, LoggerMi
 
     def save_report(
         self,
-        results         : Dict[str, dict],
-        metrics         : Dict[str, dict],
-        experiment_name : str = 'eval',
-        channels        : List[str] = None,
-        open_browser    : bool = False,
-        checkpoint_path : Optional[str] = None,
+        results: Dict[str, dict],
+        metrics: Dict[str, dict],
+        experiment_name: str = "eval",
+        channels: List[str] = None,
+        open_browser: bool = False,
+        checkpoint_path: Optional[str] = None,
     ) -> Path:
         """
         전체 HTML 리포트를 생성하고 저장한다. (PRD 8.2.3)
@@ -147,37 +150,46 @@ class Evaluator(InferenceMixin, MetricsMixin, ExportMixin, ChartsMixin, LoggerMi
             Path to eval_dashboard.html
         """
         if channels is None:
-            channels = [c for c in ['Y', 'M', 'C', 'K'] if c in results]
+            channels = [c for c in ["Y", "M", "C", "K"] if c in results]
 
-        self.logger.info(f'Generating report / 리포트 생성 중... experiment={experiment_name}')
+        self.logger.info(
+            f"Generating report / 리포트 생성 중... experiment={experiment_name}"
+        )
 
         def _save(fig: go.Figure, name: str) -> Path:
             path = self.output_dir / name
-            fig.write_html(str(path), include_plotlyjs='cdn')
-            self.logger.info(f'Saved / 저장: {path}')
+            fig.write_html(str(path), include_plotlyjs="cdn")
+            self.logger.info(f"Saved / 저장: {path}")
             return path
 
         # 1. Confusion matrices / 혼동 행렬
-        plot_all_channels(results, self.output_dir / 'confusion', channels, normalize=True)
+        plot_all_channels(
+            results, self.output_dir / "confusion", channels, normalize=True
+        )
 
         # 2. Dashboard / 대시보드
-        dash_path = _save(self._build_dashboard(metrics, channels), 'eval_dashboard.html')
+        dash_path = _save(
+            self._build_dashboard(metrics, channels), "eval_dashboard.html"
+        )
 
         # 3. Per-class F1
-        _save(self._build_per_class_chart(metrics), 'per_class_metrics.html')
+        _save(self._build_per_class_chart(metrics), "per_class_metrics.html")
 
         # 4. MAE heatmap / MAE 히트맵
-        _save(self._build_mae_heatmap(results, channels), 'mae_heatmap.html')
+        _save(self._build_mae_heatmap(results, channels), "mae_heatmap.html")
 
         # 5. Misclassified / 오분류
-        df_miss   = self.get_misclassified(results, channels)
-        miss_path = self.output_dir / f'misclassified_{experiment_name}.csv'
-        df_miss.to_csv(miss_path, index=False, encoding='utf-8-sig')
-        self.logger.info(f'Saved / 저장: {miss_path}')
-        _save(self._build_mismatch_scatter(df_miss), 'misclassified_scatter.html')
+        df_miss = self.get_misclassified(results, channels)
+        miss_path = self.output_dir / f"misclassified_{experiment_name}.csv"
+        df_miss.to_csv(miss_path, index=False, encoding="utf-8-sig")
+        self.logger.info(f"Saved / 저장: {miss_path}")
+        _save(self._build_mismatch_scatter(df_miss), "misclassified_scatter.html")
 
         # 6. Confidence distribution / 신뢰도 분포
-        _save(self._build_confidence_dist(results, channels), 'confidence_distribution.html')
+        _save(
+            self._build_confidence_dist(results, channels),
+            "confidence_distribution.html",
+        )
 
         # 7. CSV + JSON
         self.save_csv(results, experiment_name, channels)
@@ -185,10 +197,10 @@ class Evaluator(InferenceMixin, MetricsMixin, ExportMixin, ChartsMixin, LoggerMi
 
         # 8. Phase 3 decision / Phase 3 판단
         decision_text = self._build_phase3_decision(metrics, channels)
-        self.logger.info('\n' + decision_text)
+        self.logger.info("\n" + decision_text)
 
         if open_browser:
             webbrowser.open(dash_path.resolve().as_uri())
 
-        self.logger.info(f'Report complete / 리포트 완료: {self.output_dir}')
+        self.logger.info(f"Report complete / 리포트 완료: {self.output_dir}")
         return dash_path

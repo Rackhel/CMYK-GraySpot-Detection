@@ -18,14 +18,13 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-
 from sklearn.metrics import accuracy_score
-
+from torch.utils.data import DataLoader, Dataset
 
 # ---------------------------------------------------------------------------
 # Internal Dataset / 내부 Dataset
 # ---------------------------------------------------------------------------
+
 
 class _EvalDataset(Dataset):
     """
@@ -38,25 +37,23 @@ class _EvalDataset(Dataset):
     """
 
     def __init__(self, df: pd.DataFrame, patch_dir: Path, image_size: int):
-        self.df         = df.reset_index(drop=True)
-        self.patch_dir  = Path(patch_dir)
+        self.df = df.reset_index(drop=True)
+        self.patch_dir = Path(patch_dir)
         self.image_size = image_size
 
     def __len__(self) -> int:
         return len(self.df)
 
     def __getitem__(self, idx: int):
-        row   = self.df.iloc[idx]
-        color = row['color']
-        fname = row['filename']
-        level = int(row['level'])
+        row = self.df.iloc[idx]
+        color = row["color"]
+        fname = row["filename"]
+        level = int(row["level"])
 
         img_path = self.patch_dir / color / str(level) / fname
 
         if not img_path.exists():
-            raise FileNotFoundError(
-                f'Image not found / 이미지 없음: {img_path}'
-            )
+            raise FileNotFoundError(f"Image not found / 이미지 없음: {img_path}")
 
         img = cv2.imread(str(img_path))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -71,6 +68,7 @@ class _EvalDataset(Dataset):
 # InferenceMixin
 # ---------------------------------------------------------------------------
 
+
 class InferenceMixin:
     """
     라벨 로딩과 모델 추론을 담당하는 Mixin.
@@ -84,8 +82,8 @@ class InferenceMixin:
     @staticmethod
     def _extract_color(fname: str) -> Optional[str]:
         """파일명에서 CMYK 색상 코드를 추출한다. / Extracts CMYK color code from filename."""
-        for part in Path(fname).stem.split('_'):
-            if part in ('Y', 'M', 'C', 'K'):
+        for part in Path(fname).stem.split("_"):
+            if part in ("Y", "M", "C", "K"):
                 return part
         return None
 
@@ -97,13 +95,13 @@ class InferenceMixin:
         파일명 색상과 일치하는 라벨만 포함한다.
         Only labels matching the color in the filename are included.
         """
-        df       = pd.read_csv(self.labels_csv)
-        cols_map = {'Y': 'Y', 'M': 'M', 'C': 'C', 'K': 'K'}
+        df = pd.read_csv(self.labels_csv)
+        cols_map = {"Y": "Y", "M": "M", "C": "C", "K": "K"}
 
         records = []
         skipped = 0
         for _, row in df.iterrows():
-            color = self._extract_color(str(row['filename']))
+            color = self._extract_color(str(row["filename"]))
             if color is None:
                 skipped += 1
                 continue
@@ -111,15 +109,17 @@ class InferenceMixin:
             if col is None or col not in df.columns:
                 skipped += 1
                 continue
-            records.append({
-                'filename': row['filename'],
-                'color'   : color,
-                'level'   : int(row[col]),
-            })
+            records.append(
+                {
+                    "filename": row["filename"],
+                    "color": color,
+                    "level": int(row[col]),
+                }
+            )
 
         long_df = pd.DataFrame(records)
         self.logger.info(
-            f'Labels loaded / 라벨 로드: {len(long_df)} rows  (skipped / 제외: {skipped})'
+            f"Labels loaded / 라벨 로드: {len(long_df)} rows  (skipped / 제외: {skipped})"
         )
         return long_df
 
@@ -136,21 +136,21 @@ class InferenceMixin:
             y_true, y_pred, confidences, filenames
         """
         self.model.eval()
-        ds     = _EvalDataset(df_color, self.labeled_dir, self.image_size)
+        ds = _EvalDataset(df_color, self.labeled_dir, self.image_size)
         loader = DataLoader(
             ds,
-            batch_size  = self.batch_size,
-            shuffle     = False,
-            num_workers = 0,
-            pin_memory  = (self.device.type == 'cuda'),
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=0,
+            pin_memory=(self.device.type == "cuda"),
         )
 
         all_true, all_pred, all_conf, all_fnames = [], [], [], []
 
         for batch_imgs, batch_labels, batch_fnames in loader:
-            batch_imgs  = batch_imgs.to(self.device, non_blocking=True)
-            logits      = self.model(batch_imgs)
-            probs       = F.softmax(logits, dim=1)
+            batch_imgs = batch_imgs.to(self.device, non_blocking=True)
+            logits = self.model(batch_imgs)
+            probs = F.softmax(logits, dim=1)
             conf, preds = probs.max(dim=1)
 
             all_true.extend(batch_labels.numpy())
@@ -180,30 +180,32 @@ class InferenceMixin:
             }
         """
         if channels is None:
-            channels = ['Y', 'M', 'C', 'K']
+            channels = ["Y", "M", "C", "K"]
 
-        df_labels       = self.load_labels()
+        df_labels = self.load_labels()
         results: Dict[str, dict] = {}
 
         for color in channels:
-            df_color = df_labels[df_labels['color'] == color].reset_index(drop=True)
+            df_color = df_labels[df_labels["color"] == color].reset_index(drop=True)
 
             if len(df_color) == 0:
-                self.logger.warning(f'[{color}] No samples / 샘플 없음 — skipping')
+                self.logger.warning(f"[{color}] No samples / 샘플 없음 — skipping")
                 continue
 
             y_true, y_pred, confs, fnames = self._run_single_channel(df_color)
             results[color] = {
-                'y_true'      : y_true,
-                'y_pred'      : y_pred,
-                'confidences' : confs,
-                'filenames'   : fnames,
+                "y_true": y_true,
+                "y_pred": y_pred,
+                "confidences": confs,
+                "filenames": fnames,
             }
 
             acc = accuracy_score(y_true, y_pred)
-            self.logger.info(f'[{color}] {len(y_true):4d} samples | Accuracy: {acc:.4f}')
+            self.logger.info(
+                f"[{color}] {len(y_true):4d} samples | Accuracy: {acc:.4f}"
+            )
 
         self.logger.info(
-            f'Inference complete / 추론 완료 — channels: {list(results.keys())}'
+            f"Inference complete / 추론 완료 — channels: {list(results.keys())}"
         )
         return results

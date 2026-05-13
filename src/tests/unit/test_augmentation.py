@@ -18,14 +18,14 @@ import numpy as np
 import pytest
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
-from data.augmentation import augment_supervised, augment_contrastive
-
+from data.augmentation import augment_contrastive, augment_supervised
 
 # ── augment_supervised ───────────────────────────────────────────────────────
+
 
 class TestAugmentSupervised:
     def test_output_shape_preserved(self, dummy_image_float):
@@ -60,6 +60,7 @@ class TestAugmentSupervised:
 
 # ── augment_contrastive ──────────────────────────────────────────────────────
 
+
 class TestAugmentContrastive:
     def test_output_shape_preserved(self, dummy_image_float):
         result = augment_contrastive(dummy_image_float, image_size=128)
@@ -79,7 +80,9 @@ class TestAugmentContrastive:
 
     def test_two_calls_produce_different_views(self, dummy_image_float):
         # 두 번 호출하면 확률적으로 다른 결과 (aug_cfg 기본값: prob=0.5)
-        results = [augment_contrastive(dummy_image_float, image_size=128) for _ in range(10)]
+        results = [
+            augment_contrastive(dummy_image_float, image_size=128) for _ in range(10)
+        ]
         # 10번 중 적어도 2개는 달라야 함
         all_same = all(np.allclose(results[0], r) for r in results[1:])
         assert not all_same, "모든 augmentation 결과가 동일함 — 확률적 다양성 필요"

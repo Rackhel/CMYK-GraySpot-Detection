@@ -8,15 +8,15 @@ Phase 0: InfoNCELoss (Contrastive Learning)
 Phase 2: CrossEntropyLoss (Supervised Classification)
 """
 
+from collections import Counter
+
 import torch
 import torch.nn as nn
-from collections import Counter
 
 from training.contrastive_loss import InfoNCELoss
 
 
-def get_loss(phase: int, cfg: dict,
-             train_samples: list = None) -> nn.Module:
+def get_loss(phase: int, cfg: dict, train_samples: list = None) -> nn.Module:
     """
     Phase에 맞는 Loss 함수를 반환한다.
     Returns the appropriate loss function for the given phase.
@@ -42,13 +42,16 @@ def get_loss(phase: int, cfg: dict,
 
         if class_weights_mode == "balanced" and train_samples is not None:
             # 클래스 가중치 계산 (데이터 불균형 보정) / Compute class weights (imbalance correction)
-            num_levels   = cfg["data"]["num_levels"]
+            num_levels = cfg["data"]["num_levels"]
             level_counts = Counter([lv for _, lv in train_samples])
-            total        = sum(level_counts.values())
-            weights      = torch.tensor([
-                total / (level_counts.get(lv, 1) * num_levels)
-                for lv in range(num_levels)
-            ], dtype=torch.float32)
+            total = sum(level_counts.values())
+            weights = torch.tensor(
+                [
+                    total / (level_counts.get(lv, 1) * num_levels)
+                    for lv in range(num_levels)
+                ],
+                dtype=torch.float32,
+            )
             # 정규화 / Normalize
             weights = weights / weights.sum()
             return nn.CrossEntropyLoss(weight=weights)

@@ -38,7 +38,8 @@ from torch.utils.data import DataLoader, TensorDataset
 # Logger setup — works regardless of whether the full utils package is loaded
 # ---------------------------------------------------------------------------
 try:
-    from utils.logger import get_logger, LoggerMixin
+    from utils.logger import LoggerMixin, get_logger
+
     _module_logger = get_logger(__name__)
 except ImportError:
     logging.basicConfig(level=logging.INFO)
@@ -55,6 +56,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Lazy config / model imports to avoid circular dependency issues
 # ---------------------------------------------------------------------------
+
 
 def _get_config(config_path=None):
     """config.json을 로드하고 처리된 dict를 반환한다."""
@@ -105,9 +107,9 @@ class GrayspotPredictor(LoggerMixin):
         self.models: Dict[str, Any] = {}
         self.model_paths: Dict[str, Path] = {}
 
-        self.channels    = self.cfg.get("data", {}).get("channels") or ["Y", "M", "C", "K"]
-        self.image_size  = self.cfg.get("data", {}).get("image_size") or 128
-        self.num_levels  = self.cfg.get("data", {}).get("num_levels") or 6
+        self.channels = self.cfg.get("data", {}).get("channels") or ["Y", "M", "C", "K"]
+        self.image_size = self.cfg.get("data", {}).get("image_size") or 128
+        self.num_levels = self.cfg.get("data", {}).get("num_levels") or 6
 
         self.logger.info(f"  Channels: {self.channels}")
         self.logger.info(f"  Image size: {self.image_size}x{self.image_size}")
@@ -185,7 +187,7 @@ class GrayspotPredictor(LoggerMixin):
         model.load_state_dict(checkpoint, strict=False)
 
         model = model.to(self.device).eval()
-        self.models[channel]      = model
+        self.models[channel] = model
         self.model_paths[channel] = model_path
         self.logger.info(f"  ✓ Model [{channel}] loaded successfully")
 
@@ -237,17 +239,17 @@ class GrayspotPredictor(LoggerMixin):
 
         # (N, H, W, C) -> (N, C, H, W)
         img_tensor = torch.from_numpy(img_float).permute(0, 3, 1, 2).float()
-        dataset    = TensorDataset(img_tensor)
-        loader     = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+        dataset = TensorDataset(img_tensor)
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
         model = self.models[channel]
         all_logits, all_preds, all_confs = [], [], []
 
         with torch.no_grad():
             for (batch,) in loader:
-                batch   = batch.to(self.device)
-                logits  = model(batch)
-                probs   = F.softmax(logits, dim=1)
+                batch = batch.to(self.device)
+                logits = model(batch)
+                probs = F.softmax(logits, dim=1)
                 conf, pred = probs.max(dim=1)
 
                 all_logits.append(logits.cpu().numpy())
@@ -255,13 +257,13 @@ class GrayspotPredictor(LoggerMixin):
                 all_confs.append(conf.cpu().numpy())
 
         logits_arr = np.concatenate(all_logits, axis=0)
-        preds_arr  = np.concatenate(all_preds,  axis=0)
-        confs_arr  = np.concatenate(all_confs,  axis=0)
-        probs_arr  = F.softmax(torch.from_numpy(logits_arr), dim=1).numpy()
+        preds_arr = np.concatenate(all_preds, axis=0)
+        confs_arr = np.concatenate(all_confs, axis=0)
+        probs_arr = F.softmax(torch.from_numpy(logits_arr), dim=1).numpy()
 
         result: Dict[str, np.ndarray] = {
-            "predictions"  : preds_arr,
-            "logits"       : logits_arr,
+            "predictions": preds_arr,
+            "logits": logits_arr,
             "probabilities": probs_arr,
         }
         if return_confidences:
@@ -290,9 +292,7 @@ class GrayspotPredictor(LoggerMixin):
                 continue
             results[ch] = self.predict(images, ch, batch_size)
 
-        self.logger.info(
-            f"  ✓ Batch inference complete for {len(results)} channels"
-        )
+        self.logger.info(f"  ✓ Batch inference complete for {len(results)} channels")
         return results
 
     def clear_cache(self, channel: Optional[str] = None) -> None:
@@ -308,28 +308,56 @@ class GrayspotPredictor(LoggerMixin):
                 del self.model_paths[ch]
                 self.logger.debug(f"[Predictor] Cache cleared for [{ch}]")
 
-    def get_model_info(self, channel: Optional[str] = None) -> Dict[str, Any]:
-        """로드된 모델 정보 조회 / Get loaded model information."""
-        if channel is None:
-            return {
-                ch: {
-                    "device"        : str(self.device),
-                    "model_path"    : str(self.model_paths.get(ch, "N/A")),
-                    "num_parameters": sum(
-                        p.numel() for p in self.models[ch].parameters()
-                    ),
-                }
-                for ch in self.models
-            }
+    def export_to_onnx(
+        self,
+        channel: str,
+        onnx_path: str | Path,
+        sample_input: Optional[torch.Tensor] = None,
+        opset_version: int = 11,
+    ) -> None:
+        """
+        Export loaded model to ONNX format for optimized inference.
 
-        ch = channel.upper()
-        if ch not in self.models:
-            return {"error": f"Model not loaded for [{ch}]"}
+        Args:
+            channel      : Channel name (Y/M/C/K)
+            onnx_path    : Path to save ONNX model
+            sample_input : Sample input tensor (N, C, H, W). If None, uses dummy input.
+            opset_version: ONNX opset version (default 11 for PyTorch compatibility)
+        """
+        channel = channel.upper()
+        if channel not in self.models:
+            raise RuntimeError(
+                f"Model not loaded for [{channel}]. Call load_model() first."
+            )
 
-        return {
-            "device"        : str(self.device),
-            "model_path"    : str(self.model_paths[ch]),
-            "num_parameters": sum(
-                p.numel() for p in self.models[ch].parameters()
-            ),
-        }
+        model = self.models[channel]
+        model.eval()
+
+        if sample_input is None:
+            # Create dummy input: (1, 3, 128, 128) — matches expected image shape
+            sample_input = torch.randn(
+                1, 3, self.image_size, self.image_size, device=self.device
+            )
+
+        onnx_path = Path(onnx_path)
+        onnx_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.logger.info(
+            f"[Predictor] Exporting [{channel}] model to ONNX: {onnx_path}"
+        )
+
+        # Export with dynamic batch size
+        torch.onnx.export(
+            model,
+            sample_input,
+            str(onnx_path),
+            export_params=True,
+            verbose=False,
+            opset_version=opset_version,
+            do_constant_folding=True,
+            input_names=["input"],
+            output_names=["output"],
+            dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+        )
+
+        self.logger.info(f"  ✓ ONNX export complete: {onnx_path}")

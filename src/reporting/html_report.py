@@ -26,16 +26,6 @@ Python 3.11.5 | macOS & Windows compatible
 from __future__ import annotations
 
 import json
-import webbrowser
-from datetime import datetime
-from pathlib import Path
-from typing import Optional
-
-# ── Third-party / 서드파티 ────────────────────────────────────────────────
-import numpy as np
-import plotly.graph_objects as go
-import plotly.io as pio
-from plotly.subplots import make_subplots
 
 # ── Internal / 내부 ───────────────────────────────────────────────────────
 # Absolute import so this module works both standalone and as part of the package
@@ -50,36 +40,43 @@ from plotly.subplots import make_subplots
 # Path chain: html_report.py → reporting/ → src/
 # 경로 체인: html_report.py → reporting/ → src/
 import sys
-_SRC_DIR = Path(__file__).parent.parent.resolve()   # src/
+import webbrowser
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+# ── Third-party / 서드파티 ────────────────────────────────────────────────
+import numpy as np
+import plotly.graph_objects as go
+import plotly.io as pio
+from plotly.subplots import make_subplots
+
+_SRC_DIR = Path(__file__).parent.parent.resolve()  # src/
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
 
 # ── Logging 설정 / Logger setup ─────────────────────────────────────────
 try:
     from utils.logger import get_logger
+
     _logger = get_logger(__name__)
 except ImportError:
     import logging
+
     _logger = logging.getLogger(__name__)
 
+from evaluation.confusion import CMYK_COLORS, FONT_FAMILY, FONT_SIZE, PLOTLY_TEMPLATE
 from evaluation.metrics import (
-    EvaluationSummary,
-    ChannelMetrics,
-    summary_to_dict,
     CHANNELS,
-    NUM_LEVELS,
+    DEFAULT_TARGET_MAE,
     DEFAULT_TARGET_OVERALL_ACC,
     DEFAULT_TARGET_PER_CLASS_F1,
     DEFAULT_TARGET_PER_COLOR_ACC,
-    DEFAULT_TARGET_MAE,
+    NUM_LEVELS,
+    ChannelMetrics,
+    EvaluationSummary,
+    summary_to_dict,
 )
-from evaluation.confusion import (
-    CMYK_COLORS,
-    PLOTLY_TEMPLATE,
-    FONT_FAMILY,
-    FONT_SIZE,
-)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 0. Style constants — matches 04_evaluation.ipynb color palette
@@ -329,12 +326,12 @@ body {
 
 # Tab navigation labels / 탭 네비게이션 레이블
 _TABS = [
-    ("summary",    "① Summary"),
-    ("perclass",   "② Per-Class"),
-    ("confusion",  "③ Confusion"),
-    ("mae",        "④ MAE"),
+    ("summary", "① Summary"),
+    ("perclass", "② Per-Class"),
+    ("confusion", "③ Confusion"),
+    ("mae", "④ MAE"),
     ("confidence", "⑤ Confidence"),
-    ("feedback",   "⑥ Feedback"),
+    ("feedback", "⑥ Feedback"),
 ]
 
 
@@ -342,6 +339,7 @@ _TABS = [
 # 1. Plotly figure builders — inline JSON for embedding
 #    Plotly 차트 빌더 — 임베딩용 인라인 JSON
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _fig_to_json(fig: go.Figure) -> str:
     """
@@ -365,7 +363,8 @@ def _build_dashboard_fig(
     Gauge + Bar 대시보드 (04_evaluation.ipynb Cell 8 반영).
     """
     fig = make_subplots(
-        rows=2, cols=3,
+        rows=2,
+        cols=3,
         specs=[
             [{"type": "indicator"}, {"type": "indicator"}, {"type": "indicator"}],
             [{"type": "bar", "colspan": 3}, None, None],
@@ -380,80 +379,110 @@ def _build_dashboard_fig(
     )
 
     # Gauge: Accuracy / 정확도
-    fig.add_trace(go.Indicator(
-        mode="gauge+number",
-        value=round(overall.accuracy * 100, 2),
-        number={"suffix": "%", "font": {"size": 30}},
-        gauge={
-            "axis": {"range": [0, 100]},
-            "bar": {"color": "#50e3c2"},
-            "threshold": {"line": {"color": "#ff7aa2", "width": 3},
-                          "value": targets["overall_accuracy"] * 100},
-            "bgcolor": "#0b1220",
-        },
-        title={"text": f"Target ≥ {targets['overall_accuracy']:.0%}"},
-    ), row=1, col=1)
+    fig.add_trace(
+        go.Indicator(
+            mode="gauge+number",
+            value=round(overall.accuracy * 100, 2),
+            number={"suffix": "%", "font": {"size": 30}},
+            gauge={
+                "axis": {"range": [0, 100]},
+                "bar": {"color": "#50e3c2"},
+                "threshold": {
+                    "line": {"color": "#ff7aa2", "width": 3},
+                    "value": targets["overall_accuracy"] * 100,
+                },
+                "bgcolor": "#0b1220",
+            },
+            title={"text": f"Target ≥ {targets['overall_accuracy']:.0%}"},
+        ),
+        row=1,
+        col=1,
+    )
 
     # Gauge: Macro F1
-    fig.add_trace(go.Indicator(
-        mode="gauge+number",
-        value=round(overall.macro_f1, 4),
-        number={"font": {"size": 30}},
-        gauge={
-            "axis": {"range": [0, 1]},
-            "bar": {"color": "#66d9ff"},
-            "threshold": {"line": {"color": "#ff7aa2", "width": 3},
-                          "value": targets["per_class_f1"]},
-            "bgcolor": "#0b1220",
-        },
-        title={"text": f"Target ≥ {targets['per_class_f1']:.2f}"},
-    ), row=1, col=2)
+    fig.add_trace(
+        go.Indicator(
+            mode="gauge+number",
+            value=round(overall.macro_f1, 4),
+            number={"font": {"size": 30}},
+            gauge={
+                "axis": {"range": [0, 1]},
+                "bar": {"color": "#66d9ff"},
+                "threshold": {
+                    "line": {"color": "#ff7aa2", "width": 3},
+                    "value": targets["per_class_f1"],
+                },
+                "bgcolor": "#0b1220",
+            },
+            title={"text": f"Target ≥ {targets['per_class_f1']:.2f}"},
+        ),
+        row=1,
+        col=2,
+    )
 
     # Gauge: MAE
-    fig.add_trace(go.Indicator(
-        mode="gauge+number",
-        value=round(overall.mae, 4),
-        number={"font": {"size": 30}},
-        gauge={
-            "axis": {"range": [0, 3]},
-            "bar": {"color": "#c792ea"},
-            "threshold": {"line": {"color": "#ffb347", "width": 3},
-                          "value": targets["mae"]},
-            "bgcolor": "#0b1220",
-        },
-        title={"text": f"Target ≤ {targets['mae']:.2f}"},
-    ), row=1, col=3)
+    fig.add_trace(
+        go.Indicator(
+            mode="gauge+number",
+            value=round(overall.mae, 4),
+            number={"font": {"size": 30}},
+            gauge={
+                "axis": {"range": [0, 3]},
+                "bar": {"color": "#c792ea"},
+                "threshold": {
+                    "line": {"color": "#ffb347", "width": 3},
+                    "value": targets["mae"],
+                },
+                "bgcolor": "#0b1220",
+            },
+            title={"text": f"Target ≤ {targets['mae']:.2f}"},
+        ),
+        row=1,
+        col=3,
+    )
 
     # Bar: per-color accuracy / 색상별 정확도
     acc_vals = [by_channel[c].accuracy * 100 for c in channels]
-    fig.add_trace(go.Bar(
-        x=channels,
-        y=acc_vals,
-        marker_color=[CMYK_COLORS.get(c, "#aaa") for c in channels],
-        text=[f"{v:.2f}%" for v in acc_vals],
-        textposition="outside",
-        name="Accuracy",
-    ), row=2, col=1)
+    fig.add_trace(
+        go.Bar(
+            x=channels,
+            y=acc_vals,
+            marker_color=[CMYK_COLORS.get(c, "#aaa") for c in channels],
+            text=[f"{v:.2f}%" for v in acc_vals],
+            textposition="outside",
+            name="Accuracy",
+        ),
+        row=2,
+        col=1,
+    )
 
     fig.add_shape(
         type="line",
-        x0=-0.5, x1=len(channels) - 0.5,
+        x0=-0.5,
+        x1=len(channels) - 0.5,
         y0=targets["per_color_accuracy"] * 100,
         y1=targets["per_color_accuracy"] * 100,
         line=dict(color="#ff7aa2", dash="dash"),
-        xref="x", yref="y", row=2, col=1,
+        xref="x",
+        yref="y",
+        row=2,
+        col=1,
     )
     fig.add_annotation(
         x=channels[-1],
         y=targets["per_color_accuracy"] * 100,
         text=f"Target {targets['per_color_accuracy']:.0%}",
-        showarrow=False, yshift=12, row=2, col=1,
+        showarrow=False,
+        yshift=12,
+        row=2,
+        col=1,
     )
 
     fig.update_layout(
         template=PLOTLY_TEMPLATE,
         font=dict(family=FONT_FAMILY, size=FONT_SIZE),
-        height=720, showlegend=False,
+        height=720,
+        showlegend=False,
         margin=dict(l=40, r=40, t=70, b=40),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -473,11 +502,26 @@ def _build_per_class_fig(
     levels = [f"Level {d.level}" for d in pc]
 
     fig = go.Figure()
-    fig.add_trace(go.Bar(name="F1",        x=levels, y=[d.f1        for d in pc], marker_color="#1976D2"))
-    fig.add_trace(go.Bar(name="Precision", x=levels, y=[d.precision for d in pc], marker_color="#388E3C"))
-    fig.add_trace(go.Bar(name="Recall",    x=levels, y=[d.recall    for d in pc], marker_color="#F57C00"))
+    fig.add_trace(
+        go.Bar(name="F1", x=levels, y=[d.f1 for d in pc], marker_color="#1976D2")
+    )
+    fig.add_trace(
+        go.Bar(
+            name="Precision",
+            x=levels,
+            y=[d.precision for d in pc],
+            marker_color="#388E3C",
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            name="Recall", x=levels, y=[d.recall for d in pc], marker_color="#F57C00"
+        )
+    )
     fig.add_hline(
-        y=target_f1, line_dash="dash", line_color="#ff7aa2",
+        y=target_f1,
+        line_dash="dash",
+        line_color="#ff7aa2",
         annotation_text=f"F1 Target ≥ {target_f1:.2f}",
     )
     fig.update_layout(
@@ -515,24 +559,34 @@ def _build_confusion_fig(
     z_text = [[f"{v:.2f}" for v in row] for row in z]
 
     # Flip Y-axis: Level 0 at top / Y축 반전: Level 0이 상단
-    z_flip      = z[::-1]
+    z_flip = z[::-1]
     z_text_flip = z_text[::-1]
-    y_labels    = level_names[::-1]
+    y_labels = level_names[::-1]
 
-    fig = go.Figure(go.Heatmap(
-        z=z_flip, x=level_names, y=y_labels,
-        text=z_text_flip, texttemplate="%{text}",
-        colorscale="Blues", zmin=0, zmax=1,
-        colorbar=dict(title="Proportion", thickness=14),
-        hovertemplate="Pred: %{x}<br>True: %{y}<br>Prop: %{text}<extra></extra>",
-    ))
+    fig = go.Figure(
+        go.Heatmap(
+            z=z_flip,
+            x=level_names,
+            y=y_labels,
+            text=z_text_flip,
+            texttemplate="%{text}",
+            colorscale="Blues",
+            zmin=0,
+            zmax=1,
+            colorbar=dict(title="Proportion", thickness=14),
+            hovertemplate="Pred: %{x}<br>True: %{y}<br>Prop: %{text}<extra></extra>",
+        )
+    )
     fig.update_layout(
-        title=dict(text=f"[{channel}] Confusion Matrix (Row-Normalized)", font=dict(size=13)),
+        title=dict(
+            text=f"[{channel}] Confusion Matrix (Row-Normalized)", font=dict(size=13)
+        ),
         xaxis_title="Predicted Level / 예측 레벨",
         yaxis_title="True Level / 실제 레벨",
         template=PLOTLY_TEMPLATE,
         font=dict(family=FONT_FAMILY, size=FONT_SIZE),
-        width=520, height=460,
+        width=520,
+        height=460,
         margin=dict(l=40, r=20, t=50, b=40),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
@@ -550,8 +604,8 @@ def _build_mae_heatmap_fig(
     MAE heatmap per (color × true level) (mirrors Cell 10).
     (색상 × 실제 레벨)별 MAE 히트맵 (Cell 10 반영).
     """
-    level_names  = [f"Level {i}" for i in range(num_classes)]
-    mae_matrix   = np.full((len(channels), num_classes), np.nan)
+    level_names = [f"Level {i}" for i in range(num_classes)]
+    mae_matrix = np.full((len(channels), num_classes), np.nan)
     count_matrix = np.zeros((len(channels), num_classes), dtype=int)
 
     for ci, color in enumerate(channels):
@@ -560,27 +614,42 @@ def _build_mae_heatmap_fig(
         for lv in range(num_classes):
             mask = yt == lv
             if mask.sum() > 0:
-                mae_matrix[ci, lv]   = float(np.mean(np.abs(yt[mask].astype(float) - yp[mask].astype(float))))
+                mae_matrix[ci, lv] = float(
+                    np.mean(np.abs(yt[mask].astype(float) - yp[mask].astype(float)))
+                )
                 count_matrix[ci, lv] = int(mask.sum())
 
     annot = [
         [
-            f"{mae_matrix[r, c]:.2f}<br>(n={count_matrix[r, c]})"
-            if not np.isnan(mae_matrix[r, c]) else "N/A"
+            (
+                f"{mae_matrix[r, c]:.2f}<br>(n={count_matrix[r, c]})"
+                if not np.isnan(mae_matrix[r, c])
+                else "N/A"
+            )
             for c in range(num_classes)
         ]
         for r in range(len(channels))
     ]
 
-    fig = go.Figure(go.Heatmap(
-        z=mae_matrix, x=level_names, y=channels,
-        text=annot, texttemplate="%{text}",
-        colorscale="YlOrRd", zmin=0, zmax=2.0,
-        colorbar=dict(title="MAE", thickness=14),
-        hovertemplate="Color: %{y}<br>Level: %{x}<br>MAE: %{z:.3f}<extra></extra>",
-    ))
+    fig = go.Figure(
+        go.Heatmap(
+            z=mae_matrix,
+            x=level_names,
+            y=channels,
+            text=annot,
+            texttemplate="%{text}",
+            colorscale="YlOrRd",
+            zmin=0,
+            zmax=2.0,
+            colorbar=dict(title="MAE", thickness=14),
+            hovertemplate="Color: %{y}<br>Level: %{x}<br>MAE: %{z:.3f}<extra></extra>",
+        )
+    )
     fig.update_layout(
-        title=dict(text=f"MAE per (Color × True Level) — Target ≤ {target_mae}", font=dict(size=13)),
+        title=dict(
+            text=f"MAE per (Color × True Level) — Target ≤ {target_mae}",
+            font=dict(size=13),
+        ),
         xaxis=dict(title="True Level / 실제 레벨"),
         yaxis=dict(title="Color / 색상"),
         template=PLOTLY_TEMPLATE,
@@ -596,8 +665,8 @@ def _build_mae_heatmap_fig(
 def _build_confidence_fig(
     results: dict[str, dict],
     channels: list[str],
-    conf_thresh_auto: float   = 0.8,
-    conf_thresh_warn: float   = 0.5,
+    conf_thresh_auto: float = 0.8,
+    conf_thresh_warn: float = 0.5,
     conf_thresh_manual: float = 0.3,
 ) -> go.Figure:
     """
@@ -607,7 +676,8 @@ def _build_confidence_fig(
     from plotly.subplots import make_subplots as ms
 
     fig = ms(
-        rows=2, cols=2,
+        rows=2,
+        cols=2,
         subplot_titles=[f"[{c}]" for c in channels],
         horizontal_spacing=0.10,
         vertical_spacing=0.18,
@@ -615,34 +685,51 @@ def _build_confidence_fig(
     bins = dict(start=0, end=1, size=0.04)
 
     for i, color in enumerate(channels):
-        r  = i // 2 + 1
-        c  = i % 2  + 1
+        r = i // 2 + 1
+        c = i % 2 + 1
         yt = results[color]["y_true"]
         yp = results[color]["y_pred"]
         cf = results[color]["confidences"]
 
         # Correct / 정답
-        fig.add_trace(go.Histogram(
-            x=cf[yt == yp], xbins=bins,
-            name="Correct / 정답", marker_color="#4fc3f7",
-            opacity=0.70, showlegend=(i == 0), legendgroup="correct",
-        ), row=r, col=c)
+        fig.add_trace(
+            go.Histogram(
+                x=cf[yt == yp],
+                xbins=bins,
+                name="Correct / 정답",
+                marker_color="#4fc3f7",
+                opacity=0.70,
+                showlegend=(i == 0),
+                legendgroup="correct",
+            ),
+            row=r,
+            col=c,
+        )
 
         # Wrong / 오답
-        fig.add_trace(go.Histogram(
-            x=cf[yt != yp], xbins=bins,
-            name="Wrong / 오답", marker_color="#ef5350",
-            opacity=0.70, showlegend=(i == 0), legendgroup="wrong",
-        ), row=r, col=c)
+        fig.add_trace(
+            go.Histogram(
+                x=cf[yt != yp],
+                xbins=bins,
+                name="Wrong / 오답",
+                marker_color="#ef5350",
+                opacity=0.70,
+                showlegend=(i == 0),
+                legendgroup="wrong",
+            ),
+            row=r,
+            col=c,
+        )
 
         # Threshold lines / 임계값 수직선
         for thresh, lc in [
-            (conf_thresh_auto,   "green"),
-            (conf_thresh_warn,   "orange"),
+            (conf_thresh_auto, "green"),
+            (conf_thresh_warn, "orange"),
             (conf_thresh_manual, "red"),
         ]:
-            fig.add_vline(x=thresh, line_dash="dash", line_color=lc,
-                          line_width=1.5, row=r, col=c)
+            fig.add_vline(
+                x=thresh, line_dash="dash", line_color=lc, line_width=1.5, row=r, col=c
+            )
 
     fig.update_layout(
         barmode="overlay",
@@ -661,12 +748,13 @@ def _build_confidence_fig(
 #    HTML 섹션 빌더
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _kpi_card(label: str, value: str, target_str: str, passed: bool) -> str:
     """
     Render a single KPI card HTML block.
     단일 KPI 카드 HTML 블록을 렌더링합니다.
     """
-    cls  = "pass" if passed else "fail"
+    cls = "pass" if passed else "fail"
     flag = "✅" if passed else "❌"
     return f"""
     <div class="kpi-card {cls}">
@@ -691,45 +779,49 @@ def _build_summary_section(
     """
     targets = summary.targets
     overall = summary.overall
-    meta    = summary.meta
+    meta = summary.meta
 
     # ── KPI cards / KPI 카드 ─────────────────────────────────────────────
-    kpi_html = "".join([
-        _kpi_card(
-            "Overall Accuracy",
-            f"{overall.accuracy * 100:.2f}%",
-            f"Target ≥ {targets['overall_accuracy']:.0%}",
-            overall.acc_pass,
-        ),
-        _kpi_card(
-            "Macro F1",
-            f"{overall.macro_f1:.4f}",
-            f"Target ≥ {targets['per_class_f1']:.2f}",
-            overall.f1_pass,
-        ),
-        _kpi_card(
-            "MAE",
-            f"{overall.mae:.4f}",
-            f"Target ≤ {targets['mae']:.2f}",
-            overall.mae_pass,
-        ),
-        _kpi_card(
-            "Total Samples",
-            f"{overall.n_samples:,}",
-            "Y + M + C + K",
-            True,
-        ),
-    ])
+    kpi_html = "".join(
+        [
+            _kpi_card(
+                "Overall Accuracy",
+                f"{overall.accuracy * 100:.2f}%",
+                f"Target ≥ {targets['overall_accuracy']:.0%}",
+                overall.acc_pass,
+            ),
+            _kpi_card(
+                "Macro F1",
+                f"{overall.macro_f1:.4f}",
+                f"Target ≥ {targets['per_class_f1']:.2f}",
+                overall.f1_pass,
+            ),
+            _kpi_card(
+                "MAE",
+                f"{overall.mae:.4f}",
+                f"Target ≤ {targets['mae']:.2f}",
+                overall.mae_pass,
+            ),
+            _kpi_card(
+                "Total Samples",
+                f"{overall.n_samples:,}",
+                "Y + M + C + K",
+                True,
+            ),
+        ]
+    )
 
     # ── Model info table / 모델 정보 테이블 ──────────────────────────────
     checkpoint_str = meta.get("checkpoint") or "None (random weights / 랜덤 가중치)"
-    info_rows = "".join([
-        f"<tr><td>Backbone</td><td>{meta.get('backbone', 'N/A')}</td></tr>",
-        f"<tr><td>Checkpoint</td><td>{checkpoint_str}</td></tr>",
-        f"<tr><td>Total Samples</td><td>{overall.n_samples:,}</td></tr>",
-        f"<tr><td>Stage</td><td>S2 · W7~W8 Baseline</td></tr>",
-        f"<tr><td>Role</td><td>R3 (Evaluation &amp; Reporting)</td></tr>",
-    ])
+    info_rows = "".join(
+        [
+            f"<tr><td>Backbone</td><td>{meta.get('backbone', 'N/A')}</td></tr>",
+            f"<tr><td>Checkpoint</td><td>{checkpoint_str}</td></tr>",
+            f"<tr><td>Total Samples</td><td>{overall.n_samples:,}</td></tr>",
+            f"<tr><td>Stage</td><td>S2 · W7~W8 Baseline</td></tr>",
+            f"<tr><td>Role</td><td>R3 (Evaluation &amp; Reporting)</td></tr>",
+        ]
+    )
 
     # ── Per-color accuracy table / 색상별 정확도 테이블 ──────────────────
     color_rows = ""
@@ -738,8 +830,8 @@ def _build_summary_section(
         if cm is None:
             continue
         acc_cls = "pass-text" if cm.acc_pass else "fail-text"
-        f1_cls  = "pass-text" if cm.f1_pass  else "fail-text"
-        mae_cls = "pass-text" if cm.mae_pass  else "fail-text"
+        f1_cls = "pass-text" if cm.f1_pass else "fail-text"
+        mae_cls = "pass-text" if cm.mae_pass else "fail-text"
         color_rows += f"""
         <tr>
             <td>{ch}</td>
@@ -910,8 +1002,8 @@ def _build_feedback_section(
     from evaluation.metrics import determine_swing_feedback
 
     decision = determine_swing_feedback(summary, channels=channels)
-    targets  = summary.targets
-    overall  = summary.overall
+    targets = summary.targets
+    overall = summary.overall
 
     # Render status block / 상태 블록 렌더링
     if decision["terminate"]:
@@ -947,20 +1039,28 @@ def _build_feedback_section(
         cls = "pass-text" if passed else "fail-text"
         return f"<tr><td>{label}</td><td class='{cls}'>{val}</td><td>{target}</td><td>{'✅' if passed else '❌'}</td></tr>"
 
-    table_rows = "".join([
-        _row("Overall Accuracy",
-             f"{overall.accuracy:.4f}",
-             f"≥ {targets['overall_accuracy']}",
-             overall.acc_pass),
-        _row("Overall Macro F1",
-             f"{overall.macro_f1:.4f}",
-             f"≥ {targets['per_class_f1']}",
-             overall.f1_pass),
-        _row("Overall MAE",
-             f"{overall.mae:.4f}",
-             f"≤ {targets['mae']}",
-             overall.mae_pass),
-    ])
+    table_rows = "".join(
+        [
+            _row(
+                "Overall Accuracy",
+                f"{overall.accuracy:.4f}",
+                f"≥ {targets['overall_accuracy']}",
+                overall.acc_pass,
+            ),
+            _row(
+                "Overall Macro F1",
+                f"{overall.macro_f1:.4f}",
+                f"≥ {targets['per_class_f1']}",
+                overall.f1_pass,
+            ),
+            _row(
+                "Overall MAE",
+                f"{overall.mae:.4f}",
+                f"≤ {targets['mae']}",
+                overall.mae_pass,
+            ),
+        ]
+    )
 
     return f"""
     <div class="card">
@@ -984,13 +1084,14 @@ def _build_feedback_section(
 #    메인 HTML 조립기
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def generate_baseline_report(
     summary: EvaluationSummary,
     results: dict[str, dict],
     output_path: str | Path = "outputs/reports/baseline.html",
     channels: list[str] = CHANNELS,
     open_browser: bool = False,
-    logger = None,
+    logger=None,
 ) -> Path:
     """
     Generate outputs/reports/baseline.html from an EvaluationSummary.
@@ -1020,7 +1121,7 @@ def generate_baseline_report(
     # Use provided logger or fallback to module logger
     # 제공된 로거 사용 또는 모듈 로거로 폴백
     log = logger or _logger
-    
+
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1031,28 +1132,28 @@ def generate_baseline_report(
     log.info(f"[Report] Starting HTML report generation...")
     log.debug(f"  Output path: {output_path}")
     log.debug(f"  Channels: {channels}")
-    log.debug(f"  Overall metrics - Accuracy: {overall.accuracy:.4f}, F1: {overall.macro_f1:.4f}, MAE: {overall.mae:.4f}")
+    log.debug(
+        f"  Overall metrics - Accuracy: {overall.accuracy:.4f}, F1: {overall.macro_f1:.4f}, MAE: {overall.mae:.4f}"
+    )
 
     # ── Build all Plotly figures → JSON strings ───────────────────────────
     # 모든 Plotly 차트 → JSON 문자열 생성
     log.debug("[Report] Generating Plotly figures...")
-    
-    dashboard_json = _fig_to_json(_build_dashboard_fig(
-        overall, summary.by_channel, channels, targets
-    ))
+
+    dashboard_json = _fig_to_json(
+        _build_dashboard_fig(overall, summary.by_channel, channels, targets)
+    )
     log.debug("  ✓ Dashboard figure generated")
-    
-    perclass_json = _fig_to_json(_build_per_class_fig(
-        overall, targets["per_class_f1"]
-    ))
+
+    perclass_json = _fig_to_json(_build_per_class_fig(overall, targets["per_class_f1"]))
     log.debug("  ✓ Per-class figure generated")
-    
+
     conf_json = _fig_to_json(_build_confidence_fig(results, channels))
     log.debug("  ✓ Confidence figure generated")
-    
-    mae_json  = _fig_to_json(_build_mae_heatmap_fig(
-        results, channels, target_mae=targets["mae"]
-    ))
+
+    mae_json = _fig_to_json(
+        _build_mae_heatmap_fig(results, channels, target_mae=targets["mae"])
+    )
     log.debug("  ✓ MAE heatmap generated")
 
     # Combined arrays for overall confusion matrix
@@ -1063,11 +1164,11 @@ def generate_baseline_report(
 
     cm_jsons: dict[str, str] = {}
     for ch in channels:
-        cm_jsons[ch] = _fig_to_json(_build_confusion_fig(
-            results[ch]["y_true"], results[ch]["y_pred"], ch
-        ))
+        cm_jsons[ch] = _fig_to_json(
+            _build_confusion_fig(results[ch]["y_true"], results[ch]["y_pred"], ch)
+        )
         log.debug(f"  ✓ Confusion matrix [{ch}] generated")
-    
+
     cm_jsons["overall"] = _fig_to_json(
         _build_confusion_fig(all_true, all_pred, "Overall")
     )
@@ -1077,12 +1178,12 @@ def generate_baseline_report(
     # 각 탭의 HTML 콘텐츠 생성
     log.debug("[Report] Building HTML sections...")
     sections = {
-        "summary":   _build_summary_section(summary, channels, dashboard_json),
-        "perclass":  _build_perclass_section(summary, perclass_json),
+        "summary": _build_summary_section(summary, channels, dashboard_json),
+        "perclass": _build_perclass_section(summary, perclass_json),
         "confusion": _build_confusion_section(cm_jsons, channels),
-        "mae":       _build_mae_section(mae_json),
-        "confidence":_build_confidence_section(conf_json),
-        "feedback":  _build_feedback_section(summary, channels),
+        "mae": _build_mae_section(mae_json),
+        "confidence": _build_confidence_section(conf_json),
+        "feedback": _build_feedback_section(summary, channels),
     }
     log.debug("  ✓ All sections built")
 
@@ -1090,7 +1191,7 @@ def generate_baseline_report(
     # 탭 네비게이션 HTML 렌더링
     tabs_html = "".join(
         f'<div class="nav-tab{" active" if i == 0 else ""}" '
-        f'onclick="switchTab(\'{tid}\')">{label}</div>'
+        f"onclick=\"switchTab('{tid}')\">{label}</div>"
         for i, (tid, label) in enumerate(_TABS)
     )
 
@@ -1098,7 +1199,7 @@ def generate_baseline_report(
     # 섹션 HTML 렌더링
     sections_html = "".join(
         f'<section id="sec-{tid}" class="section{" active" if i == 0 else ""}">'
-        f'{sections[tid]}</section>'
+        f"{sections[tid]}</section>"
         for i, (tid, _) in enumerate(_TABS)
     )
 
@@ -1107,10 +1208,10 @@ def generate_baseline_report(
     all_pass = overall.acc_pass and overall.f1_pass and overall.mae_pass
     status_badge = (
         '<span style="color:#2ecc71;font-size:0.9rem;">✅ Targets Met</span>'
-        if all_pass else
-        '<span style="color:#e74c3c;font-size:0.9rem;">❌ Below Target</span>'
+        if all_pass
+        else '<span style="color:#e74c3c;font-size:0.9rem;">❌ Below Target</span>'
     )
-    
+
     log.debug(f"  Status badge: {'✅ Targets Met' if all_pass else '❌ Below Target'}")
 
     # ── Assemble final HTML ────────────────────────────────────────────────

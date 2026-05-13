@@ -1,5 +1,7 @@
 # CMYK Printer Grayspot Detection Pipeline
 
+[![CI Pipeline](https://github.com/Rackhel/CMYK_MAIN/actions/workflows/ci.yml/badge.svg)](https://github.com/Rackhel/CMYK_MAIN/actions/workflows/ci.yml)
+
 **Grayspot Defect Classification System** — Deep learning-based automated detection and classification of printer defects using CMYK channel analysis.
 
 **Grayspot 결함 분류 시스템** — CMYK 채널 분석을 사용한 프린터 결함의 딥러닝 기반 자동 감지 및 분류.
@@ -371,6 +373,37 @@ images_dict = {
     "K": k_images,
 }
 results = predictor.predict_batch(images_dict)
+```
+
+### ONNX Export / ONNX 내보내기
+
+```python
+from src.inference.predictor import GrayspotPredictor
+
+predictor = GrayspotPredictor()
+predictor.load_model(channel="Y")
+
+# Export to ONNX for optimized inference
+predictor.export_to_onnx(
+    channel="Y",
+    onnx_path="models/grayspot_Y.onnx",
+    opset_version=11
+)
+```
+
+### Docker Inference / Docker 추론
+
+```bash
+# Run inference in container
+docker run --rm -it \
+  -v ${PWD}/models:/app/models \
+  -v ${PWD}/data:/app/data \
+  grayspot:latest python -c "
+from src.inference.predictor import GrayspotPredictor
+predictor = GrayspotPredictor()
+predictor.load_model('Y', 'models/best_Y.pt')
+# ... inference code ...
+"
 ```
 
 ---

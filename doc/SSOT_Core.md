@@ -490,8 +490,70 @@ All Python code in this project **must** follow the three principles below.
 
 ---
 
-**Version**: 0.5.0
-**Last Updated**: 2026-05-12
+## 11. Inference and Deployment / 추론 및 배포
+
+### 11.1 Inference Pipeline / 추론 파이프라인
+
+> **모든 추론은 `GrayspotPredictor` 클래스를 통해서만 수행된다. 직접 모델 로드 금지.**
+> **All inference must be performed through the `GrayspotPredictor` class. Direct model loading is prohibited.**
+
+#### Core Interface / 핵심 인터페이스
+
+```python
+from src.inference.predictor import GrayspotPredictor
+
+predictor = GrayspotPredictor()
+predictor.load_model(channel="Y")  # 모델 로드 / Load model
+results = predictor.predict(image)  # 단일 이미지 추론 / Single image inference
+batch_results = predictor.predict_batch(images_dict)  # 배치 추론 / Batch inference
+```
+
+#### ONNX Export / ONNX 내보내기
+
+```python
+# ONNX 변환 지원 / ONNX conversion support
+predictor.export_to_onnx(
+    channel="Y",
+    onnx_path="models/grayspot_Y.onnx",
+    opset_version=11
+)
+```
+
+### 11.2 Deployment Requirements / 배포 요구사항
+
+| 요구사항 / Requirement | 설명 / Description | 검증 방법 / Validation |
+|------|------|------|
+| **Model Artifacts** | Phase 2 체크포인트 파일 존재 / Phase 2 checkpoint files exist | `SSOT-FF01` — 필수 아티팩트 누락 / Missing artifact |
+| **Config Consistency** | 추론 시 학습 config와 동일 / Same config as training | `SSOT-CF01` — config 키 불일치 / Config key mismatch |
+| **Color Space** | BGR 입력 유지 / Maintain BGR input | `SSOT-CS01` — 색상 공간 불일치 / Color space mismatch |
+| **Normalization** | ImageNet 정규화 적용 / Apply ImageNet normalization | `SSOT-NM01` — 정규화 불일치 / Normalization mismatch |
+
+### 11.3 Docker Deployment / Docker 배포
+
+```dockerfile
+# Multi-stage build for optimized deployment
+FROM python:3.11-slim as base
+# ... base setup ...
+
+FROM base as inference
+COPY models/ /app/models/
+COPY src/inference/ /app/src/inference/
+# ... inference container ...
+```
+
+### 11.4 Performance Targets / 성능 목표
+
+| 지표 / Metric | 목표값 / Target | 측정 방법 / Measurement |
+|------|------|------|
+| 추론 시간 / Inference time | < 100ms per image | Single image latency |
+| 배치 처리량 / Batch throughput | > 50 images/sec | GPU batch processing |
+| 메모리 사용 / Memory usage | < 2GB per model | Peak GPU memory |
+| ONNX 호환성 / ONNX compatibility | opset 11+ | Export and runtime validation |
+
+---
+
+**Version**: 0.6.0
+**Last Updated**: 2026-05-13
 **Python**: 3.11.5
 **PyTorch**: 2.x
 **Applies to**: CMYK Grayspot Detection System v0.1.0+

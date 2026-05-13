@@ -36,3 +36,7 @@ pytest-cov>=4.1.0
 
 # ── Dimension Reduction / 차원 축소 ─────────────────────────────────────────
 umap-learn>=0.5.4
+
+# ── GUI & Web Interface / GUI 및 웹 인터페이스 ────────────────────────────────
+streamlit>=1.28.0 # only needed for web-based GUI
+pyinstaller>=6.0.0 # only needed for building GUI executable
