@@ -49,7 +49,7 @@ import optuna
 import torch
 
 from src.tuning.search_space import get_phase2_search_space
-
+from src.tuning.optuna_utils import save_best_params, save_trials_summary
 
 def objective(trial: optuna.Trial, channel: str) -> float:
     """
@@ -210,20 +210,11 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
 
     # Save trial summary
     # trial 요약 저장
-    trials_summary = []
-    for t in study.trials:
-        trials_summary.append(
-            {
-                "number": t.number,
-                "value": t.value,
-                "state": str(t.state),
-                "params": t.params,
-            }
-        )
-
-    trials_summary_path = output_dir / f"trials_summary_{study_suffix}.json"
-    with open(trials_summary_path, "w", encoding="utf-8") as f:
-        json.dump(trials_summary, f, indent=2, ensure_ascii=False)
+    save_best_params(study.best_trial.params, study_suffix, output_dir)
+    # Save trial summary
+    # trial 요약 저장
+    save_trials_summary(study.trials, study_suffix, output_dir)
+    
 
 
 if __name__ == "__main__":
