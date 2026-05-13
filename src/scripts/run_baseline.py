@@ -1,4 +1,4 @@
-﻿"""
+"""
 scripts/run_baseline.py
 
 Naive Baseline: Supervised-only (Phase 2만) 학습 → 성능 기록
@@ -23,16 +23,15 @@ Runs Phase 2 training directly from pretrained weights without Phase 0.
     python -m src.scripts.run_baseline --channel all
 """
 
+import argparse
 import copy
 import json
 import os
-import random
-import argparse
-import warnings
 import sys
-import numpy as np
-import torch
+import warnings
 from pathlib import Path
+
+import torch
 from torch.utils.data import DataLoader
 
 # CMYK_MAIN 루트와 src/ 를 sys.path에 추가
@@ -42,10 +41,20 @@ SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
-from src.config import get_config
-from src.utils import setup_logging, get_logger, log_training_config
+from data.dataset import CMYKDataset
 from models.grayspot_model import GrayspotModel
-from training.trainer import CMYKDataset, Phase2Trainer
+from src.utils import (
+    create_directories,
+    get_logger,
+    get_nested,
+    load_config,
+    log_snapshot,
+    log_training_config,
+    set_seed,
+    setup_logging,
+    validate_config,
+)
+from training.trainer import Phase2Trainer
 
 warnings.filterwarnings("ignore")
 logger = get_logger(__name__)
@@ -53,30 +62,24 @@ logger = get_logger(__name__)
 CHANNELS = ["Y", "M", "C", "K"]
 
 
-def load_config() -> object:
-    return get_config(config_path=SRC_DIR / "config" / "config.yaml", root_dir=ROOT_DIR)
-
-
-def set_seed(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-
-
 def create_dataloader(dataset, cfg: dict, shuffle: bool = False) -> DataLoader:
     num_workers = min(int(cfg["train"].get("num_workers", 0)), os.cpu_count() or 1)
-    persistent_workers = bool(cfg["train"].get("persistent_workers", False) and num_workers > 0)
+    persistent_workers = bool(
+        cfg["train"].get("persistent_workers", False) and num_workers > 0
+    )
     batch_size = min(cfg["phase2"]["batch_size"], max(len(dataset), 1))
 
     return DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=shuffle,
-        drop_last=cfg["train"].get("drop_last", True) if shuffle else False,
+        drop_last=cfg["train"].get("drop_last", False) if shuffle else False,
         num_workers=num_workers,
         pin_memory=bool(cfg["train"].get("pin_memory", False)),
         persistent_workers=persistent_workers,
-        prefetch_factor=cfg["train"].get("prefetch_factor", 2) if num_workers > 0 else 2,
+        prefetch_factor=(
+            cfg["train"].get("prefetch_factor", 2) if num_workers > 0 else 2
+        ),
     )
 
 
@@ -99,16 +102,22 @@ def run_baseline(cfg: dict, channel: str, device: torch.device) -> dict:
     val_ds = CMYKDataset(bcfg, channel, split="val", augment=False, oversample=False)
     test_ds = CMYKDataset(bcfg, channel, split="test", augment=False, oversample=False)
 
-    logger.info("\n" + "=" * 60)
+    logger.info("=" * 60)
     logger.info(f"  Baseline Training — Channel: [{channel}]")
     logger.info("  Mode: Supervised-only (Phase 2, no Phase 0)")
     logger.info(f"  Backbone: {cfg['model']['backbone']}")
-    logger.info(f"  Epochs: {cfg['phase2']['epochs']} | LR: {cfg['phase2']['learning_rate']}")
+    logger.info(
+        f"  Epochs: {cfg['phase2']['epochs']} | LR: {cfg['phase2']['learning_rate']}"
+    )
     logger.info("=" * 60)
-    logger.info(f"  [{channel}] Train: {len(train_ds)} | Val: {len(val_ds)} | Test: {len(test_ds)}")
+    logger.info(
+        f"  [{channel}] Train: {len(train_ds)} | Val: {len(val_ds)} | Test: {len(test_ds)}"
+    )
 
     if len(train_ds) == 0:
-        logger.warning(f"  [WARN] 학습 데이터 없음 — 건너뜀 / No training data — skipping [{channel}]")
+        logger.warning(
+            f"  [WARN] 학습 데이터 없음 — 건너뜀 / No training data — skipping [{channel}]"
+        )
         return {
             "channel": channel,
             "skipped": True,
@@ -154,7 +163,7 @@ def run_baseline(cfg: dict, channel: str, device: torch.device) -> dict:
     mae = sum(abs(t - p) for t, p in zip(y_true, y_pred)) / max(len(y_true), 1)
     best_val_acc = max(r["val_acc"] for r in history)
 
-    logger.info(f"\n  [{channel}] 테스트셋 결과 / Test Set Results")
+    logger.info(f"[{channel}] 테스트셋 결과 / Test Set Results")
     logger.info(f"  {'─' * 40}")
     logger.info(
         f"  Test Accuracy : {test_acc:.4f}  (target >= {cfg['evaluation']['targets']['per_color_accuracy']}) "
@@ -197,39 +206,50 @@ def main():
 
     target_channels = CHANNELS if args.channel == "all" else [args.channel.upper()]
 
-    config = load_config()
-    if not config.validate():
-        logger.error("Configuration validation failed. Fix config.yaml and retry.")
+    cfg = load_config()
+    if not validate_config(cfg):
+        logger.error("Configuration validation failed. Fix config.json and retry.")
         raise SystemExit(1)
 
-    config.create_necessary_directories()
+    create_directories(cfg)
     setup_logging(
-        log_dir=Path(config.get("storage.logs_dir")),
-        level=config.get("logging.level") or "INFO",
-        format_style=config.get("logging.format") or "detailed",
-        console=config.get("logging.console_output"),
-        file=config.get("logging.file_output"),
+        log_dir=Path(cfg["storage"]["logs_dir"]),
+        level=get_nested(cfg, "logging.level") or "INFO",
+        format_style=get_nested(cfg, "logging.format") or "detailed",
+        console=get_nested(cfg, "logging.console_output"),
+        file=get_nested(cfg, "logging.file_output"),
     )
-    log_training_config(config.config, logger=logger)
+    log_training_config(cfg, logger=logger)
 
     logger.info("=" * 60)
     logger.info("  Grayspot — Naive Baseline (Supervised-only)")
     logger.info(f"  Channels: {target_channels}")
     logger.info("=" * 60)
 
-    set_seed(config.get("train.seed") or 42)
+    set_seed(cfg["train"].get("seed") or 42, cfg)
 
-    device = torch.device(config.get("system.device"))
+    # ── 스냅샷 저장 / Save config snapshot ───────────────────────────────────
+    baseline_dir = Path(cfg["storage"]["data_root"]) / "baseline"
+    log_snapshot(
+        config=cfg,
+        snapshot_dir=baseline_dir / "snapshots",
+        tag="baseline",
+        logger=logger,
+    )
+
+    device = torch.device(cfg["system"]["device"])
     logger.info(f"  Device: {device}")
 
     results = []
     for ch in target_channels:
-        results.append(run_baseline(config.config, ch, device))
+        results.append(run_baseline(cfg, ch, device))
 
-    logger.info("\n" + "=" * 60)
+    logger.info("=" * 60)
     logger.info("  Baseline 성능 요약 / Baseline Performance Summary")
     logger.info("=" * 60)
-    logger.info(f"  {'Channel':<10} {'Test Acc':<12} {'MAE':<10} {'Val Acc':<10} Acc Pass")
+    logger.info(
+        f"  {'Channel':<10} {'Test Acc':<12} {'MAE':<10} {'Val Acc':<10} Acc Pass"
+    )
     logger.info(f"  {'─' * 50}")
 
     for r in results:
@@ -242,19 +262,19 @@ def main():
             f"{r['best_val_acc']:<10.4f} {acc_mark}"
         )
 
-    baseline_dir = Path(config.get("storage.data_root")) / "baseline"
+    baseline_dir = Path(cfg["storage"]["data_root"]) / "baseline"
     summary_path = baseline_dir / "baseline_summary.json"
     summary = {
         "mode": "Naive Baseline (Supervised-only, no Phase 0)",
-        "backbone": config.get("model.backbone"),
-        "epochs": config.get("phase2.epochs"),
+        "backbone": cfg["model"]["backbone"],
+        "epochs": cfg["phase2"]["epochs"],
         "results": results,
     }
     baseline_dir.mkdir(parents=True, exist_ok=True)
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
-    logger.info(f"\n  Summary saved / 요약 저장: {summary_path}")
+    logger.info(f"Summary saved / 요약 저장: {summary_path}")
     logger.info(f"  Baseline outputs / 산출물: {baseline_dir}")
     logger.info("")
 
