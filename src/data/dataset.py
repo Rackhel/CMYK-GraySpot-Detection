@@ -20,13 +20,13 @@ import cv2
 import torch
 from torch.utils.data import Dataset
 
+from data.augmentation import augment_contrastive, augment_supervised
 from data.preprocessing import preprocess
-from data.augmentation import augment_supervised, augment_contrastive
-
 
 # ──────────────────────────────────────────────────────────────
 # Supervised Dataset
 # ──────────────────────────────────────────────────────────────
+
 
 class CMYKDataset(Dataset):
     """
@@ -90,8 +90,8 @@ class CMYKDataset(Dataset):
             n_val = max(1, int(n * 0.15))
 
             train_s.extend(items[:n_train])
-            val_s.extend(items[n_train:n_train + n_val])
-            test_s.extend(items[n_train + n_val:])
+            val_s.extend(items[n_train : n_train + n_val])
+            test_s.extend(items[n_train + n_val :])
 
         split_map = {
             "train": train_s,
@@ -114,11 +114,7 @@ class CMYKDataset(Dataset):
             oversampled: list[tuple[Path, int]] = []
 
             for level in range(self.num_levels):
-                level_s = [
-                    (p, lv)
-                    for p, lv in self.samples
-                    if lv == level
-                ]
+                level_s = [(p, lv) for p, lv in self.samples if lv == level]
 
                 if not level_s:
                     continue
@@ -156,6 +152,7 @@ class CMYKDataset(Dataset):
 # ──────────────────────────────────────────────────────────────
 # Contrastive Dataset
 # ──────────────────────────────────────────────────────────────
+
 
 class ContrastiveDataset(Dataset):
     """

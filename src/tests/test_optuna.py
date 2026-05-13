@@ -19,11 +19,11 @@ Validates whether the Optuna hyperparameter tuning pipeline works correctly.
     python -m src.tests.test_optuna --channel M --trials 2
 """
 
+import argparse
+import importlib
+import json
 import sys
 import types
-import importlib
-import argparse
-import json
 from pathlib import Path
 
 import optuna
@@ -54,8 +54,8 @@ sys.modules["utils"] = utils_shim
 
 
 from src.scripts.run_baseline import load_config
-from src.tuning.search_space import get_phase2_search_space
 from src.tuning.optuna_tuner import objective, run_optuna
+from src.tuning.search_space import get_phase2_search_space
 
 CHANNELS = ["Y", "M", "C", "K"]
 
@@ -114,12 +114,14 @@ def test_config() -> bool:
 def test_search_space() -> bool:
     section("TEST 2. search_space 반환값 확인 / Search Space Verification")
     try:
-        trial = optuna.trial.FixedTrial({
-            "learning_rate": 1e-4,
-            "batch_size": 16,
-            "weight_decay": 1e-4,
-            "epochs": 10,
-        })
+        trial = optuna.trial.FixedTrial(
+            {
+                "learning_rate": 1e-4,
+                "batch_size": 16,
+                "weight_decay": 1e-4,
+                "epochs": 10,
+            }
+        )
 
         params = get_phase2_search_space(trial)
         required = ["learning_rate", "batch_size", "weight_decay", "epochs"]
@@ -144,17 +146,21 @@ def test_search_space() -> bool:
 def test_objective(channel: str) -> bool:
     section("TEST 3. objective 단일 실행 확인 / Objective Single Execution")
     try:
-        trial = optuna.trial.FixedTrial({
-            "learning_rate": 1e-4,
-            "batch_size": 16,
-            "weight_decay": 1e-4,
-            "epochs": 3,
-        })
+        trial = optuna.trial.FixedTrial(
+            {
+                "learning_rate": 1e-4,
+                "batch_size": 16,
+                "weight_decay": 1e-4,
+                "epochs": 3,
+            }
+        )
 
         score = objective(trial, channel=channel)
 
         if not isinstance(score, float):
-            fail_(f"objective 반환값이 float가 아님 / Return type is not float: {type(score)}")
+            fail_(
+                f"objective 반환값이 float가 아님 / Return type is not float: {type(score)}"
+            )
             return False
 
         pass_(f"objective 실행 성공 / Executed successfully")
@@ -173,7 +179,9 @@ def test_optuna_run(channel: str, trials: int) -> bool:
     section("TEST 4. Optuna 미니 실행 / Mini Optuna Run")
     try:
         run_optuna(n_trials=trials, channel=channel)
-        pass_(f"Optuna {trials} trial 실행 성공 / {trials} trials completed successfully")
+        pass_(
+            f"Optuna {trials} trial 실행 성공 / {trials} trials completed successfully"
+        )
         return True
 
     except Exception as e:
@@ -237,13 +245,13 @@ def main():
         "--channel",
         type=str,
         default="all",
-        help="테스트할 채널 / Channel to test (Y/M/C/K/all, default: all)"
+        help="테스트할 채널 / Channel to test (Y/M/C/K/all, default: all)",
     )
     parser.add_argument(
         "--trials",
         type=int,
         default=1,
-        help="테스트용 trial 수 / Number of trials for test (default: 1)"
+        help="테스트용 trial 수 / Number of trials for test (default: 1)",
     )
     args = parser.parse_args()
 
@@ -268,7 +276,9 @@ def main():
     results["config 로드 / Load"] = test_config()
     results["search_space"] = test_search_space()
     results["objective 실행 / Objective"] = test_objective(normalized_channel)
-    results["Optuna 미니 실행 / Mini Run"] = test_optuna_run(normalized_channel, args.trials)
+    results["Optuna 미니 실행 / Mini Run"] = test_optuna_run(
+        normalized_channel, args.trials
+    )
     results["출력 파일 확인 / Outputs"] = test_outputs(normalized_channel)
 
     # 최종 결과 / Final results

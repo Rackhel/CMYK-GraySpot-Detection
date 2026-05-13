@@ -86,7 +86,7 @@ def augment_contrastive(image: np.ndarray, image_size: int = 128) -> np.ndarray:
         y0 = random.randint(0, h - ch)
         x0 = random.randint(0, w - cw)
 
-        cropped = image[y0:y0 + ch, x0:x0 + cw]
+        cropped = image[y0 : y0 + ch, x0 : x0 + cw]
         image = cv2.resize(cropped, (image_size, image_size))
 
     # 밝기 랜덤 변경 / Random brightness shift
@@ -102,10 +102,11 @@ def augment_contrastive(image: np.ndarray, image_size: int = 128) -> np.ndarray:
     if random.random() > 0.5:
         kernel = random.choice([3, 5])
 
-        image = cv2.GaussianBlur(
-            (image * 255).astype(np.uint8),
-            (kernel, kernel),
-            0
-        ).astype(np.float32) / 255.0
+        image = (
+            cv2.GaussianBlur(
+                (image * 255).astype(np.uint8), (kernel, kernel), 0
+            ).astype(np.float32)
+            / 255.0
+        )
 
     return image

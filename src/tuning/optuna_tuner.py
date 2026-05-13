@@ -40,10 +40,11 @@ to automatically search Phase 2 hyperparameters.
     python -m src.scripts.run_optuna --channel all
     python -m src.scripts.run_optuna --trials 10 --channel M
 """
+
+import importlib
 import json
 import sys
 import types
-import importlib
 from functools import partial
 from pathlib import Path
 
@@ -56,7 +57,7 @@ from src.tuning.search_space import get_phase2_search_space
 # -------------------------------------------------------------------
 # Compatibility shim initialization
 # 팀 코드(config_manager.py, grayspot_model.py 등)가
-# `from utils import ...` 를 사용하므로, 
+# `from utils import ...` 를 사용하므로,
 # run_optuna() 진입 시 top-level `utils` 모듈을 직접 등록한다.
 # Centralized registration to avoid import-time mutations
 # -------------------------------------------------------------------
@@ -87,11 +88,11 @@ def objective(trial: optuna.Trial, channel: str) -> float:
     # Initialize compatibility shim before importing run_baseline
     # 모듈 import 전에 호환성 shim 초기화
     _initialize_utils_shim()
-    
+
     # Import here to ensure shim is registered first
     # 모듈을 이 시점에 import하여 shim이 먼저 등록되도록 함
     from src.scripts.run_baseline import load_config, run_baseline
-    
+
     # Load configuration
     # 설정 불러오기
     config = load_config()
@@ -158,11 +159,11 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     # Initialize compatibility shim before importing run_baseline
     # 모듈 import 전에 호환성 shim 초기화
     _initialize_utils_shim()
-    
+
     # Import here to ensure shim is registered first
     # 모듈을 이 시점에 import하여 shim이 먼저 등록되도록 함
     from src.scripts.run_baseline import load_config, run_baseline
-    
+
     # Normalize channel
     # 채널명 정규화
     channel = channel.lower()
@@ -229,12 +230,14 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     # trial 요약 저장
     trials_summary = []
     for t in study.trials:
-        trials_summary.append({
-            "number": t.number,
-            "value": t.value,
-            "state": str(t.state),
-            "params": t.params,
-        })
+        trials_summary.append(
+            {
+                "number": t.number,
+                "value": t.value,
+                "state": str(t.state),
+                "params": t.params,
+            }
+        )
 
     trials_summary_path = output_dir / f"trials_summary_{study_suffix}.json"
     with open(trials_summary_path, "w", encoding="utf-8") as f:

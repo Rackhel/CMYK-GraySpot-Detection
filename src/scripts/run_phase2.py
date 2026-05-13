@@ -59,8 +59,8 @@ import torch
 from torch.utils.data import DataLoader
 
 # ── 경로 설정 / Path setup ─────────────────────────────────────────────────────
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent   # CMYK_MAIN/
-SRC_DIR  = ROOT_DIR / "src"
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent  # CMYK_MAIN/
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
@@ -69,33 +69,36 @@ sys.path.insert(0, str(SRC_DIR))
 # top-level utils 모듈을 등록한다.
 # Register top-level utils so that config_manager.py, evaluator.py etc.
 # can resolve `from utils import ...` without modification.
-import importlib, types as _types
+import importlib
+import types as _types
+
 _logger_mod = importlib.import_module("src.utils.logger")
 _utils_shim = _types.ModuleType("utils")
-_utils_shim.LoggerMixin        = _logger_mod.LoggerMixin
-_utils_shim.get_logger         = _logger_mod.get_logger
-_utils_shim.setup_logging      = _logger_mod.setup_logging
+_utils_shim.LoggerMixin = _logger_mod.LoggerMixin
+_utils_shim.get_logger = _logger_mod.get_logger
+_utils_shim.setup_logging = _logger_mod.setup_logging
 _utils_shim.log_training_config = _logger_mod.log_training_config
-_utils_shim.log_epoch_summary  = _logger_mod.log_epoch_summary
+_utils_shim.log_epoch_summary = _logger_mod.log_epoch_summary
 sys.modules["utils"] = _utils_shim
 
+from data.dataset import CMYKDataset
+from models.grayspot_model import GrayspotModel
 from src.config import get_config
-from src.utils  import setup_logging, get_logger, log_training_config
-from models.grayspot_model  import GrayspotModel
-from data.dataset       import CMYKDataset
-from training.trainer   import Phase2Trainer, backbone_tag
+from src.utils import get_logger, log_training_config, setup_logging
+from training.trainer import Phase2Trainer, backbone_tag
 
 warnings.filterwarnings("ignore")
 
 # 전역 상수 / Global constants
-CHANNELS     = ["Y", "M", "C", "K"]
-CYCLE_TAG    = "v1"            # Swing Cycle 1 식별자 / Swing Cycle 1 identifier
-CKPT_SUBDIR  = "outputs/checkpoints"
+CHANNELS = ["Y", "M", "C", "K"]
+CYCLE_TAG = "v1"  # Swing Cycle 1 식별자 / Swing Cycle 1 identifier
+CKPT_SUBDIR = "outputs/checkpoints"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 유틸리티 / Utilities
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _load_config():
     """config.yaml을 로드하여 ConfigManager를 반환한다. / Loads config.yaml and returns ConfigManager."""
@@ -120,19 +123,23 @@ def _make_dataloader(dataset: CMYKDataset, cfg: dict, shuffle: bool) -> DataLoad
         shuffle: 셔플 여부 — 학습 시 True, 검증/테스트 시 False
                  Whether to shuffle — True for training, False for val/test
     """
-    num_workers        = min(int(cfg["train"].get("num_workers", 0)), os.cpu_count() or 1)
-    persistent_workers = bool(cfg["train"].get("persistent_workers", False) and num_workers > 0)
-    batch_size         = min(cfg["phase2"]["batch_size"], max(len(dataset), 1))
+    num_workers = min(int(cfg["train"].get("num_workers", 0)), os.cpu_count() or 1)
+    persistent_workers = bool(
+        cfg["train"].get("persistent_workers", False) and num_workers > 0
+    )
+    batch_size = min(cfg["phase2"]["batch_size"], max(len(dataset), 1))
 
     return DataLoader(
         dataset,
-        batch_size        = batch_size,
-        shuffle           = shuffle,
-        drop_last         = cfg["train"].get("drop_last", False) if shuffle else False,
-        num_workers       = num_workers,
-        pin_memory        = bool(cfg["train"].get("pin_memory", False)),
-        persistent_workers= persistent_workers,
-        prefetch_factor   = cfg["train"].get("prefetch_factor", 2) if num_workers > 0 else 2,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        drop_last=cfg["train"].get("drop_last", False) if shuffle else False,
+        num_workers=num_workers,
+        pin_memory=bool(cfg["train"].get("pin_memory", False)),
+        persistent_workers=persistent_workers,
+        prefetch_factor=(
+            cfg["train"].get("prefetch_factor", 2) if num_workers > 0 else 2
+        ),
     )
 
 
@@ -140,12 +147,13 @@ def _make_dataloader(dataset: CMYKDataset, cfg: dict, shuffle: bool) -> DataLoad
 # Phase 2 핵심 실행 / Phase 2 Core Runner
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def run_phase2(
-    cfg:          dict,
-    channel:      str,
-    device:       torch.device,
-    phase0_dir:   Path,
-    ckpt_dir:     Path,
+    cfg: dict,
+    channel: str,
+    device: torch.device,
+    phase0_dir: Path,
+    ckpt_dir: Path,
 ) -> dict:
     """
     단일 채널 Phase 2 학습을 실행한다.
@@ -175,36 +183,50 @@ def run_phase2(
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     # config에서 모델 저장 경로를 ckpt_dir로 오버라이드 / Override model save path in config
-    p2cfg                        = copy.deepcopy(cfg)
-    p2cfg["storage"]["models_dir"]  = str(ckpt_dir)
+    p2cfg = copy.deepcopy(cfg)
+    p2cfg["storage"]["models_dir"] = str(ckpt_dir)
     p2cfg["storage"]["reports_dir"] = str(ckpt_dir)
 
     # ── 데이터셋 구성 / Dataset construction ──────────────────────────────────
-    train_ds = CMYKDataset(p2cfg, channel, split="train", augment=True,  oversample=True)
-    val_ds   = CMYKDataset(p2cfg, channel, split="val",   augment=False, oversample=False)
-    test_ds  = CMYKDataset(p2cfg, channel, split="test",  augment=False, oversample=False)
+    train_ds = CMYKDataset(p2cfg, channel, split="train", augment=True, oversample=True)
+    val_ds = CMYKDataset(p2cfg, channel, split="val", augment=False, oversample=False)
+    test_ds = CMYKDataset(p2cfg, channel, split="test", augment=False, oversample=False)
 
     logger.info("=" * 65)
     logger.info(f"  Phase 2 Training (Swing Cycle 1) — Channel: [{channel}]")
     logger.info(f"  Mode   : Supervised + Phase 0 Backbone")
     logger.info(f"  Backbone: {cfg['model']['backbone']}")
-    logger.info(f"  Epochs : {cfg['phase2']['epochs']}  |  LR: {cfg['phase2']['learning_rate']}")
+    logger.info(
+        f"  Epochs : {cfg['phase2']['epochs']}  |  LR: {cfg['phase2']['learning_rate']}"
+    )
     logger.info("=" * 65)
-    logger.info(f"  [{channel}] Train: {len(train_ds)} | Val: {len(val_ds)} | Test: {len(test_ds)}")
+    logger.info(
+        f"  [{channel}] Train: {len(train_ds)} | Val: {len(val_ds)} | Test: {len(test_ds)}"
+    )
 
     # 학습 데이터 없을 때 조기 반환 / Early return when no training data
     if len(train_ds) == 0:
-        logger.warning(f"  [WARN] 학습 데이터 없음 — 건너뜀 / No training data — skipping [{channel}]")
+        logger.warning(
+            f"  [WARN] 학습 데이터 없음 — 건너뜀 / No training data — skipping [{channel}]"
+        )
         return {
-            "channel": channel, "skipped": True,
-            "test_acc": 0.0, "mae": 0.0, "best_val_acc": 0.0,
-            "n_train": 0, "n_val": len(val_ds), "n_test": len(test_ds),
-            "epochs": cfg["phase2"]["epochs"], "backbone": cfg["model"]["backbone"],
-            "pass_acc": False, "pass_mae": False, "checkpoint_path": "",
+            "channel": channel,
+            "skipped": True,
+            "test_acc": 0.0,
+            "mae": 0.0,
+            "best_val_acc": 0.0,
+            "n_train": 0,
+            "n_val": len(val_ds),
+            "n_test": len(test_ds),
+            "epochs": cfg["phase2"]["epochs"],
+            "backbone": cfg["model"]["backbone"],
+            "pass_acc": False,
+            "pass_mae": False,
+            "checkpoint_path": "",
         }
 
     # ── Phase 0 backbone 로드 → Phase 2로 전환 / Load Phase 0 backbone → switch to Phase 2 ──
-    tag           = backbone_tag(p2cfg["model"]["backbone"])
+    tag = backbone_tag(p2cfg["model"]["backbone"])
     backbone_path = phase0_dir / f"phase0_backbone_{channel}_{tag}.pt"
 
     # Phase 0 모드로 모델 초기화 후 switch_to_phase2() 호출
@@ -215,8 +237,8 @@ def run_phase2(
 
     # ── DataLoader 생성 / Create DataLoaders ──────────────────────────────────
     train_loader = _make_dataloader(train_ds, p2cfg, shuffle=True)
-    val_loader   = _make_dataloader(val_ds,   p2cfg, shuffle=False)
-    test_loader  = _make_dataloader(test_ds,  p2cfg, shuffle=False)
+    val_loader = _make_dataloader(val_ds, p2cfg, shuffle=False)
+    test_loader = _make_dataloader(test_ds, p2cfg, shuffle=False)
 
     # ── Phase 2 학습 루프 / Phase 2 training loop ─────────────────────────────
     trainer = Phase2Trainer(model, p2cfg, channel, device, train_ds)
@@ -241,19 +263,19 @@ def run_phase2(
     model.eval()
 
     correct, total = 0, 0
-    y_true, y_pred  = [], []
+    y_true, y_pred = [], []
 
     with torch.no_grad():
         for x, labels in test_loader:
             x, labels = x.to(device), labels.to(device)
-            preds     = model(x).argmax(1)
-            correct  += (preds == labels).sum().item()
-            total    += len(labels)
+            preds = model(x).argmax(1)
+            correct += (preds == labels).sum().item()
+            total += len(labels)
             y_true.extend(labels.cpu().tolist())
             y_pred.extend(preds.cpu().tolist())
 
-    test_acc     = correct / max(total, 1)
-    mae          = sum(abs(t - p) for t, p in zip(y_true, y_pred)) / max(len(y_true), 1)
+    test_acc = correct / max(total, 1)
+    mae = sum(abs(t - p) for t, p in zip(y_true, y_pred)) / max(len(y_true), 1)
     best_val_acc = max(r["val_acc"] for r in history)
 
     # 평가 목표 달성 여부 / Check evaluation target pass/fail
@@ -274,18 +296,18 @@ def run_phase2(
     logger.info(f"  Test Samples  : {total}개")
 
     return {
-        "channel":         channel,
-        "skipped":         False,
-        "test_acc":        round(test_acc, 4),
-        "mae":             round(mae, 4),
-        "best_val_acc":    round(best_val_acc, 4),
-        "n_train":         len(train_ds),
-        "n_val":           len(val_ds),
-        "n_test":          len(test_ds),
-        "epochs":          cfg["phase2"]["epochs"],
-        "backbone":        cfg["model"]["backbone"],
-        "pass_acc":        test_acc >= target_acc,
-        "pass_mae":        mae <= target_mae,
+        "channel": channel,
+        "skipped": False,
+        "test_acc": round(test_acc, 4),
+        "mae": round(mae, 4),
+        "best_val_acc": round(best_val_acc, 4),
+        "n_train": len(train_ds),
+        "n_val": len(val_ds),
+        "n_test": len(test_ds),
+        "epochs": cfg["phase2"]["epochs"],
+        "backbone": cfg["model"]["backbone"],
+        "pass_acc": test_acc >= target_acc,
+        "pass_mae": mae <= target_mae,
         "checkpoint_path": str(versioned_path),
     }
 
@@ -294,12 +316,14 @@ def run_phase2(
 # 저장 헬퍼 / Save Helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _save_history_csv(history: list[dict], path: Path) -> None:
     """
     학습 이력을 CSV로 저장한다.
     Saves training history to CSV.
     """
     import csv
+
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=history[0].keys())
         writer.writeheader()
@@ -315,11 +339,11 @@ def _save_summary(results: list[dict], ckpt_dir: Path, cfg: dict) -> Path:
         outputs/checkpoints/phase2_summary_v1.json
     """
     summary = {
-        "mode":        f"Phase 2 Supervised (Swing Cycle 1, Phase 0 backbone)",
-        "cycle_tag":   CYCLE_TAG,
-        "backbone":    cfg["model"]["backbone"],
-        "epochs":      cfg["phase2"]["epochs"],
-        "results":     results,
+        "mode": f"Phase 2 Supervised (Swing Cycle 1, Phase 0 backbone)",
+        "cycle_tag": CYCLE_TAG,
+        "backbone": cfg["model"]["backbone"],
+        "epochs": cfg["phase2"]["epochs"],
+        "results": results,
     }
     summary_path = ckpt_dir / f"phase2_summary_{CYCLE_TAG}.json"
     with open(summary_path, "w", encoding="utf-8") as f:
@@ -331,16 +355,21 @@ def _save_summary(results: list[dict], ckpt_dir: Path, cfg: dict) -> Path:
 # 진입점 / Entry Point
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Phase 2 Supervised 학습 (Swing Cycle 1) / Phase 2 Supervised Training (Swing Cycle 1)"
     )
     parser.add_argument(
-        "--channel", type=str, default="all",
+        "--channel",
+        type=str,
+        default="all",
         help="학습할 채널 / Channel to train  (Y / M / C / K / all,  default: all)",
     )
     parser.add_argument(
-        "--phase0-dir", type=str, default=None,
+        "--phase0-dir",
+        type=str,
+        default=None,
         help=(
             "Phase 0 backbone .pt 파일이 있는 디렉토리 / "
             "Directory containing phase0_backbone_*.pt  "
@@ -348,13 +377,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
-        "--open-browser", action="store_true",
+        "--open-browser",
+        action="store_true",
         help="완료 후 리포트를 브라우저로 열기 / Open report in browser after completion",
     )
     args = parser.parse_args()
 
     # 채널 결정 / Resolve target channels
-    target_channels = CHANNELS if args.channel.lower() == "all" else [args.channel.upper()]
+    target_channels = (
+        CHANNELS if args.channel.lower() == "all" else [args.channel.upper()]
+    )
 
     # ConfigManager 로드 / Load ConfigManager
     config = _load_config()
@@ -365,20 +397,21 @@ def main() -> None:
 
     # 로깅 설정 / Setup logging
     setup_logging(
-        log_dir      = Path(config.get("storage.logs_dir")),
-        level        = config.get("logging.level") or "INFO",
-        format_style = config.get("logging.format") or "detailed",
-        console      = config.get("logging.console_output"),
-        file         = config.get("logging.file_output"),
+        log_dir=Path(config.get("storage.logs_dir")),
+        level=config.get("logging.level") or "INFO",
+        format_style=config.get("logging.format") or "detailed",
+        console=config.get("logging.console_output"),
+        file=config.get("logging.file_output"),
     )
     logger = get_logger(__name__)
     log_training_config(config.config, logger=logger)
 
     # 디바이스 및 경로 결정 / Resolve device and paths
-    device    = torch.device(config.get("system.device"))
-    ckpt_dir  = ROOT_DIR / CKPT_SUBDIR
+    device = torch.device(config.get("system.device"))
+    ckpt_dir = ROOT_DIR / CKPT_SUBDIR
     phase0_dir = (
-        Path(args.phase0_dir) if args.phase0_dir
+        Path(args.phase0_dir)
+        if args.phase0_dir
         else ROOT_DIR / config.get("storage.models_dir")
     )
 
@@ -386,6 +419,7 @@ def main() -> None:
 
     # ── 시작 배너 / Start banner ───────────────────────────────────────────────
     import time
+
     print()
     print("=" * 65)
     print("  Grayspot — Phase 2 Supervised Training (Swing Cycle 1)")
@@ -402,7 +436,8 @@ def main() -> None:
     # Phase 0 체크포인트 존재 여부 사전 확인 / Pre-check Phase 0 checkpoints
     _tag = backbone_tag(config.get("model.backbone"))
     missing = [
-        ch for ch in target_channels
+        ch
+        for ch in target_channels
         if not (phase0_dir / f"phase0_backbone_{ch}_{_tag}.pt").exists()
     ]
     if missing:
@@ -418,11 +453,11 @@ def main() -> None:
 
     for ch in target_channels:
         result = run_phase2(
-            cfg        = config.config,
-            channel    = ch,
-            device     = device,
-            phase0_dir = phase0_dir,
-            ckpt_dir   = ckpt_dir,
+            cfg=config.config,
+            channel=ch,
+            device=device,
+            phase0_dir=phase0_dir,
+            ckpt_dir=ckpt_dir,
         )
         results.append(result)
 
@@ -446,7 +481,7 @@ def main() -> None:
 
     # ── 요약 JSON 저장 / Save summary JSON ────────────────────────────────────
     summary_path = _save_summary(results, ckpt_dir, config.config)
-    elapsed      = time.time() - t_start
+    elapsed = time.time() - t_start
 
     print()
     print("=" * 65)
@@ -463,6 +498,7 @@ def main() -> None:
         report_path = ROOT_DIR / "outputs" / "reports" / f"phase2_{CYCLE_TAG}.html"
         if report_path.exists():
             import webbrowser
+
             webbrowser.open(report_path.resolve().as_uri())
         else:
             logger.info(

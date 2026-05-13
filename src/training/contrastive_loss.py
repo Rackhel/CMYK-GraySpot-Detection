@@ -44,7 +44,7 @@ class InfoNCELoss(nn.Module):
         Returns:
             scalar loss
         """
-        B      = z1.size(0)
+        B = z1.size(0)
         device = z1.device
 
         # L2 정규화 — 코사인 유사도를 위해 단위 벡터로 변환
@@ -63,10 +63,12 @@ class InfoNCELoss(nn.Module):
         sim.masked_fill_(mask, -1e9)
 
         # Positive pair 인덱스: view1[i] ↔ view2[i] (i+B)
-        labels = torch.cat([
-            torch.arange(B, 2 * B, device=device),
-            torch.arange(0, B,     device=device),
-        ])
+        labels = torch.cat(
+            [
+                torch.arange(B, 2 * B, device=device),
+                torch.arange(0, B, device=device),
+            ]
+        )
 
         # CrossEntropyLoss — Positive pair 유사도 최대화 / Maximize positive pair similarity
         return F.cross_entropy(sim, labels)
