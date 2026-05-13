@@ -1,6 +1,6 @@
 # ── Core ML & Deep Learning / 핵심 ML 및 딥러닝 ─────────────────────────
 torch>=2.1.0
-torchvision>=0.16.0
+torchvision>=0.26.0
 # torchmetrics>=0.11.0 # only needed for advanced metric tracking
 
 # ── Data Processing & Analysis / 데이터 처리 및 분석 ───────────────────────
