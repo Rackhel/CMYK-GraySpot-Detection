@@ -42,7 +42,7 @@ python src/scripts/run_phase0.py --channel all
 ## 전제 조건 / Prerequisites
 
 - `data_set/labeled/{channel}/{level}/*.png` 이미지 존재 / Images must exist
-- `src/config/config.yaml` 설정 완료 / Config must be set up
+- `src/config/config.json` 설정 완료 / Config must be set up
 
 ---
 
@@ -57,55 +57,45 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import random
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
 # ── 경로 설정 / Path setup ─────────────────────────────────────────────────────
-ROOT = Path(__file__).resolve().parents[2]   # CMYK_MAIN/
+ROOT = Path(__file__).resolve().parents[2]  # CMYK_MAIN/
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-# ── ConfigManager / Logger ────────────────────────────────────────────────────
-from src.config import get_config
-from src.utils import setup_logging, get_logger
+from data.dataset import ContrastiveDataset
 
 # ── 모델 / 학습 모듈 / Model & Training modules ──────────────────────────────
 from models.grayspot_model import GrayspotModel
-from data.dataset     import ContrastiveDataset
+
+# ── Utils / Logger ────────────────────────────────────────────────────────────
+from src.utils import (
+    backbone_tag,
+    create_directories,
+    get_logger,
+    get_nested,
+    load_config,
+    log_snapshot,
+    set_seed,
+    setup_logging,
+    validate_config,
+)
 from training.trainer import Phase0Trainer
 
 CHANNELS = ["Y", "M", "C", "K"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Seed 설정 / Seed setup
-# ─────────────────────────────────────────────────────────────────────────────
-
-def set_seed(seed: int) -> None:
-    """
-    재현성을 위한 전역 시드를 설정한다.
-    Sets the global random seed for reproducibility.
-
-    - `random`, `numpy`, `torch` 모두 동일한 시드 적용
-    - Sets the same seed across `random`, `numpy`, and `torch`
-    """
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # 채널별 Phase 0 실행 / Run Phase 0 per channel
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def run_phase0(cfg: dict, channel: str, device: torch.device) -> dict:
     """
@@ -123,7 +113,7 @@ def run_phase0(cfg: dict, channel: str, device: torch.device) -> dict:
 
     | 인자 / Arg | 타입 / Type | 설명 / Description |
     |---|---|---|
-    | `cfg` | `dict` | ConfigManager.config |
+    | `cfg` | `dict` | config dict from load_config() |
     | `channel` | `str` | CMYK 채널 문자 / Channel character (Y/M/C/K) |
     | `device` | `torch.device` | 연산 디바이스 / Compute device |
 
@@ -154,15 +144,17 @@ def run_phase0(cfg: dict, channel: str, device: torch.device) -> dict:
         logger.warning(f"[{channel}] 이미지 없음 — 건너뜀 / No images — skipping")
         return {"channel": channel, "n_images": 0, "skipped": True}
 
-    logger.info(f"[{channel}] ContrastiveDataset: {n_images}개 이미지 로드 / images loaded")
+    logger.info(
+        f"[{channel}] ContrastiveDataset: {n_images}개 이미지 로드 / images loaded"
+    )
 
     loader = DataLoader(
         dataset,
-        batch_size  = cfg["phase0"]["batch_size"],
-        shuffle     = True,
-        num_workers = cfg["train"].get("num_workers", 0),
-        pin_memory  = (device.type == "cuda"),
-        drop_last   = True,   # InfoNCE: 배치 크기 일정하게 / Keep batch size consistent
+        batch_size=cfg["phase0"]["batch_size"],
+        shuffle=True,
+        num_workers=cfg["train"].get("num_workers", 0),
+        pin_memory=(device.type == "cuda"),
+        drop_last=True,  # InfoNCE: 배치 크기 일정하게 / Keep batch size consistent
     )
 
     # ── 모델 초기화 / Initialize model ────────────────────────────────────────
@@ -173,10 +165,10 @@ def run_phase0(cfg: dict, channel: str, device: torch.device) -> dict:
 
     # ── Phase0Trainer 실행 / Run Phase0Trainer ────────────────────────────────
     trainer = Phase0Trainer(
-        model   = model,
-        cfg     = cfg,
-        channel = channel,
-        device  = device,
+        model=model,
+        cfg=cfg,
+        channel=channel,
+        device=device,
     )
 
     history = trainer.train(loader)
@@ -188,19 +180,20 @@ def run_phase0(cfg: dict, channel: str, device: torch.device) -> dict:
     logger.info(f"[{channel}] Phase 0 완료 / done — Final Loss: {final_loss:.4f}")
 
     return {
-        "channel"       : channel,
-        "n_images"      : n_images,
-        "epochs"        : cfg["phase0"]["epochs"],
-        "final_loss"    : round(final_loss, 6),
-        "history"       : history,
-        "backbone_path" : str(backbone_path),
-        "skipped"       : False,
+        "channel": channel,
+        "n_images": n_images,
+        "epochs": cfg["phase0"]["epochs"],
+        "final_loss": round(final_loss, 6),
+        "history": history,
+        "backbone_path": str(backbone_path),
+        "skipped": False,
     }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 공식 산출물 저장 / Save official deliverables
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def save_checkpoint(cfg: dict, results: list[dict], device: torch.device) -> Path:
     """
@@ -245,18 +238,20 @@ def save_checkpoint(cfg: dict, results: list[dict], device: torch.device) -> Pat
     # 메타 정보와 함께 저장 / Save with metadata
     torch.save(
         {
-            "version"      : "phase0_v1",
-            "generated_at" : datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "backbone"     : cfg["model"]["backbone"],
-            "epochs"       : cfg["phase0"]["epochs"],
-            "temperature"  : cfg["phase0"]["temperature"],
+            "version": "phase0_v1",
+            "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "backbone": cfg["model"]["backbone"],
+            "epochs": cfg["phase0"]["epochs"],
+            "temperature": cfg["phase0"]["temperature"],
             "projection_dim": cfg["phase0"]["projection_dim"],
-            "channels"     : [r["channel"] for r in results if not r.get("skipped")],
-            "state_dicts"  : state_dicts,   # {'Y': {...}, 'M': {...}, ...}
+            "channels": [r["channel"] for r in results if not r.get("skipped")],
+            "state_dicts": state_dicts,  # {'Y': {...}, 'M': {...}, ...}
         },
         str(checkpoint_path),
     )
-    logger.info(f"  공식 체크포인트 저장 / Official checkpoint saved: {checkpoint_path}")
+    logger.info(
+        f"  공식 체크포인트 저장 / Official checkpoint saved: {checkpoint_path}"
+    )
     return checkpoint_path
 
 
@@ -312,19 +307,19 @@ def save_summary_json(results: list[dict], checkpoint_path: Path) -> Path:
     """
     logger = get_logger(__name__)
     checkpoint_dir = ROOT / "outputs" / "checkpoints"
-    summary_path   = checkpoint_dir / "phase0_summary.json"
+    summary_path = checkpoint_dir / "phase0_summary.json"
 
     summary = {
-        "version"        : "phase0_v1",
-        "generated_at"   : datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "version": "phase0_v1",
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "checkpoint_path": str(checkpoint_path),
         "results": [
             {
-                "channel"   : r["channel"],
-                "n_images"  : r.get("n_images", 0),
-                "epochs"    : r.get("epochs", 0),
+                "channel": r["channel"],
+                "n_images": r.get("n_images", 0),
+                "epochs": r.get("epochs", 0),
                 "final_loss": r.get("final_loss", None),
-                "skipped"   : r.get("skipped", False),
+                "skipped": r.get("skipped", False),
             }
             for r in results
         ],
@@ -340,49 +335,56 @@ def save_summary_json(results: list[dict], checkpoint_path: Path) -> Path:
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Phase 0 SimCLR Contrastive Learning — R2 W9~W10"
     )
     parser.add_argument(
-        "--channel", type=str, default="all",
+        "--channel",
+        type=str,
+        default="all",
         help="채널 지정 / Channel (Y/M/C/K/all, default: all)",
     )
     args = parser.parse_args()
 
     # ── 채널 결정 / Resolve channels ─────────────────────────────────────────
     target_channels = (
-        CHANNELS if args.channel.lower() == "all"
-        else [args.channel.upper()]
+        CHANNELS if args.channel.lower() == "all" else [args.channel.upper()]
     )
 
-    # ── ConfigManager 로드 / Load config ─────────────────────────────────────
-    config = get_config(
-        config_path=ROOT / "src" / "config" / "config.yaml",
-        root_dir=ROOT,
-    )
-    if not config.validate():
+    # ── config 로드 / Load config ─────────────────────────────────────────────
+    cfg = load_config()
+    if not validate_config(cfg):
         print("[ERROR] Configuration validation failed.")
         sys.exit(1)
 
-    config.create_necessary_directories()
+    create_directories(cfg)
 
     # ── 로깅 설정 / Setup logging ─────────────────────────────────────────────
     setup_logging(
-        log_dir      = Path(config.get("storage.logs_dir")),
-        level        = config.get("logging.level") or "INFO",
-        format_style = config.get("logging.format") or "detailed",
-        console      = config.get("logging.console_output"),
-        file         = config.get("logging.file_output"),
+        log_dir=Path(cfg["storage"]["logs_dir"]),
+        level=get_nested(cfg, "logging.level") or "INFO",
+        format_style=get_nested(cfg, "logging.format") or "detailed",
+        console=get_nested(cfg, "logging.console_output"),
+        file=get_nested(cfg, "logging.file_output"),
     )
     logger = get_logger(__name__)
 
     # ── 디바이스 설정 / Device setup ─────────────────────────────────────────
-    device = torch.device(config.get("system.device"))
+    device = torch.device(cfg["system"]["device"])
 
     # ── 시드 설정 / Seed setup ────────────────────────────────────────────────
-    seed = config.get("train.seed") or 42
-    set_seed(seed)
+    seed = cfg["train"].get("seed") or 42
+    set_seed(seed, cfg)
+
+    # ── 스냅샷 저장 / Save config snapshot ───────────────────────────────────
+    log_snapshot(
+        config=cfg,
+        snapshot_dir=ROOT / "outputs" / "snapshots",
+        tag="phase0",
+        logger=logger,
+    )
 
     # ── 시작 배너 / Start banner ──────────────────────────────────────────────
     print()
@@ -392,21 +394,21 @@ def main() -> None:
     print("=" * 60)
     print(f"  Channels    : {target_channels}")
     print(f"  Device      : {device}")
-    print(f"  Backbone    : {config.get('model.backbone')}")
-    print(f"  Epochs      : {config.get('phase0.epochs')}")
-    print(f"  Batch size  : {config.get('phase0.batch_size')}")
-    print(f"  Temperature : {config.get('phase0.temperature')}")
-    print(f"  Proj dim    : {config.get('phase0.projection_dim')}")
+    print(f"  Backbone    : {cfg['model']['backbone']}")
+    print(f"  Epochs      : {cfg['phase0']['epochs']}")
+    print(f"  Batch size  : {cfg['phase0']['batch_size']}")
+    print(f"  Temperature : {cfg['phase0']['temperature']}")
+    print(f"  Proj dim    : {cfg['phase0']['projection_dim']}")
     print(f"  Seed        : {seed}")
     print("=" * 60)
     print()
 
     # ── 채널별 학습 실행 / Run training per channel ───────────────────────────
     start_time = time.time()
-    results    = []
+    results = []
 
     for ch in target_channels:
-        result = run_phase0(config.config, ch, device)
+        result = run_phase0(cfg, ch, device)
         results.append(result)
 
     # ── 산출물 저장 / Save deliverables ──────────────────────────────────────
@@ -415,9 +417,9 @@ def main() -> None:
     print("  산출물 저장 / Saving deliverables...")
     print("=" * 60)
 
-    checkpoint_path = save_checkpoint(config.config, results, device)
+    checkpoint_path = save_checkpoint(cfg, results, device)
     save_history_csv(results)
-    summary_path    = save_summary_json(results, checkpoint_path)
+    summary_path = save_summary_json(results, checkpoint_path)
 
     # ── 완료 요약 / Completion summary ────────────────────────────────────────
     elapsed = time.time() - start_time
@@ -440,7 +442,8 @@ def main() -> None:
     print(f"  공식 산출물 / Official deliverable:")
     print(f"    → {checkpoint_path}")
     print(f"  Backbone 저장 위치 / Backbone save path:")
-    print(f"    → data_set/models/phase0_backbone_{{channel}}.pt")
+    tag_str = backbone_tag(cfg["model"]["backbone"])
+    print(f"    → data_set/models/phase0_backbone_{{channel}}_{tag_str}.pt")
     print(f"  요약 / Summary:")
     print(f"    → {summary_path}")
     print("=" * 60)

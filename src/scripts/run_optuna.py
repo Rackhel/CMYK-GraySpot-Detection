@@ -38,22 +38,20 @@ from src.tuning.optuna_tuner import run_optuna
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run Optuna Hyperparameter Tuning"
-    )
+    parser = argparse.ArgumentParser(description="Run Optuna Hyperparameter Tuning")
 
     parser.add_argument(
         "--trials",
         type=int,
         default=None,
-        help="Number of trials (default: config value)"
+        help="Number of trials (default: config value)",
     )
 
     parser.add_argument(
         "--channel",
         type=str,
         default="all",
-        help="Target channel to tune: Y / M / C / K / all (default: all)"
+        help="Target channel to tune: Y / M / C / K / all (default: all)",
     )
 
     args = parser.parse_args()
@@ -62,8 +60,7 @@ def main():
     valid_channels = {"Y", "M", "C", "K", "ALL"}
     if channel not in valid_channels:
         raise ValueError(
-            f"Unsupported channel: {args.channel}. "
-            f"Available: Y, M, C, K, all"
+            f"Unsupported channel: {args.channel}. " f"Available: Y, M, C, K, all"
         )
 
     print("\n======================================")

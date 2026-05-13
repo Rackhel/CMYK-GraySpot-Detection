@@ -48,33 +48,32 @@ _SRC_DIR = Path(__file__).resolve().parents[1]  # src/
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
 
+from evaluation.confusion import compute_confusion_matrix, plot_confusion_matrix
+from evaluation.evaluator import Evaluator
 from evaluation.metrics import (
+    CONF_THRESH_AUTO,
+    CONF_THRESH_MANUAL,
+    CONF_THRESH_WARN,
     NUM_LEVELS,
+    TARGET_MAE,
     TARGET_OVERALL_ACC,
     TARGET_PER_CLASS_F1,
     TARGET_PER_COLOR_ACC,
-    TARGET_MAE,
-    CONF_THRESH_AUTO,
-    CONF_THRESH_WARN,
-    CONF_THRESH_MANUAL,
+    check_targets,
+    compute_all_channels,
     compute_metrics,
     compute_per_class_metrics,
-    compute_all_channels,
-    check_targets,
     print_summary,
 )
-from evaluation.confusion import (
-    compute_confusion_matrix,
-    plot_confusion_matrix,
-)
-from evaluation.evaluator import Evaluator
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / 픽스처
 # ---------------------------------------------------------------------------
 
-def make_labels(n: int = 60, num_classes: int = NUM_LEVELS, seed: int = 42) -> np.ndarray:
+
+def make_labels(
+    n: int = 60, num_classes: int = NUM_LEVELS, seed: int = 42
+) -> np.ndarray:
     """
     균일 분포 정답 라벨을 생성한다.
     Generates uniformly distributed true labels.
@@ -88,35 +87,45 @@ def make_perfect_preds(y_true: np.ndarray) -> np.ndarray:
     return y_true.copy()
 
 
-def make_random_preds(n: int, num_classes: int = NUM_LEVELS, seed: int = 0) -> np.ndarray:
+def make_random_preds(
+    n: int, num_classes: int = NUM_LEVELS, seed: int = 0
+) -> np.ndarray:
     """완전 랜덤 예측 / Completely random predictions."""
     rng = np.random.default_rng(seed)
     return rng.integers(0, num_classes, size=n).astype(int)
 
 
 def make_results_dict(
-    channels   : list = None,
-    n_per_ch   : int = 60,
-    perfect    : bool = False,
-    seed       : int = 42,
+    channels: list = None,
+    n_per_ch: int = 60,
+    perfect: bool = False,
+    seed: int = 42,
 ) -> dict:
     """
     run() 출력 형식의 더미 results dict 를 생성한다.
     Generates a dummy results dict in the format output by run().
     """
     if channels is None:
-        channels = ['Y', 'M', 'C', 'K']
+        channels = ["Y", "M", "C", "K"]
     results = {}
     for i, ch in enumerate(channels):
         y_true = make_labels(n_per_ch, seed=seed + i)
-        y_pred = make_perfect_preds(y_true) if perfect else make_random_preds(n_per_ch, seed=seed + i + 10)
-        confs  = np.random.default_rng(seed + i).uniform(0.3, 1.0, size=n_per_ch).astype(np.float32)
-        fnames = [f'scan_{i:03d}_{ch}_{j:04d}.png' for j in range(n_per_ch)]
+        y_pred = (
+            make_perfect_preds(y_true)
+            if perfect
+            else make_random_preds(n_per_ch, seed=seed + i + 10)
+        )
+        confs = (
+            np.random.default_rng(seed + i)
+            .uniform(0.3, 1.0, size=n_per_ch)
+            .astype(np.float32)
+        )
+        fnames = [f"scan_{i:03d}_{ch}_{j:04d}.png" for j in range(n_per_ch)]
         results[ch] = {
-            'y_true'      : y_true,
-            'y_pred'      : y_pred,
-            'confidences' : confs,
-            'filenames'   : fnames,
+            "y_true": y_true,
+            "y_pred": y_pred,
+            "confidences": confs,
+            "filenames": fnames,
         }
     return results
 
@@ -124,6 +133,7 @@ def make_results_dict(
 # ---------------------------------------------------------------------------
 # TestMetrics — metrics.py
 # ---------------------------------------------------------------------------
+
 
 class TestMetrics:
     """metrics.py 단위 테스트 / Unit tests for metrics.py."""
@@ -133,8 +143,8 @@ class TestMetrics:
         성능 목표 상수가 정의되어 있는지 확인한다.
         Checks that performance target constants are defined.
         """
-        assert 0 < TARGET_OVERALL_ACC   <= 1.0
-        assert 0 < TARGET_PER_CLASS_F1  <= 1.0
+        assert 0 < TARGET_OVERALL_ACC <= 1.0
+        assert 0 < TARGET_PER_CLASS_F1 <= 1.0
         assert 0 < TARGET_PER_COLOR_ACC <= 1.0
         assert TARGET_MAE > 0
 
@@ -150,10 +160,10 @@ class TestMetrics:
 
         m = compute_metrics(y_true, y_pred)
 
-        assert m['accuracy'] == pytest.approx(1.0)
-        assert m['macro_f1'] == pytest.approx(1.0, abs=0.01)
-        assert m['mae']      == pytest.approx(0.0)
-        assert m['n_samples'] == 60
+        assert m["accuracy"] == pytest.approx(1.0)
+        assert m["macro_f1"] == pytest.approx(1.0, abs=0.01)
+        assert m["mae"] == pytest.approx(0.0)
+        assert m["n_samples"] == 60
 
     def test_compute_metrics_random(self):
         """
@@ -165,10 +175,10 @@ class TestMetrics:
 
         m = compute_metrics(y_true, y_pred)
 
-        assert 0.0 <= m['accuracy'] <= 1.0
-        assert 0.0 <= m['macro_f1'] <= 1.0
-        assert m['mae'] >= 0.0
-        assert m['n_samples'] == 120
+        assert 0.0 <= m["accuracy"] <= 1.0
+        assert 0.0 <= m["macro_f1"] <= 1.0
+        assert m["mae"] >= 0.0
+        assert m["n_samples"] == 120
 
     def test_compute_metrics_per_class_length(self):
         """
@@ -177,17 +187,17 @@ class TestMetrics:
         """
         y_true = make_labels(60)
         y_pred = make_random_preds(60)
-        m      = compute_metrics(y_true, y_pred)
+        m = compute_metrics(y_true, y_pred)
 
-        assert len(m['per_class']) == NUM_LEVELS
-        for pc in m['per_class']:
-            assert 'level'     in pc
-            assert 'precision' in pc
-            assert 'recall'    in pc
-            assert 'f1'        in pc
-            assert 0.0 <= pc['precision'] <= 1.0
-            assert 0.0 <= pc['recall']    <= 1.0
-            assert 0.0 <= pc['f1']        <= 1.0
+        assert len(m["per_class"]) == NUM_LEVELS
+        for pc in m["per_class"]:
+            assert "level" in pc
+            assert "precision" in pc
+            assert "recall" in pc
+            assert "f1" in pc
+            assert 0.0 <= pc["precision"] <= 1.0
+            assert 0.0 <= pc["recall"] <= 1.0
+            assert 0.0 <= pc["f1"] <= 1.0
 
     def test_compute_metrics_empty(self):
         """
@@ -195,10 +205,10 @@ class TestMetrics:
         Checks that empty array input safely returns zeros.
         """
         m = compute_metrics(np.array([]), np.array([]))
-        assert m['accuracy']  == 0.0
-        assert m['macro_f1']  == 0.0
-        assert m['mae']       == 0.0
-        assert m['n_samples'] == 0
+        assert m["accuracy"] == 0.0
+        assert m["macro_f1"] == 0.0
+        assert m["mae"] == 0.0
+        assert m["n_samples"] == 0
 
     def test_compute_per_class_metrics_shape(self):
         """
@@ -211,57 +221,57 @@ class TestMetrics:
 
         assert len(result) == NUM_LEVELS
         for i, pc in enumerate(result):
-            assert pc['level'] == i
+            assert pc["level"] == i
 
     def test_compute_all_channels_keys(self):
         """
         compute_all_channels 반환값에 'overall' 키와 채널 키가 있는지 확인한다.
         Checks that compute_all_channels result has 'overall' and channel keys.
         """
-        results = make_results_dict(['C', 'K'])
-        metrics = compute_all_channels(results, ['C', 'K'])
+        results = make_results_dict(["C", "K"])
+        metrics = compute_all_channels(results, ["C", "K"])
 
-        assert 'overall' in metrics
-        assert 'C' in metrics
-        assert 'K' in metrics
+        assert "overall" in metrics
+        assert "C" in metrics
+        assert "K" in metrics
 
     def test_compute_all_channels_overall_aggregation(self):
         """
         overall 지표가 채널 데이터를 합산하여 계산되는지 검증한다.
         Validates that overall metrics are computed from aggregated channel data.
         """
-        results = make_results_dict(['C', 'K'], n_per_ch=60, perfect=True)
-        metrics = compute_all_channels(results, ['C', 'K'])
+        results = make_results_dict(["C", "K"], n_per_ch=60, perfect=True)
+        metrics = compute_all_channels(results, ["C", "K"])
 
         # 완벽한 예측이므로 overall accuracy = 1.0 이어야 함
         # Perfect predictions -> overall accuracy should be 1.0
-        assert metrics['overall']['accuracy'] == pytest.approx(1.0)
+        assert metrics["overall"]["accuracy"] == pytest.approx(1.0)
 
     def test_check_targets_all_pass(self):
         """
         완벽한 예측에 대해 모든 목표가 달성됨을 검증한다.
         Validates that all targets pass for perfect predictions.
         """
-        results = make_results_dict(['C', 'K'], perfect=True)
-        metrics = compute_all_channels(results, ['C', 'K'])
-        targets = check_targets(metrics, ['C', 'K'])
+        results = make_results_dict(["C", "K"], perfect=True)
+        metrics = compute_all_channels(results, ["C", "K"])
+        targets = check_targets(metrics, ["C", "K"])
 
-        assert targets['overall']['acc_pass']
-        assert targets['overall']['all_pass']
+        assert targets["overall"]["acc_pass"]
+        assert targets["overall"]["all_pass"]
 
     def test_check_targets_structure(self):
         """
         check_targets 반환값이 올바른 키 구조를 갖는지 확인한다.
         Checks that check_targets return value has correct key structure.
         """
-        results = make_results_dict(['Y', 'M'])
-        metrics = compute_all_channels(results, ['Y', 'M'])
-        targets = check_targets(metrics, ['Y', 'M'])
+        results = make_results_dict(["Y", "M"])
+        metrics = compute_all_channels(results, ["Y", "M"])
+        targets = check_targets(metrics, ["Y", "M"])
 
-        for key in ['overall', 'Y', 'M']:
+        for key in ["overall", "Y", "M"]:
             assert key in targets
-            assert 'acc_pass'  in targets[key]
-            assert 'all_pass'  in targets[key]
+            assert "acc_pass" in targets[key]
+            assert "all_pass" in targets[key]
 
     def test_mae_ordinal_property(self):
         """
@@ -271,30 +281,31 @@ class TestMetrics:
         MAE for 0->5 prediction should be larger than 0->1.
         """
         y_true = np.array([0, 0, 0])
-        y_pred_far  = np.array([5, 5, 5])
+        y_pred_far = np.array([5, 5, 5])
         y_pred_near = np.array([1, 1, 1])
 
-        m_far  = compute_metrics(y_true, y_pred_far)
+        m_far = compute_metrics(y_true, y_pred_far)
         m_near = compute_metrics(y_true, y_pred_near)
 
-        assert m_far['mae'] > m_near['mae']
+        assert m_far["mae"] > m_near["mae"]
 
     def test_print_summary_runs_without_error(self, capsys):
         """
         print_summary 가 오류 없이 실행되는지 확인한다.
         Checks that print_summary runs without error.
         """
-        results = make_results_dict(['C'])
-        metrics = compute_all_channels(results, ['C'])
-        print_summary(metrics, channels=['C'])
+        results = make_results_dict(["C"])
+        metrics = compute_all_channels(results, ["C"])
+        print_summary(metrics, channels=["C"])
 
         captured = capsys.readouterr()
-        assert 'Performance Summary' in captured.out
+        assert "Performance Summary" in captured.out
 
 
 # ---------------------------------------------------------------------------
 # TestConfusion — confusion.py
 # ---------------------------------------------------------------------------
+
 
 class TestConfusion:
     """confusion.py 단위 테스트 / Unit tests for confusion.py."""
@@ -308,7 +319,7 @@ class TestConfusion:
         y_pred = make_random_preds(60)
         cm_raw, cm_norm = compute_confusion_matrix(y_true, y_pred)
 
-        assert cm_raw.shape  == (NUM_LEVELS, NUM_LEVELS)
+        assert cm_raw.shape == (NUM_LEVELS, NUM_LEVELS)
         assert cm_norm.shape == (NUM_LEVELS, NUM_LEVELS)
 
     def test_compute_confusion_matrix_perfect(self):
@@ -357,9 +368,10 @@ class TestConfusion:
         Checks that plot_confusion_matrix returns a go.Figure.
         """
         import plotly.graph_objects as go
+
         y_true = make_labels(60)
         y_pred = make_random_preds(60)
-        fig    = plot_confusion_matrix(y_true, y_pred, title='Test CM')
+        fig = plot_confusion_matrix(y_true, y_pred, title="Test CM")
 
         assert isinstance(fig, go.Figure)
 
@@ -370,9 +382,9 @@ class TestConfusion:
         """
         y_true = make_labels(60)
         y_pred = make_random_preds(60)
-        out    = str(tmp_path / 'test_cm.html')
+        out = str(tmp_path / "test_cm.html")
 
-        plot_confusion_matrix(y_true, y_pred, title='Test', output_path=out)
+        plot_confusion_matrix(y_true, y_pred, title="Test", output_path=out)
 
         assert Path(out).exists()
         assert Path(out).stat().st_size > 0
@@ -381,6 +393,7 @@ class TestConfusion:
 # ---------------------------------------------------------------------------
 # TestEvaluator — evaluator.py
 # ---------------------------------------------------------------------------
+
 
 class TestEvaluator:
     """
@@ -398,13 +411,13 @@ class TestEvaluator:
         """
         dummy_model = MagicMock(spec=nn.Module)
         return Evaluator(
-            model       = dummy_model,
-            labeled_dir = tmp_path / 'labeled',
-            labels_csv  = tmp_path / 'labels_v0.csv',
-            output_dir  = tmp_path / 'reports',
-            device      = torch.device('cpu'),
-            image_size  = 128,
-            batch_size  = 32,
+            model=dummy_model,
+            labeled_dir=tmp_path / "labeled",
+            labels_csv=tmp_path / "labels_v0.csv",
+            output_dir=tmp_path / "reports",
+            device=torch.device("cpu"),
+            image_size=128,
+            batch_size=32,
         )
 
     def test_extract_color_c(self):
@@ -412,27 +425,27 @@ class TestEvaluator:
         C 색상 파일명에서 'C' 를 추출하는지 확인한다.
         Checks extraction of 'C' from a C-color filename.
         """
-        assert Evaluator._extract_color('scan_001_C_0007.png') == 'C'
+        assert Evaluator._extract_color("scan_001_C_0007.png") == "C"
 
     def test_extract_color_y(self):
         """Y 색상 파일명 / Y-color filename."""
-        assert Evaluator._extract_color('scan_016_Y_0004.png') == 'Y'
+        assert Evaluator._extract_color("scan_016_Y_0004.png") == "Y"
 
     def test_extract_color_m(self):
         """M 색상 파일명 / M-color filename."""
-        assert Evaluator._extract_color('scan_002_M_0016.png') == 'M'
+        assert Evaluator._extract_color("scan_002_M_0016.png") == "M"
 
     def test_extract_color_k(self):
         """K 색상 파일명 / K-color filename."""
-        assert Evaluator._extract_color('scan_002_K_0016.png') == 'K'
+        assert Evaluator._extract_color("scan_002_K_0016.png") == "K"
 
     def test_extract_color_invalid(self):
         """
         색상 코드가 없는 파일명은 None 을 반환하는지 확인한다.
         Checks that None is returned for filenames without color codes.
         """
-        assert Evaluator._extract_color('image_001.png')        is None
-        assert Evaluator._extract_color('scan_001_X_0007.png')  is None
+        assert Evaluator._extract_color("image_001.png") is None
+        assert Evaluator._extract_color("scan_001_X_0007.png") is None
 
     def test_output_dir_created(self, tmp_path):
         """
@@ -447,38 +460,45 @@ class TestEvaluator:
         compute() 가 compute_all_channels 를 호출하여 지표를 반환하는지 확인한다.
         Checks that compute() returns metrics via compute_all_channels.
         """
-        ev      = self._make_dummy_evaluator(tmp_path)
-        results = make_results_dict(['C', 'K'])
-        metrics = ev.compute(results, channels=['C', 'K'])
+        ev = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(["C", "K"])
+        metrics = ev.compute(results, channels=["C", "K"])
 
-        assert 'overall' in metrics
-        assert 'C' in metrics
-        assert 'K' in metrics
+        assert "overall" in metrics
+        assert "C" in metrics
+        assert "K" in metrics
 
     def test_get_misclassified_structure(self, tmp_path):
         """
         get_misclassified 반환 DataFrame 의 컬럼 구조를 검증한다.
         Validates the column structure of the DataFrame returned by get_misclassified.
         """
-        ev      = self._make_dummy_evaluator(tmp_path)
-        results = make_results_dict(['C'], n_per_ch=60, perfect=False)
-        df      = ev.get_misclassified(results, channels=['C'])
+        ev = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(["C"], n_per_ch=60, perfect=False)
+        df = ev.get_misclassified(results, channels=["C"])
 
-        expected_cols = {'filename', 'color', 'true_level', 'pred_level',
-                         'confidence', 'correct', 'error_gap'}
+        expected_cols = {
+            "filename",
+            "color",
+            "true_level",
+            "pred_level",
+            "confidence",
+            "correct",
+            "error_gap",
+        }
         assert expected_cols.issubset(set(df.columns))
         if len(df) > 0:
-            assert all(df['correct'] == False)
-            assert all(df['error_gap'] >= 1)
+            assert all(df["correct"] == False)
+            assert all(df["error_gap"] >= 1)
 
     def test_get_misclassified_empty_for_perfect(self, tmp_path):
         """
         완벽한 예측에서 오분류 DataFrame 이 비어 있는지 확인한다.
         Checks that the misclassified DataFrame is empty for perfect predictions.
         """
-        ev      = self._make_dummy_evaluator(tmp_path)
-        results = make_results_dict(['C'], n_per_ch=60, perfect=True)
-        df      = ev.get_misclassified(results, channels=['C'])
+        ev = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(["C"], n_per_ch=60, perfect=True)
+        df = ev.get_misclassified(results, channels=["C"])
 
         assert len(df) == 0
 
@@ -487,17 +507,18 @@ class TestEvaluator:
         save_csv 가 CSV 파일을 생성하는지 확인한다.
         Checks that save_csv creates a CSV file.
         """
-        ev      = self._make_dummy_evaluator(tmp_path)
-        results = make_results_dict(['C'], n_per_ch=20)
-        path    = ev.save_csv(results, experiment_name='test', channels=['C'])
+        ev = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(["C"], n_per_ch=20)
+        path = ev.save_csv(results, experiment_name="test", channels=["C"])
 
         assert path.exists()
         import pandas as pd
+
         df = pd.read_csv(path)
         assert len(df) == 20
-        assert 'true_level' in df.columns
-        assert 'pred_level' in df.columns
-        assert 'confidence' in df.columns
+        assert "true_level" in df.columns
+        assert "pred_level" in df.columns
+        assert "confidence" in df.columns
 
     def test_save_json_creates_file(self, tmp_path):
         """
@@ -506,17 +527,17 @@ class TestEvaluator:
         """
         import json as _json
 
-        ev      = self._make_dummy_evaluator(tmp_path)
-        results = make_results_dict(['C', 'K'])
-        metrics = ev.compute(results, channels=['C', 'K'])
-        path    = ev.save_json(metrics, experiment_name='test', channels=['C', 'K'])
+        ev = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(["C", "K"])
+        metrics = ev.compute(results, channels=["C", "K"])
+        path = ev.save_json(metrics, experiment_name="test", channels=["C", "K"])
 
         assert path.exists()
-        with open(path, encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             data = _json.load(f)
-        assert 'global'    in data
-        assert 'by_color'  in data
-        assert 'per_class_overall' in data
+        assert "global" in data
+        assert "by_color" in data
+        assert "per_class_overall" in data
 
     def test_save_json_target_fields(self, tmp_path):
         """
@@ -525,49 +546,50 @@ class TestEvaluator:
         """
         import json as _json
 
-        ev      = self._make_dummy_evaluator(tmp_path)
-        results = make_results_dict(['C'])
-        metrics = ev.compute(results, channels=['C'])
-        path    = ev.save_json(metrics, experiment_name='targets_test', channels=['C'])
+        ev = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(["C"])
+        metrics = ev.compute(results, channels=["C"])
+        path = ev.save_json(metrics, experiment_name="targets_test", channels=["C"])
 
-        with open(path, encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             data = _json.load(f)
-        targets = data['targets']
-        assert 'overall_accuracy'   in targets
-        assert 'per_color_accuracy' in targets
-        assert 'per_class_f1'       in targets
-        assert 'mae'                in targets
+        targets = data["targets"]
+        assert "overall_accuracy" in targets
+        assert "per_color_accuracy" in targets
+        assert "per_class_f1" in targets
+        assert "mae" in targets
 
     def test_build_phase3_decision_all_pass(self, tmp_path):
         """
         완벽한 예측에서 Phase 3 판단이 TERMINATE 를 포함하는지 확인한다.
         Checks that Phase 3 decision includes TERMINATE for perfect predictions.
         """
-        ev      = self._make_dummy_evaluator(tmp_path)
-        results = make_results_dict(['C', 'K'], perfect=True)
-        metrics = ev.compute(results, channels=['C', 'K'])
-        text    = ev._build_phase3_decision(metrics, ['C', 'K'])
+        ev = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(["C", "K"], perfect=True)
+        metrics = ev.compute(results, channels=["C", "K"])
+        text = ev._build_phase3_decision(metrics, ["C", "K"])
 
-        assert 'TERMINATE' in text
+        assert "TERMINATE" in text
 
     def test_build_phase3_decision_action_required(self, tmp_path):
         """
         랜덤 예측에서 Phase 3 판단이 조치 필요를 포함하는지 확인한다.
         Checks that Phase 3 decision includes action required for random predictions.
         """
-        ev      = self._make_dummy_evaluator(tmp_path)
-        results = make_results_dict(['C', 'K'], perfect=False)
-        metrics = ev.compute(results, channels=['C', 'K'])
-        text    = ev._build_phase3_decision(metrics, ['C', 'K'])
+        ev = self._make_dummy_evaluator(tmp_path)
+        results = make_results_dict(["C", "K"], perfect=False)
+        metrics = ev.compute(results, channels=["C", "K"])
+        text = ev._build_phase3_decision(metrics, ["C", "K"])
 
         # 랜덤 예측은 목표 미달이므로 조치 내용이 포함되어야 함
         # Random predictions miss targets, so action text should be present
-        assert 'Phase 3' in text
+        assert "Phase 3" in text
 
 
 # ---------------------------------------------------------------------------
 # Integration test / 통합 테스트
 # ---------------------------------------------------------------------------
+
 
 class TestIntegration:
     """
@@ -582,21 +604,21 @@ class TestIntegration:
         """
         dummy_model = MagicMock(spec=nn.Module)
         ev = Evaluator(
-            model       = dummy_model,
-            labeled_dir = tmp_path / 'labeled',
-            labels_csv  = tmp_path / 'labels_v0.csv',
-            output_dir  = tmp_path / 'reports',
-            device      = torch.device('cpu'),
+            model=dummy_model,
+            labeled_dir=tmp_path / "labeled",
+            labels_csv=tmp_path / "labels_v0.csv",
+            output_dir=tmp_path / "reports",
+            device=torch.device("cpu"),
         )
 
-        results = make_results_dict(['Y', 'M', 'C', 'K'], n_per_ch=30)
+        results = make_results_dict(["Y", "M", "C", "K"], n_per_ch=30)
         metrics = ev.compute(results)
-        ev.save_csv(results, experiment_name='integration')
-        ev.save_json(metrics, experiment_name='integration')
+        ev.save_csv(results, experiment_name="integration")
+        ev.save_json(metrics, experiment_name="integration")
 
         # 저장된 파일 존재 여부 확인 / Check saved files exist
-        assert (tmp_path / 'reports' / 'evaluation_results_integration.csv').exists()
-        assert (tmp_path / 'reports' / 'metrics_summary_integration.json').exists()
+        assert (tmp_path / "reports" / "evaluation_results_integration.csv").exists()
+        assert (tmp_path / "reports" / "metrics_summary_integration.json").exists()
 
     def test_metrics_and_confusion_consistency(self):
         """
@@ -606,11 +628,11 @@ class TestIntegration:
         y_true = make_labels(120)
         y_pred = make_random_preds(120)
 
-        m      = compute_metrics(y_true, y_pred)
+        m = compute_metrics(y_true, y_pred)
         cm_raw, _ = compute_confusion_matrix(y_true, y_pred, normalize=False)
 
         # 혼동 행렬 대각선 합 / 전체 합 = accuracy
         # Diagonal sum / total sum = accuracy
         acc_from_cm = cm_raw.diagonal().sum() / cm_raw.sum()
 
-        assert m['accuracy'] == pytest.approx(acc_from_cm, abs=1e-6)
+        assert m["accuracy"] == pytest.approx(acc_from_cm, abs=1e-6)
