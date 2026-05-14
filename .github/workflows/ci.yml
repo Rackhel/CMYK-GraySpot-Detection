@@ -6,8 +6,13 @@ on:
     paths:
       - 'src/**'
       - 'requirements.txt'
+      - 'gui/**'
   pull_request:
     branches: [ 'main', 'Optimization(Rackhel)', 'master' ]
+    paths:
+      - 'src/**'
+      - 'requirements.txt'
+      - 'gui/**'
   workflow_dispatch:
 
 permissions:
