@@ -256,7 +256,7 @@ class TestGrayspotPredictorONNX:
 
     def test_onnx_export_without_model_raises_error(self, predictor, temp_onnx_path):
         """Test that ONNX export fails when no model is loaded."""
-        with pytest.raises(RuntimeError, match="Model not loaded"):
+        with pytest.raises(ValueError, match=r"\[EXPORT ERROR\] No model loaded"):
             predictor.export_to_onnx("Y", temp_onnx_path)
 
     def test_onnx_export_success(self, predictor, temp_onnx_path):
