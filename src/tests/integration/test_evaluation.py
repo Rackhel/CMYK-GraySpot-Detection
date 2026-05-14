@@ -48,10 +48,7 @@ _SRC_DIR = Path(__file__).resolve().parents[1]  # src/
 if str(_SRC_DIR) not in sys.path:
     sys.path.insert(0, str(_SRC_DIR))
 
-from evaluation.confusion import (
-    compute_confusion_matrix,
-    plot_confusion_matrix,
-)
+from evaluation.confusion import compute_confusion_matrix, plot_confusion_matrix
 from evaluation.evaluator import Evaluator
 from evaluation.metrics import (
     CONF_THRESH_AUTO,

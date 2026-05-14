@@ -59,12 +59,12 @@ except ImportError:
 
 
 def _get_config(config_path=None):
-    """Load ConfigManager, handling different sys.path scenarios."""
+    """config.json을 로드하고 처리된 dict를 반환한다."""
     try:
-        from config import get_config as _gc
+        from utils.utils_config import load_config as _lc
     except ImportError:
-        from src.config import get_config as _gc  # type: ignore
-    return _gc(config_path) if config_path else _gc()
+        from src.utils.utils_config import load_config as _lc  # type: ignore
+    return _lc(config_path=config_path) if config_path else _lc()
 
 
 def _get_model_class():
@@ -96,20 +96,20 @@ class GrayspotPredictor(LoggerMixin):
 
         Args:
             config_path: 설정 파일 경로 (None 이면 기본값 사용)
-                         Path to config.yaml (None uses default)
+                         Path to config.json (None uses default)
         """
         self.logger.info("[Predictor] Initializing GrayspotPredictor...")
 
-        self.config = _get_config(config_path)
+        self.cfg = _get_config(config_path)
         self.device = self._setup_device()
         self.logger.info(f"  Device: {self.device}")
 
         self.models: Dict[str, Any] = {}
         self.model_paths: Dict[str, Path] = {}
 
-        self.channels = self.config.get("data.channels") or ["Y", "M", "C", "K"]
-        self.image_size = self.config.get("data.image_size") or 128
-        self.num_levels = self.config.get("data.num_levels") or 6
+        self.channels = self.cfg.get("data", {}).get("channels") or ["Y", "M", "C", "K"]
+        self.image_size = self.cfg.get("data", {}).get("image_size") or 128
+        self.num_levels = self.cfg.get("data", {}).get("num_levels") or 6
 
         self.logger.info(f"  Channels: {self.channels}")
         self.logger.info(f"  Image size: {self.image_size}x{self.image_size}")
@@ -117,7 +117,7 @@ class GrayspotPredictor(LoggerMixin):
 
     def _setup_device(self) -> torch.device:
         """장치 자동 설정 / Auto-detect and set compute device."""
-        device_cfg = (self.config.get("system.device") or "auto").lower()
+        device_cfg = (self.cfg.get("system", {}).get("device") or "auto").lower()
 
         if device_cfg == "auto":
             if torch.cuda.is_available():
@@ -168,7 +168,7 @@ class GrayspotPredictor(LoggerMixin):
             return
 
         if model_path is None:
-            models_dir = self.config.get_path("storage.models_dir")
+            models_dir = Path(self.cfg["storage"]["models_dir"])
             model_path = models_dir / f"best_{channel}.pt"
         else:
             model_path = Path(model_path)
@@ -179,7 +179,7 @@ class GrayspotPredictor(LoggerMixin):
         self.logger.info(f"[Predictor] Loading model [{channel}] from {model_path}")
 
         GrayspotModel = _get_model_class()
-        model = GrayspotModel(self.config.config, phase=2)
+        model = GrayspotModel(self.cfg, phase=2)
 
         checkpoint = torch.load(str(model_path), map_location="cpu", weights_only=True)
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
@@ -308,26 +308,56 @@ class GrayspotPredictor(LoggerMixin):
                 del self.model_paths[ch]
                 self.logger.debug(f"[Predictor] Cache cleared for [{ch}]")
 
-    def get_model_info(self, channel: Optional[str] = None) -> Dict[str, Any]:
-        """로드된 모델 정보 조회 / Get loaded model information."""
-        if channel is None:
-            return {
-                ch: {
-                    "device": str(self.device),
-                    "model_path": str(self.model_paths.get(ch, "N/A")),
-                    "num_parameters": sum(
-                        p.numel() for p in self.models[ch].parameters()
-                    ),
-                }
-                for ch in self.models
-            }
+    def export_to_onnx(
+        self,
+        channel: str,
+        onnx_path: str | Path,
+        sample_input: Optional[torch.Tensor] = None,
+        opset_version: int = 11,
+    ) -> None:
+        """
+        Export loaded model to ONNX format for optimized inference.
 
-        ch = channel.upper()
-        if ch not in self.models:
-            return {"error": f"Model not loaded for [{ch}]"}
+        Args:
+            channel      : Channel name (Y/M/C/K)
+            onnx_path    : Path to save ONNX model
+            sample_input : Sample input tensor (N, C, H, W). If None, uses dummy input.
+            opset_version: ONNX opset version (default 11 for PyTorch compatibility)
+        """
+        channel = channel.upper()
+        if channel not in self.models:
+            raise RuntimeError(
+                f"Model not loaded for [{channel}]. Call load_model() first."
+            )
 
-        return {
-            "device": str(self.device),
-            "model_path": str(self.model_paths[ch]),
-            "num_parameters": sum(p.numel() for p in self.models[ch].parameters()),
-        }
+        model = self.models[channel]
+        model.eval()
+
+        if sample_input is None:
+            # Create dummy input: (1, 3, 128, 128) — matches expected image shape
+            sample_input = torch.randn(
+                1, 3, self.image_size, self.image_size, device=self.device
+            )
+
+        onnx_path = Path(onnx_path)
+        onnx_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.logger.info(
+            f"[Predictor] Exporting [{channel}] model to ONNX: {onnx_path}"
+        )
+
+        # Export with dynamic batch size
+        torch.onnx.export(
+            model,
+            sample_input,
+            str(onnx_path),
+            export_params=True,
+            verbose=False,
+            opset_version=opset_version,
+            do_constant_folding=True,
+            input_names=["input"],
+            output_names=["output"],
+            dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+        )
+
+        self.logger.info(f"  ✓ ONNX export complete: {onnx_path}")

@@ -27,12 +27,10 @@ import argparse
 import copy
 import json
 import os
-import random
 import sys
 import warnings
 from pathlib import Path
 
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
@@ -45,24 +43,23 @@ sys.path.insert(0, str(SRC_DIR))
 
 from data.dataset import CMYKDataset
 from models.grayspot_model import GrayspotModel
-from src.config import get_config
-from src.utils import get_logger, log_training_config, setup_logging
+from src.utils import (
+    create_directories,
+    get_logger,
+    get_nested,
+    load_config,
+    log_snapshot,
+    log_training_config,
+    set_seed,
+    setup_logging,
+    validate_config,
+)
 from training.trainer import Phase2Trainer
 
 warnings.filterwarnings("ignore")
 logger = get_logger(__name__)
 
 CHANNELS = ["Y", "M", "C", "K"]
-
-
-def load_config() -> object:
-    return get_config(config_path=SRC_DIR / "config" / "config.yaml", root_dir=ROOT_DIR)
-
-
-def set_seed(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
 
 
 def create_dataloader(dataset, cfg: dict, shuffle: bool = False) -> DataLoader:
@@ -209,34 +206,43 @@ def main():
 
     target_channels = CHANNELS if args.channel == "all" else [args.channel.upper()]
 
-    config = load_config()
-    if not config.validate():
-        logger.error("Configuration validation failed. Fix config.yaml and retry.")
+    cfg = load_config()
+    if not validate_config(cfg):
+        logger.error("Configuration validation failed. Fix config.json and retry.")
         raise SystemExit(1)
 
-    config.create_necessary_directories()
+    create_directories(cfg)
     setup_logging(
-        log_dir=Path(config.get("storage.logs_dir")),
-        level=config.get("logging.level") or "INFO",
-        format_style=config.get("logging.format") or "detailed",
-        console=config.get("logging.console_output"),
-        file=config.get("logging.file_output"),
+        log_dir=Path(cfg["storage"]["logs_dir"]),
+        level=get_nested(cfg, "logging.level") or "INFO",
+        format_style=get_nested(cfg, "logging.format") or "detailed",
+        console=get_nested(cfg, "logging.console_output"),
+        file=get_nested(cfg, "logging.file_output"),
     )
-    log_training_config(config.config, logger=logger)
+    log_training_config(cfg, logger=logger)
 
     logger.info("=" * 60)
     logger.info("  Grayspot — Naive Baseline (Supervised-only)")
     logger.info(f"  Channels: {target_channels}")
     logger.info("=" * 60)
 
-    set_seed(config.get("train.seed") or 42)
+    set_seed(cfg["train"].get("seed") or 42, cfg)
 
-    device = torch.device(config.get("system.device"))
+    # ── 스냅샷 저장 / Save config snapshot ───────────────────────────────────
+    baseline_dir = Path(cfg["storage"]["data_root"]) / "baseline"
+    log_snapshot(
+        config=cfg,
+        snapshot_dir=baseline_dir / "snapshots",
+        tag="baseline",
+        logger=logger,
+    )
+
+    device = torch.device(cfg["system"]["device"])
     logger.info(f"  Device: {device}")
 
     results = []
     for ch in target_channels:
-        results.append(run_baseline(config.config, ch, device))
+        results.append(run_baseline(cfg, ch, device))
 
     logger.info("=" * 60)
     logger.info("  Baseline 성능 요약 / Baseline Performance Summary")
@@ -256,12 +262,12 @@ def main():
             f"{r['best_val_acc']:<10.4f} {acc_mark}"
         )
 
-    baseline_dir = Path(config.get("storage.data_root")) / "baseline"
+    baseline_dir = Path(cfg["storage"]["data_root"]) / "baseline"
     summary_path = baseline_dir / "baseline_summary.json"
     summary = {
         "mode": "Naive Baseline (Supervised-only, no Phase 0)",
-        "backbone": config.get("model.backbone"),
-        "epochs": config.get("phase2.epochs"),
+        "backbone": cfg["model"]["backbone"],
+        "epochs": cfg["phase2"]["epochs"],
         "results": results,
     }
     baseline_dir.mkdir(parents=True, exist_ok=True)

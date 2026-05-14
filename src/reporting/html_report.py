@@ -65,12 +65,7 @@ except ImportError:
 
     _logger = logging.getLogger(__name__)
 
-from evaluation.confusion import (
-    CMYK_COLORS,
-    FONT_FAMILY,
-    FONT_SIZE,
-    PLOTLY_TEMPLATE,
-)
+from evaluation.confusion import CMYK_COLORS, FONT_FAMILY, FONT_SIZE, PLOTLY_TEMPLATE
 from evaluation.metrics import (
     CHANNELS,
     DEFAULT_TARGET_MAE,

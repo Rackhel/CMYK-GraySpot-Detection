@@ -42,7 +42,7 @@ python src/scripts/run_phase0.py --channel all
 ## 전제 조건 / Prerequisites
 
 - `data_set/labeled/{channel}/{level}/*.png` 이미지 존재 / Images must exist
-- `src/config/config.yaml` 설정 완료 / Config must be set up
+- `src/config/config.json` 설정 완료 / Config must be set up
 
 ---
 
@@ -57,13 +57,11 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import random
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
@@ -77,32 +75,21 @@ from data.dataset import ContrastiveDataset
 # ── 모델 / 학습 모듈 / Model & Training modules ──────────────────────────────
 from models.grayspot_model import GrayspotModel
 
-# ── ConfigManager / Logger ────────────────────────────────────────────────────
-from src.config import get_config
-from src.utils import get_logger, setup_logging
+# ── Utils / Logger ────────────────────────────────────────────────────────────
+from src.utils import (
+    backbone_tag,
+    create_directories,
+    get_logger,
+    get_nested,
+    load_config,
+    log_snapshot,
+    set_seed,
+    setup_logging,
+    validate_config,
+)
 from training.trainer import Phase0Trainer
 
 CHANNELS = ["Y", "M", "C", "K"]
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Seed 설정 / Seed setup
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def set_seed(seed: int) -> None:
-    """
-    재현성을 위한 전역 시드를 설정한다.
-    Sets the global random seed for reproducibility.
-
-    - `random`, `numpy`, `torch` 모두 동일한 시드 적용
-    - Sets the same seed across `random`, `numpy`, and `torch`
-    """
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -126,7 +113,7 @@ def run_phase0(cfg: dict, channel: str, device: torch.device) -> dict:
 
     | 인자 / Arg | 타입 / Type | 설명 / Description |
     |---|---|---|
-    | `cfg` | `dict` | ConfigManager.config |
+    | `cfg` | `dict` | config dict from load_config() |
     | `channel` | `str` | CMYK 채널 문자 / Channel character (Y/M/C/K) |
     | `device` | `torch.device` | 연산 디바이스 / Compute device |
 
@@ -366,33 +353,38 @@ def main() -> None:
         CHANNELS if args.channel.lower() == "all" else [args.channel.upper()]
     )
 
-    # ── ConfigManager 로드 / Load config ─────────────────────────────────────
-    config = get_config(
-        config_path=ROOT / "src" / "config" / "config.yaml",
-        root_dir=ROOT,
-    )
-    if not config.validate():
+    # ── config 로드 / Load config ─────────────────────────────────────────────
+    cfg = load_config()
+    if not validate_config(cfg):
         print("[ERROR] Configuration validation failed.")
         sys.exit(1)
 
-    config.create_necessary_directories()
+    create_directories(cfg)
 
     # ── 로깅 설정 / Setup logging ─────────────────────────────────────────────
     setup_logging(
-        log_dir=Path(config.get("storage.logs_dir")),
-        level=config.get("logging.level") or "INFO",
-        format_style=config.get("logging.format") or "detailed",
-        console=config.get("logging.console_output"),
-        file=config.get("logging.file_output"),
+        log_dir=Path(cfg["storage"]["logs_dir"]),
+        level=get_nested(cfg, "logging.level") or "INFO",
+        format_style=get_nested(cfg, "logging.format") or "detailed",
+        console=get_nested(cfg, "logging.console_output"),
+        file=get_nested(cfg, "logging.file_output"),
     )
     logger = get_logger(__name__)
 
     # ── 디바이스 설정 / Device setup ─────────────────────────────────────────
-    device = torch.device(config.get("system.device"))
+    device = torch.device(cfg["system"]["device"])
 
     # ── 시드 설정 / Seed setup ────────────────────────────────────────────────
-    seed = config.get("train.seed") or 42
-    set_seed(seed)
+    seed = cfg["train"].get("seed") or 42
+    set_seed(seed, cfg)
+
+    # ── 스냅샷 저장 / Save config snapshot ───────────────────────────────────
+    log_snapshot(
+        config=cfg,
+        snapshot_dir=ROOT / "outputs" / "snapshots",
+        tag="phase0",
+        logger=logger,
+    )
 
     # ── 시작 배너 / Start banner ──────────────────────────────────────────────
     print()
@@ -402,11 +394,11 @@ def main() -> None:
     print("=" * 60)
     print(f"  Channels    : {target_channels}")
     print(f"  Device      : {device}")
-    print(f"  Backbone    : {config.get('model.backbone')}")
-    print(f"  Epochs      : {config.get('phase0.epochs')}")
-    print(f"  Batch size  : {config.get('phase0.batch_size')}")
-    print(f"  Temperature : {config.get('phase0.temperature')}")
-    print(f"  Proj dim    : {config.get('phase0.projection_dim')}")
+    print(f"  Backbone    : {cfg['model']['backbone']}")
+    print(f"  Epochs      : {cfg['phase0']['epochs']}")
+    print(f"  Batch size  : {cfg['phase0']['batch_size']}")
+    print(f"  Temperature : {cfg['phase0']['temperature']}")
+    print(f"  Proj dim    : {cfg['phase0']['projection_dim']}")
     print(f"  Seed        : {seed}")
     print("=" * 60)
     print()
@@ -416,7 +408,7 @@ def main() -> None:
     results = []
 
     for ch in target_channels:
-        result = run_phase0(config.config, ch, device)
+        result = run_phase0(cfg, ch, device)
         results.append(result)
 
     # ── 산출물 저장 / Save deliverables ──────────────────────────────────────
@@ -425,7 +417,7 @@ def main() -> None:
     print("  산출물 저장 / Saving deliverables...")
     print("=" * 60)
 
-    checkpoint_path = save_checkpoint(config.config, results, device)
+    checkpoint_path = save_checkpoint(cfg, results, device)
     save_history_csv(results)
     summary_path = save_summary_json(results, checkpoint_path)
 
@@ -450,7 +442,8 @@ def main() -> None:
     print(f"  공식 산출물 / Official deliverable:")
     print(f"    → {checkpoint_path}")
     print(f"  Backbone 저장 위치 / Backbone save path:")
-    print(f"    → data_set/models/phase0_backbone_{{channel}}.pt")
+    tag_str = backbone_tag(cfg["model"]["backbone"])
+    print(f"    → data_set/models/phase0_backbone_{{channel}}_{tag_str}.pt")
     print(f"  요약 / Summary:")
     print(f"    → {summary_path}")
     print("=" * 60)

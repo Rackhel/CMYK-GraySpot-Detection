@@ -59,7 +59,9 @@ def compute_confusion_matrix(
 
     if normalize:
         row_sums = cm_raw.sum(axis=1, keepdims=True)
-        cm_norm = np.where(row_sums > 0, cm_raw / row_sums, 0.0)
+        cm_norm = np.divide(
+            cm_raw, row_sums, out=np.zeros_like(cm_raw, dtype=float), where=row_sums > 0
+        )
     else:
         cm_norm = cm_raw.astype(float)
 

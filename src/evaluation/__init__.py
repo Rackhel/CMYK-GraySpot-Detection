@@ -11,8 +11,8 @@ from evaluation.confusion import (
     plot_confusion_matrix,
 )
 from evaluation.evaluator import Evaluator
-from evaluation.metrics import (  # Constants; Data classes; Functions
-    CHANNELS,
+from evaluation.metrics import CHANNELS  # Constants; Data classes; Functions
+from evaluation.metrics import (
     CONF_THRESH_AUTO,
     CONF_THRESH_MANUAL,
     CONF_THRESH_WARN,

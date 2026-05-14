@@ -1,5 +1,7 @@
 # CMYK Printer Grayspot Detection Pipeline
 
+[![CI Pipeline](https://github.com/Rackhel/CMYK_MAIN/actions/workflows/ci.yml/badge.svg)](https://github.com/Rackhel/CMYK_MAIN/actions/workflows/ci.yml)
+
 **Grayspot Defect Classification System** — Deep learning-based automated detection and classification of printer defects using CMYK channel analysis.
 
 **Grayspot 결함 분류 시스템** — CMYK 채널 분석을 사용한 프린터 결함의 딥러닝 기반 자동 감지 및 분류.
@@ -169,70 +171,108 @@ Open `outputs/reports/baseline.html` in your browser.
 
 ```
 CMYK_MAIN/
+├── doc/                         # Architecture & design documents
+│   ├── SSOT_Core.md             # Core architecture SSOT
+│   ├── SSOT_Data_Pipeline.md    # Data pipeline SSOT
+│   ├── SSOT_Training_Pipeline.md
+│   ├── SSOT_Model_Architecture.md
+│   ├── SSOT_Evaluation_Reporting.md
+│   ├── SSOT_Config_Resolution.md
+│   ├── SSOT_Artifacts.md
+│   ├── SSOT_GlobalVariables.md
+│   ├── SSOT_Validation_Codes.md
+│   ├── Contract.md              # Module interface contracts
+│   ├── ADR_Encoder_Scaler.md    # Architecture Decision Record
+│   ├── CI_Setup.md              # CI setup and workflow documentation
+│   └── TDD.md                   # Test-Driven Development strategy
 ├── src/
-│   ├── config/              # Configuration management
-│   │   ├── config.yaml      # Main configuration file
-│   │   ├── config_manager.py
-│   │   └── pyproject.toml
-│   ├── data/                # Data loading & preprocessing
-│   │   ├── dataset.py
-│   │   ├── augmentation.py
-│   │   └── preprocessing.py
-│   ├── models/              # Model architectures
-│   │   ├── backbone.py
-│   │   ├── classifier.py
-│   │   ├── grayspot_model.py
-│   │   └── projection_head.py
-│   ├── training/            # Training pipeline
-│   │   ├── trainer.py
-│   │   └── ...
-│   ├── evaluation/          # Evaluation metrics
-│   │   ├── metrics.py
-│   │   ├── confusion.py
-│   │   └── evaluator.py
-│   ├── inference/           # Inference module
-│   │   └── predictor.py
-│   ├── reporting/           # Report generation
+│   ├── config/                  # Configuration
+│   │   ├── config.json          # Main configuration (SSOT for all params)
+│   │   ├── dependencies.json    # Dependency registry
+│   │   └── pyproject.toml       # Build & tool configuration
+│   ├── data/                    # Data loading & preprocessing
+│   │   ├── dataset.py           # CMYKDataset, ContrastiveDataset
+│   │   ├── augmentation.py      # augment_supervised, augment_contrastive
+│   │   └── preprocessing.py     # preprocess() — resize + /255.0
+│   ├── models/                  # Model architectures
+│   │   ├── backbone.py          # build_backbone()
+│   │   ├── classifier.py        # ClassifierHead
+│   │   ├── grayspot_model.py    # GrayspotModel (Phase 0 / 2)
+│   │   └── projection_head.py   # ProjectionHead
+│   ├── training/                # Training pipeline
+│   │   ├── trainer.py           # Phase0Trainer, Phase2Trainer
+│   │   ├── contrastive_loss.py  # InfoNCELoss
+│   │   └── losses.py            # get_loss()
+│   ├── evaluation/              # Evaluation metrics
+│   │   ├── metrics.py           # compute_metrics, build_evaluation_summary
+│   │   ├── confusion.py         # compute_confusion_matrix
+│   │   └── evaluator.py         # Evaluator
+│   ├── inference/               # Inference module
+│   │   └── predictor.py         # GrayspotPredictor
+│   ├── reporting/               # Report generation
 │   │   └── html_report.py
-│   ├── scripts/             # Executable scripts
-│   │   ├── train.py
+│   ├── tuning/                  # Hyperparameter tuning
+│   │   ├── optuna_tuner.py
+│   │   └── search_space.py
+│   ├── utils/                   # Utilities
+│   │   ├── utils_config.py      # load_config, validate_config
+│   │   ├── utils_model.py       # set_seed, backbone_tag
+│   │   └── logger.py
+│   ├── scripts/                 # Executable entry points
+│   │   ├── train.py             # Unified training entry point
+│   │   ├── run_phase0.py        # Phase 0 contrastive learning
+│   │   ├── run_phase2.py        # Phase 2 supervised classification
 │   │   ├── run_baseline.py
 │   │   ├── run_optuna.py
 │   │   └── generate_baseline_report.py
-│   ├── notebooks/           # Jupyter notebooks
-│   │   ├── 01_preprocessing.ipynb
-│   │   ├── 02_model_test.ipynb
-│   │   ├── 03_training.ipynb
-│   │   ├── 04_evaluation.ipynb
-│   │   ├── 05_contrastive.ipynb
-│   │   └── 06_embedding_viz.ipynb
-│   ├── tests/               # Unit tests
-│   │   ├── test_training_phase0.py
-│   │   ├── test_training_phase2.py
-│   │   ├── test_evaluation.py
-│   │   └── test_optuna.py
-│   ├── utils/               # Utilities
-│   │   ├── logger.py
-│   │   └── __init__.py
-│   └── tuning/              # Hyperparameter tuning
-│       └── optuna_tuner.py
-├── data_set/                # Data directory (git-ignored)
-│   ├── labeled/
-│   ├── raw/
-│   ├── baseline/
-│   ├── models/
-│   ├── reports/
-│   └── embedding_viz/
-├── outputs/                 # Outputs directory
-│   ├── logs/
-│   ├── reports/
-│   │   └── baseline.html
-│   ├── baseline/
-│   └── optuna/
-├── config/                  # Docker config mount point
-├── Dockerfile               # Multi-stage Docker image
-├── requirements.txt         # Python dependencies
-├── README.md               # This file
+│   ├── tests/                   # Test suite (pytest)
+│   │   ├── unit/                # Unit tests — no I/O, < 1 s each
+│   │   │   ├── conftest.py
+│   │   │   ├── test_preprocessing.py
+│   │   │   ├── test_augmentation.py
+│   │   │   ├── test_losses.py
+│   │   │   ├── test_metrics.py
+│   │   │   ├── test_models.py
+│   │   │   ├── test_confusion.py
+│   │   │   ├── test_utils_config.py
+│   │   │   └── test_utils_model.py
+│   │   ├── integration/         # Integration tests — module wiring
+│   │   │   ├── conftest.py
+│   │   │   ├── test_data_pipeline.py
+│   │   │   ├── test_evaluation.py
+│   │   │   └── test_predictor_integration.py
+│   │   └── smoke/               # Smoke tests — real data, full pipeline
+│   │       ├── conftest.py
+│   │       ├── test_smoke_phase0.py
+│   │       ├── test_smoke_phase2.py
+│   │       └── test_smoke_optuna.py
+│   └── notebooks/               # Jupyter notebooks
+│       ├── 01_preprocessing.ipynb
+│       ├── 02_model_test.ipynb
+│       ├── 03_training.ipynb
+│       ├── 04_evaluation.ipynb
+│       ├── 05_contrastive.ipynb
+│       └── 06_embedding_viz.ipynb
+├── data_set/                    # Dataset directory (git-ignored)
+│   └── labeled/
+│       └── {channel}/{level}/*.png
+├── outputs/                     # All training outputs
+│   ├── checkpoints/             # Model weights & training history
+│   │   ├── best_{ch}.pt                    ← Phase 2 best model per channel
+│   │   ├── phase0_v1.pt                    ← Phase 0 combined checkpoint
+│   │   ├── phase2_{ch}_{tag}_{ver}.pt      ← Phase 2 versioned checkpoint
+│   │   ├── phase0_history_{ch}.csv
+│   │   ├── phase2_history_{ch}.csv
+│   │   ├── phase0_summary.json
+│   │   └── phase2_summary_{ver}.json
+│   ├── snapshots/               # Config snapshots per run
+│   │   └── config_snapshot_{tag}_{ts}.json
+│   ├── logs/                    # Run logs
+│   ├── reports/                 # HTML evaluation reports
+│   └── optuna/                  # Optuna study results
+├── pytest.ini                   # Pytest configuration
+├── requirements.txt             # Python dependencies
+├── Dockerfile                   # Multi-stage Docker image
 └── LICENSE
 
 ```
@@ -243,36 +283,34 @@ CMYK_MAIN/
 
 ### Main Configuration File / 주요 설정 파일
 
-Location: `src/config/config.yaml`
+Location: `src/config/config.json`
 
 Key sections / 주요 섹션:
 
-```yaml
-system:
-  device: "auto"              # auto | cuda | mps | cpu
-  mixed_precision: false      # Enable AMP training
-
-data:
-  channels: ["Y", "M", "C", "K"]
-  num_levels: 6               # Defect levels 0-5
-  image_size: 128             # Input image size
-
-phase2:
-  epochs: 30
-  batch_size: 16
-  learning_rate: 1.0e-4
-  early_stopping:
-    enabled: true
-    patience: 5
-
-storage:
-  data_root: "data_set"
-  models_dir: "data_set/models"
-  reports_dir: "data_set/reports"
-  outputs_dir: "outputs"
+```json
+{
+  "system": { "device": "auto" },
+  "data": {
+    "channels": ["Y", "M", "C", "K"],
+    "num_levels": 6,
+    "image_size": 128
+  },
+  "phase2": {
+    "epochs": 30,
+    "batch_size": 16,
+    "learning_rate": 1.0e-4,
+    "early_stopping": { "enabled": true, "patience": 5 }
+  },
+  "storage": {
+    "data_root":  "data_set",
+    "labeled_dir": "data_set/labeled",
+    "models_dir": "data_set/models",
+    "logs_dir":   "outputs/logs"
+  }
+}
 ```
 
-See `src/config/config.yaml` for complete options / 전체 옵션은 `src/config/config.yaml` 참고.
+See `src/config/config.json` for complete options / 전체 옵션은 `src/config/config.json` 참고.
 
 ---
 
@@ -338,6 +376,37 @@ images_dict = {
 results = predictor.predict_batch(images_dict)
 ```
 
+### ONNX Export / ONNX 내보내기
+
+```python
+from src.inference.predictor import GrayspotPredictor
+
+predictor = GrayspotPredictor()
+predictor.load_model(channel="Y")
+
+# Export to ONNX for optimized inference
+predictor.export_to_onnx(
+    channel="Y",
+    onnx_path="models/grayspot_Y.onnx",
+    opset_version=11
+)
+```
+
+### Docker Inference / Docker 추론
+
+```bash
+# Run inference in container
+docker run --rm -it \
+  -v ${PWD}/models:/app/models \
+  -v ${PWD}/data:/app/data \
+  grayspot:latest python -c "
+from src.inference.predictor import GrayspotPredictor
+predictor = GrayspotPredictor()
+predictor.load_model('Y', 'models/best_Y.pt')
+# ... inference code ...
+"
+```
+
 ---
 
 ## Docker Usage
@@ -386,7 +455,7 @@ docker run --rm --gpus all \
 ### Issue: CUDA out of memory
 
 ```bash
-# Reduce batch size in config.yaml
+# Reduce batch size in config.json
 batch_size: 8  # Instead of 16
 
 # Or run with CPU
@@ -460,7 +529,7 @@ For issues, questions, or suggestions:
 
 ---
 
-**Last Updated**: April 30, 2026  
+**Last Updated**: May 8, 2026  
 **Python Version**: 3.11.5  
 **PyTorch Version**: 2.1.0+
 

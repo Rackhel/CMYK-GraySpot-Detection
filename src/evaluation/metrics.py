@@ -123,6 +123,9 @@ class EvaluationSummary:
             "per_color_accuracy": TARGET_PER_COLOR_ACC,
             "per_class_f1": TARGET_PER_CLASS_F1,
             "mae": TARGET_MAE,
+            "swing_acc_retry": 0.80,
+            "swing_f1_retry": 0.70,
+            "swing_mae_retry": 0.80,
         }
     )
 
@@ -353,6 +356,7 @@ def build_evaluation_summary(
     channels: List[str] = None,
     meta: Dict = None,
     num_classes: int = NUM_LEVELS,
+    cfg: Optional[dict] = None,
 ) -> EvaluationSummary:
     """
     raw results dict 로부터 EvaluationSummary 를 구성한다.
@@ -395,11 +399,25 @@ def build_evaluation_summary(
         raw_metrics.get("overall", compute_metrics(np.array([]), np.array([])))
     )
 
-    return EvaluationSummary(
+    summary = EvaluationSummary(
         overall=overall,
         by_channel=by_channel,
         meta=meta or {},
     )
+
+    st = (cfg or {}).get("evaluation", {}).get("swing_thresholds", {})
+    if st:
+        summary.targets["swing_acc_retry"] = float(
+            st.get("acc_retry", summary.targets["swing_acc_retry"])
+        )
+        summary.targets["swing_f1_retry"] = float(
+            st.get("f1_retry", summary.targets["swing_f1_retry"])
+        )
+        summary.targets["swing_mae_retry"] = float(
+            st.get("mae_retry", summary.targets["swing_mae_retry"])
+        )
+
+    return summary
 
 
 def summary_to_dict(summary: EvaluationSummary) -> dict:
@@ -451,29 +469,35 @@ def determine_swing_feedback(
     overall = summary.overall
     targets = summary.targets
 
-    # Check 1: per-color accuracy < 0.80 -> Phase 0
+    # Swing 재시도 임계값 — config["evaluation"]["swing_thresholds"] 에서 소비
+    # Swing retry thresholds — consumed from config["evaluation"]["swing_thresholds"]
+    acc_retry = targets.get("swing_acc_retry", 0.80)
+    f1_retry = targets.get("swing_f1_retry", 0.70)
+    mae_retry = targets.get("swing_mae_retry", 0.80)
+
+    # Check 1: per-color accuracy < acc_retry -> Phase 0
     for color in channels:
         cm = summary.by_channel.get(color)
         if cm is None:
             continue
-        if cm.accuracy < 0.80:
+        if cm.accuracy < acc_retry:
             decisions.append(
-                f"[{color}] Accuracy {cm.accuracy:.3f} < 0.80"
+                f"[{color}] Accuracy {cm.accuracy:.3f} < {acc_retry}"
                 " -> Phase 0 (retrain representation / 표현 재학습)"
             )
 
-    # Check 2: per-class F1 < 0.70 -> Phase 1
+    # Check 2: per-class F1 < f1_retry -> Phase 1
     for pc in overall.per_class:
-        if pc.f1 < 0.70:
+        if pc.f1 < f1_retry:
             decisions.append(
-                f"Level {pc.level} F1={pc.f1:.3f} < 0.70"
+                f"Level {pc.level} F1={pc.f1:.3f} < {f1_retry}"
                 " -> Phase 1 (review level boundary / 레벨 경계 재검토)"
             )
 
-    # Check 3: overall MAE > 0.80 -> Phase 0
-    if overall.mae > 0.80:
+    # Check 3: overall MAE > mae_retry -> Phase 0
+    if overall.mae > mae_retry:
         decisions.append(
-            f"Overall MAE {overall.mae:.3f} > 0.80"
+            f"Overall MAE {overall.mae:.3f} > {mae_retry}"
             " -> Phase 0 (representation learning retry / 표현 학습 재시도)"
         )
 

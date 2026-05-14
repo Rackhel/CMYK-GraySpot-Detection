@@ -20,28 +20,76 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 
+try:
+    from utils.logger import get_logger
+except ImportError:
+    from src.utils.logger import get_logger
+
 from data.dataset import CMYKDataset, ContrastiveDataset  # noqa: F401 — re-export
 from models.grayspot_model import GrayspotModel
-from src.utils import get_logger
 from training.losses import get_loss
 
 logger = get_logger(__name__)
 
 
 # ──────────────────────────────────────────────────────────────
-# Backbone 약어 / Backbone abbreviation helper
+# Optimizer / Scheduler factory helpers
 # ──────────────────────────────────────────────────────────────
 
 
-def backbone_tag(backbone_name: str) -> str:
+def _build_optimizer(model: torch.nn.Module, lr: float, weight_decay: float, cfg: dict):
     """
-    backbone 이름의 파일명용 약어를 반환한다.
-    Returns a filename-safe abbreviation for the backbone name.
+    cfg["train"]["optimizer"] 값에 따라 optimizer를 생성한다.
+    Builds an optimizer based on cfg["train"]["optimizer"].
 
-    Examples:
-        "efficientnet_b0" → "effb0"
-        "resnet50"        → "res50"
+    지원 값 / Supported values: "adamw" (default), "sgd"
     """
+    name = cfg["train"].get("optimizer", "adamw").lower()
+    if name == "sgd":
+        from torch.optim import SGD
+
+        return SGD(
+            model.parameters(),
+            lr=lr,
+            weight_decay=weight_decay,
+            momentum=cfg["train"].get("momentum", 0.9),
+        )
+    else:  # adamw (default)
+        betas = tuple(cfg["train"].get("betas", [0.9, 0.999]))
+        return AdamW(
+            model.parameters(),
+            lr=lr,
+            weight_decay=weight_decay,
+            betas=betas,
+        )
+
+
+def _build_scheduler(optimizer, epochs: int, cfg: dict):
+    """
+    cfg["train"]["scheduler"] 값에 따라 LR scheduler를 생성한다.
+    Builds an LR scheduler based on cfg["train"]["scheduler"].
+
+    지원 값 / Supported values: "cosine" (default), "step"
+    """
+    name = cfg["train"].get("scheduler", "cosine").lower()
+    if name == "step":
+        from torch.optim.lr_scheduler import StepLR
+
+        return StepLR(
+            optimizer,
+            step_size=max(1, epochs // 3),
+            gamma=cfg["train"].get("gamma", 0.1),
+        )
+    else:  # cosine (default)
+        return CosineAnnealingLR(
+            optimizer, T_max=epochs, eta_min=cfg["train"]["eta_min"]
+        )
+
+
+# ──────────────────────────────────────────────────────────────
+# Backbone 약어 / Backbone abbreviation helper
+# ──────────────────────────────────────────────────────────────
+def backbone_tag(backbone_name: str) -> str:
     _MAP = {
         "efficientnet_b0": "effb0",
         "resnet50": "res50",
@@ -68,11 +116,14 @@ class Phase0Trainer:
         self.channel = channel
         self.device = device
         self.criterion = get_loss(phase=0, cfg=cfg)
-        self.optimizer = AdamW(model.parameters(), lr=cfg["phase0"]["learning_rate"])
-        self.scheduler = CosineAnnealingLR(
-            self.optimizer,
-            T_max=cfg["phase0"]["epochs"],
-            eta_min=cfg["train"]["eta_min"],
+        self.optimizer = _build_optimizer(
+            model,
+            lr=cfg["phase0"]["learning_rate"],
+            weight_decay=cfg["phase0"].get("weight_decay", 0.0),
+            cfg=cfg,
+        )
+        self.scheduler = _build_scheduler(
+            self.optimizer, epochs=cfg["phase0"]["epochs"], cfg=cfg
         )
 
     def train(self, loader: DataLoader) -> list[dict]:
@@ -91,11 +142,14 @@ class Phase0Trainer:
             self.model.train()
             total_loss = 0.0
 
+            grad_clip = self.cfg["train"].get("gradient_clip", 0.0)
             for view1, view2 in loader:
                 view1, view2 = view1.to(self.device), view2.to(self.device)
                 loss = self.criterion(self.model(view1), self.model(view2))
                 self.optimizer.zero_grad()
                 loss.backward()
+                if grad_clip:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
                 self.optimizer.step()
                 total_loss += loss.item()
 
@@ -160,15 +214,14 @@ class Phase2Trainer:
         if hasattr(self.criterion, "weight") and self.criterion.weight is not None:
             self.criterion.weight = self.criterion.weight.to(device)
 
-        self.optimizer = AdamW(
-            model.parameters(),
+        self.optimizer = _build_optimizer(
+            model,
             lr=cfg["phase2"]["learning_rate"],
             weight_decay=cfg["phase2"]["weight_decay"],
+            cfg=cfg,
         )
-        self.scheduler = CosineAnnealingLR(
-            self.optimizer,
-            T_max=cfg["phase2"]["epochs"],
-            eta_min=cfg["train"]["eta_min"],
+        self.scheduler = _build_scheduler(
+            self.optimizer, epochs=cfg["phase2"]["epochs"], cfg=cfg
         )
 
     def train(self, train_loader: DataLoader, val_loader: DataLoader) -> list[dict]:
@@ -178,7 +231,13 @@ class Phase2Trainer:
         models_dir.mkdir(parents=True, exist_ok=True)
         best_path = models_dir / f"best_{self.channel}.pt"
 
-        history, best_val_acc, best_epoch = [], 0.0, 0
+        es_cfg = self.cfg["phase2"].get("early_stopping", {})
+        es_enabled = es_cfg.get("enabled", False)
+        es_patience = es_cfg.get("patience", 10)
+        es_delta = es_cfg.get("min_delta", 0.0)
+        grad_clip = self.cfg["train"].get("gradient_clip", 0.0)
+
+        history, best_val_acc, best_epoch, no_improve = [], 0.0, 0, 0
 
         logger.info(
             f"{'='*65}\n  Phase 2 Training — Channel: [{self.channel}]\n{'='*65}"
@@ -200,6 +259,8 @@ class Phase2Trainer:
                 loss = self.criterion(logits, labels)
                 self.optimizer.zero_grad()
                 loss.backward()
+                if grad_clip:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
                 self.optimizer.step()
                 train_loss += loss.item()
                 train_correct += (logits.argmax(1) == labels).sum().item()
@@ -239,14 +300,23 @@ class Phase2Trainer:
                 }
             )
 
-            if val_acc > best_val_acc:
+            if val_acc > best_val_acc + es_delta:
                 best_val_acc, best_epoch = val_acc, epoch
+                no_improve = 0
                 torch.save(self.model.state_dict(), best_path)
+            else:
+                no_improve += 1
 
             logger.info(
                 f"  {epoch:<8} {train_loss_avg:<14.4f} {train_acc:<12.4f} "
                 f"{val_loss_avg:<12.4f} {val_acc:<10.4f} {lr:.2e}"
             )
+
+            if es_enabled and no_improve >= es_patience:
+                logger.info(
+                    f"  [Early Stop] patience={es_patience} 도달 / reached at epoch {epoch}"
+                )
+                break
 
         logger.info(f"  {'-'*60}")
         logger.info(f"  Best Val Acc: {best_val_acc:.4f} (Epoch {best_epoch})")

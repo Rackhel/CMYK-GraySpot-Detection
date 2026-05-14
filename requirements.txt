@@ -4,12 +4,14 @@ torchvision>=0.16.0
 # torchmetrics>=0.11.0 # only needed for advanced metric tracking
 
 # ── Data Processing & Analysis / 데이터 처리 및 분석 ───────────────────────
-numpy>=1.24.0
+# numpy<2 제약: Anaconda 기본 환경의 pyarrow/pandas가 NumPy 1.x 기준 컴파일
+# numpy<2 constraint: Anaconda default env's pyarrow/pandas compiled against NumPy 1.x
+numpy>=1.24.0,<2.0
 pandas>=2.0.0
 opencv-python>=4.8.0
 Pillow>=10.0.0
-scikit-learn>=1.3.0
-# scipy>=1.11.0 # only needed for advanced statistical analysis
+scikit-learn>=1.5.0
+scipy>=1.11.0
 albumentations>=1.3.0 # only needed for advanced data augmentation
 
 # ── Hyperparameter Tuning / 하이퍼파라미터 튜닝 ──────────────────────────────
@@ -34,3 +36,7 @@ pytest-cov>=4.1.0
 
 # ── Dimension Reduction / 차원 축소 ─────────────────────────────────────────
 umap-learn>=0.5.4
+
+# ── GUI & Web Interface / GUI 및 웹 인터페이스 ────────────────────────────────
+streamlit>=1.28.0 # only needed for web-based GUI
+pyinstaller>=6.0.0 # only needed for building GUI executable
