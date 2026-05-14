@@ -8,7 +8,7 @@ torchvision>=0.26.0
 # numpy<2 constraint: Anaconda default env's pyarrow/pandas compiled against NumPy 1.x
 numpy>=1.24.0,<2.0
 pandas>=2.0.0
-opencv-python>=4.13.0.92
+opencv-python>=4.8.0
 Pillow>=12.2.0
 scikit-learn>=1.5.0
 scipy>=1.11.0
