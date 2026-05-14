@@ -32,23 +32,14 @@ for _, row in df.iterrows():
     filename = row["filename"]
 
     # CMYK level
-    level = max(
-        row["C"],
-        row["M"],
-        row["Y"],
-        row["K"]
-    )
+    level = max(row["C"], row["M"], row["Y"], row["K"])
 
     img_path = None
 
     # ищем файл
     for lvl in range(6):
 
-        possible = os.path.join(
-            PATCHES_DIR,
-            str(lvl),
-            filename
-        )
+        possible = os.path.join(PATCHES_DIR, str(lvl), filename)
 
         if os.path.exists(possible):
             img_path = possible
@@ -81,11 +72,7 @@ print(f"Loaded: {len(images)} images")
 
 X = np.array(images)
 
-tsne = TSNE(
-    n_components=2,
-    perplexity=30,
-    random_state=42
-)
+tsne = TSNE(n_components=2, perplexity=30, random_state=42)
 
 X_tsne = tsne.fit_transform(X)
 
@@ -95,11 +82,7 @@ X_tsne = tsne.fit_transform(X)
 
 plt.figure(figsize=(10, 8))
 
-scatter = plt.scatter(
-    X_tsne[:, 0],
-    X_tsne[:, 1],
-    c=labels
-)
+scatter = plt.scatter(X_tsne[:, 0], X_tsne[:, 1], c=labels)
 
 plt.colorbar(scatter)
 
@@ -109,11 +92,7 @@ plt.xlabel("t-SNE 1")
 plt.ylabel("t-SNE 2")
 
 # SAVE PNG
-plt.savefig(
-    "tsne_plot.png",
-    dpi=300,
-    bbox_inches="tight"
-)
+plt.savefig("tsne_plot.png", dpi=300, bbox_inches="tight")
 
 plt.show()
 
@@ -123,10 +102,7 @@ plt.show()
 
 center = np.mean(X_tsne, axis=0)
 
-distances = np.linalg.norm(
-    X_tsne - center,
-    axis=1
-)
+distances = np.linalg.norm(X_tsne - center, axis=1)
 
 top_idx = np.argsort(distances)[-20:]
 
@@ -137,36 +113,18 @@ priority_rows = []
 for idx in top_idx:
 
     print(
-        filenames[idx],
-        "| Level:",
-        labels[idx],
-        "| Distance:",
-        round(distances[idx], 2)
+        filenames[idx], "| Level:", labels[idx], "| Distance:", round(distances[idx], 2)
     )
 
-    priority_rows.append([
-        filenames[idx],
-        labels[idx],
-        round(distances[idx], 2)
-    ])
+    priority_rows.append([filenames[idx], labels[idx], round(distances[idx], 2)])
 
 # =========================
 # SAVE CSV
 # =========================
 
-priority_df = pd.DataFrame(
-    priority_rows,
-    columns=[
-        "filename",
-        "label",
-        "distance"
-    ]
-)
+priority_df = pd.DataFrame(priority_rows, columns=["filename", "label", "distance"])
 
-priority_df.to_csv(
-    "priority_review_samples.csv",
-    index=False
-)
+priority_df.to_csv("priority_review_samples.csv", index=False)
 
 print("\nSaved:")
 print("✓ tsne_plot.png")

@@ -134,23 +134,49 @@ class TestValidateConfig:
 
     def test_missing_data_channels_returns_false(self, minimal_cfg):
         del minimal_cfg["data"]["channels"]
-        assert validate_config(minimal_cfg) is False
+        with pytest.raises(
+            ValueError, match=r"\[CONFIG ERROR / SSOT-CF01\].*data\.channels"
+        ):
+            validate_config(minimal_cfg)
 
     def test_missing_model_backbone_returns_false(self, minimal_cfg):
         del minimal_cfg["model"]["backbone"]
-        assert validate_config(minimal_cfg) is False
+        with pytest.raises(
+            ValueError, match=r"\[CONFIG ERROR / SSOT-CF01\].*model\.backbone"
+        ):
+            validate_config(minimal_cfg)
 
     def test_num_levels_less_than_2_returns_false(self, minimal_cfg):
         minimal_cfg["data"]["num_levels"] = 1
-        assert validate_config(minimal_cfg) is False
+        with pytest.raises(
+            ValueError,
+            match=r"\[CONFIG ERROR / SSOT-CF01\].*data\.num_levels must be >= 2",
+        ):
+            validate_config(minimal_cfg)
 
     def test_zero_learning_rate_returns_false(self, minimal_cfg):
         minimal_cfg["phase2"]["learning_rate"] = 0
-        assert validate_config(minimal_cfg) is False
+        with pytest.raises(
+            ValueError,
+            match=r"\[CONFIG ERROR / SSOT-CF01\].*phase2\.learning_rate must be > 0",
+        ):
+            validate_config(minimal_cfg)
 
     def test_negative_learning_rate_returns_false(self, minimal_cfg):
         minimal_cfg["phase0"]["learning_rate"] = -1e-3
-        assert validate_config(minimal_cfg) is False
+        with pytest.raises(
+            ValueError,
+            match=r"\[CONFIG ERROR / SSOT-CF01\].*phase0\.learning_rate must be > 0",
+        ):
+            validate_config(minimal_cfg)
+
+    def test_missing_phase2_epochs_raises_error(self, minimal_cfg):
+        if "phase2" in minimal_cfg and "epochs" in minimal_cfg["phase2"]:
+            del minimal_cfg["phase2"]["epochs"]
+        with pytest.raises(
+            ValueError, match=r"\[CONFIG ERROR / SSOT-CF01\].*phase2\.epochs"
+        ):
+            validate_config(minimal_cfg)
 
 
 # ── create_directories ──────────────────────────────────────────────────────
