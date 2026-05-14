@@ -32,7 +32,7 @@ Jinja2>=3.1.0 # only needed for HTML report generation
 
 # ── Testing / 테스트 ────────────────────────────────────────────────────────
 pytest>=7.4.0
-pytest-cov>=4.1.0
+pytest-cov>=7.1.0
 
 # ── Dimension Reduction / 차원 축소 ─────────────────────────────────────────
 umap-learn>=0.5.4
