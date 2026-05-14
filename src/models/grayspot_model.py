@@ -112,15 +112,19 @@ class GrayspotModel(nn.Module, LoggerMixin):
             if k.startswith("backbone.")
         }
 
-        if backbone_state:
-            self.backbone.load_state_dict(backbone_state, strict=False)
-            self.logger.info(
-                f"[PASS] Phase 0 backbone 로드 / Loaded: {Path(backbone_path).name}"
+        if not backbone_state:
+            # SSOT-FF01: Fail-Fast — backbone 키가 없으면 즉시 실패 (우회 금지)
+            # Fail-Fast — raise immediately when zero backbone keys loaded (no fallback)
+            raise RuntimeError(
+                f"switch_to_phase2() SSOT-FF01: backbone 키가 0개 로드됨 / "
+                f"Zero backbone keys loaded from '{Path(backbone_path).name}'. "
+                "아키텍처 불일치 또는 잘못된 파일 / Architecture mismatch or wrong file."
             )
-        else:
-            self.logger.info(
-                "[WARN] backbone 키 없음 — pretrained weights 유지 / No backbone keys found"
-            )
+
+        self.backbone.load_state_dict(backbone_state, strict=False)
+        self.logger.info(
+            f"[PASS] Phase 0 backbone 로드 / Loaded: {Path(backbone_path).name}"
+        )
 
         # backbone별 특화 head config / Backbone-specific head config
         backbone_name = cfg["model"]["backbone"]

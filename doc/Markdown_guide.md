@@ -224,10 +224,6 @@ Include version info at the end of major documents:
 ```markdown
 ---
 
-**Version**: 1.0.0
-**Last Updated**: April 30, 2026
-**Python**: 3.11.5
-**PyTorch**: 2.1.0+
 ```
 
 ---
@@ -429,9 +425,6 @@ When writing documentation, verify:
 
 ---
 
-**Version**: 1.0.0  
-**Last Updated**: April 30, 2026  
-**Applies to**: CMYK Printer Grayspot Detection Project v1.0.0+
 
 Example table format / 표 형식 예시:
 

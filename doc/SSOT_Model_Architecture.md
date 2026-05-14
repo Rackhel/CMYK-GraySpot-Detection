@@ -235,7 +235,3 @@ model.load_state_dict(checkpoint, strict=False)
 | SSOT-PH01 | Phase 0 학습 없이 Phase 2 직행 (backbone 미존재) / Going directly to Phase 2 without Phase 0 training (backbone absent) | Level 1 — 즉시 중단 / Immediate halt |
 
 ---
-
-**Version**: 0.3.0
-**Last Updated**: 2026-05-12
-**Applies to**: CMYK Grayspot Detection System v0.1.0+

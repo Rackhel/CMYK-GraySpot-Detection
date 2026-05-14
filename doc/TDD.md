@@ -81,7 +81,7 @@ Due to the nature of ML projects, **not everything can be covered by TDD.** The 
 | 함수 / Function | 테스트 항목 / Test Items |
 |------|------------|
 | `load_config()` | 정상 로드, 필수 키 존재, `system.device` 해석 / Normal load, required keys present, `system.device` resolution |
-| `validate_config()` | 필수 키 누락 시 `KeyError` / `ValueError` / `KeyError` / `ValueError` on missing required keys |
+| `validate_config()` | 필수 키 누락 시 `ValueError` 발생 (Fail-Fast, SSOT-CF01) — `False` 반환 금지 / Raises `ValueError` on missing required keys (Fail-Fast, SSOT-CF01) — must NOT return False |
 | `get_nested()` | 중첩 키 정상 접근, 없는 키 `default` 반환 / Normal nested key access, returns `default` for missing keys |
 | `_resolve_device()` | `"auto"` → `"mps"` (Mac), `"cuda"` 없으면 fallback / `"auto"` → `"mps"` (Mac), fallback if `"cuda"` unavailable |
 | `backbone_tag()` | `"efficientnet_b0"` → `"effb0"`, 미등록 backbone 처리 / `"efficientnet_b0"` → `"effb0"`, handling unregistered backbones |
@@ -143,6 +143,8 @@ def test_augment_contrastive_produces_different_views():
 | `GrayspotModel(cfg, phase=0)` | 출력 shape `(batch, projection_dim)` / Output shape `(batch, projection_dim)` |
 | `GrayspotModel(cfg, phase=2)` (EffB0) | 출력 shape `(batch, 6)`, head Linear 2개 (mid_dim 없음) / output shape `(batch, 6)`, 2 Linear layers (no mid_dim) |
 | `GrayspotModel(cfg, phase=2)` (Res50) | 출력 shape `(batch, 6)`, head Linear 3개 (mid_dim=512 반영) / output shape `(batch, 6)`, 3 Linear layers (mid_dim=512) |
+| `switch_to_phase2(backbone_path, cfg)` — 정상 케이스 | backbone 키 N개 로드됨 — 예외 없음, phase 전환 완료 / N backbone keys loaded — no exception, phase transition complete |
+| `switch_to_phase2(backbone_path, cfg)` — 키 0개 케이스 | backbone 키 0개 → `RuntimeError` 발생 (SSOT-FF01) / Zero backbone keys → raises `RuntimeError` |
 
 ```python
 # 예시 / Example
@@ -220,7 +222,7 @@ def test_infonce_similar_pairs_lower_loss():
 |------|------------|
 | `compute_metrics(y_true, y_pred, confidences)` | accuracy, f1, mae 값 정확성 / accuracy, f1, mae value correctness |
 | `build_evaluation_summary(results, cfg=cfg)` | `swing_thresholds` cfg 주입 반영 / `swing_thresholds` cfg injection reflected |
-| `determine_swing_feedback(summary)` | PASS / RETRY / MANUAL 분기 정확성 / PASS / RETRY / MANUAL branching correctness |
+| `determine_swing_feedback(summary)` | 반환 dict `{terminate: bool, decisions: List[str]}` 구조 / Return dict `{terminate: bool, decisions: List[str]}` structure; `terminate=True` when all targets met, `decisions` populated on failures |
 | `check_targets(summary)` | TARGET_OVERALL_ACC 기준 pass/fail 판정 / pass/fail decision based on TARGET_OVERALL_ACC |
 | `plot_confusion_matrix()` | 반환 타입 (Figure), 예외 없이 실행 / Return type (Figure), runs without exceptions |
 
@@ -248,18 +250,70 @@ def test_determine_swing_feedback_returns_retry_below_threshold():
 
 ### 3.6 `inference/` — 추론 파이프라인 / Inference Pipeline
 
-**파일 / Files:** `tests/unit/test_predictor.py`
+리팩토링 후 모듈 구조 / Module structure after refactoring:
 
-단위 테스트 대상이 적음 (모델 로드 의존). 아래만 단위 테스트:
-Few unit test targets (model load dependent). Only the following are unit tested:
+```
+inference/
+├── predictor_device.py    — DeviceMixin      (장치 감지·설정)
+├── predictor_loader.py    — ModelLoaderMixin (모델 로딩·캐시)
+├── predictor_inference.py — InferenceMixin   (추론 실행 + SSOT-NM01)
+└── predictor.py           — GrayspotPredictor (Orchestrator)
+```
 
-| 항목 / Item | 테스트 내용 / Test Content |
-|------|------------|
-| confidence threshold 분기 / Confidence threshold branching | `>= 0.8` → AUTO, `0.5–0.8` → WARN, `< 0.3` → MANUAL |
-| 반환 dict 구조 / Return dict structure | `{"label", "confidence", "flag"}` 키 존재 / keys present |
+**단위 테스트 파일 / Unit test files:** `tests/unit/test_predictor.py`
 
-나머지는 `tests/integration/test_predictor_integration.py` 에서 처리.
-The remainder is handled in `tests/integration/test_predictor_integration.py`.
+| 항목 / Item | 테스트 내용 / Test Content | 대상 Mixin / Mixin |
+|---|---|---|
+| confidence threshold AUTO 분기 | `conf >= 0.8` → AUTO 플래그 반환 / Returns AUTO flag | `InferenceMixin` |
+| confidence threshold WARN 분기 | `0.5 <= conf < 0.8` → WARN 플래그 / Returns WARN flag | `InferenceMixin` |
+| confidence threshold MANUAL 분기 | `conf < 0.3` → MANUAL 플래그 / Returns MANUAL flag | `InferenceMixin` |
+| `predict()` 반환 dict 구조 | `predictions`, `logits`, `probabilities`, `confidences` 키 존재 | `InferenceMixin` |
+| ImageNet 정규화 적용 (SSOT-NM01) | `_preprocess_images()` 출력이 `[0,1]` 정규화 후 mean/std 변환됨 | `InferenceMixin` |
+| 장치 분기 — auto | CUDA 있으면 cuda, 없으면 mps → cpu 순 / CUDA→MPS→CPU fallback | `DeviceMixin` |
+| 미로드 채널 추론 시 RuntimeError | `predict()` before `load_model()` raises `RuntimeError` | `InferenceMixin` |
+| 미존재 모델 파일 시 FileNotFoundError | `load_model()` with missing file raises `FileNotFoundError` (SSOT-FF01) | `ModelLoaderMixin` |
+
+나머지 실모델 의존 테스트는 `tests/integration/test_predictor_integration.py` 에서 처리.
+Model-dependent tests are handled in `tests/integration/test_predictor_integration.py`.
+
+---
+
+### 3.7 `tuning/` — 하이퍼파라미터 튜닝 / Hyperparameter Tuning
+
+**단위 테스트 파일 / Unit test files:** `tests/unit/test_search_space.py`, Smoke: `tests/test_smoke_optuna.py`
+
+| 함수 / Function | 테스트 항목 / Test Items |
+|---|---|
+| `get_search_space(trial, "efficientnet_b0")` | 반환 dict에 `hidden_dim`, `dropout`, `learning_rate` 키 존재 / Required keys present in returned dict |
+| `get_search_space(trial, "resnet50")` | 추가로 `mid_dim` 키 존재 / Additionally contains `mid_dim` key |
+| `run_optuna(n_trials=None, channel="all")` | `n_trials` None → cfg fallback → 기본값 5 / `n_trials` None → cfg fallback → default 5 |
+| `run_optuna()` 목적 함수 | `float` 반환 (val_acc) — trial마다 정상 반환 / Returns `float` (val_acc) for each trial |
+
+> ⚠️ **역방향 의존성 / Reverse Dependency**: `optuna_tuner.py` 가 `src.scripts.run_baseline` 을 런타임 import — 단위 테스트 시 mock 필요.
+> `optuna_tuner.py` runtime-imports `src.scripts.run_baseline` — unit tests require mocking.
+
+---
+
+### 3.8 `reporting/` — HTML 리포트 생성 / HTML Report Generation
+
+**단위 테스트 파일 / Unit test files:** `tests/unit/test_reporting.py`
+
+| 함수 / Function | 테스트 항목 / Test Items |
+|---|---|
+| `generate_baseline_report(summary, results, output_path)` | 반환 타입 `Path`, 지정 경로에 `.html` 파일 생성 / Returns `Path`, `.html` file created at given path |
+| `generate_baseline_report()` | 생성된 HTML에 "<!DOCTYPE html>" 포함 (유효한 HTML) / Generated HTML contains `<!DOCTYPE html>` |
+| `summary_to_dict(summary)` | 반환 dict에 `"overall"`, `"by_channel"`, `"meta"`, `"targets"` 키 존재 / Return dict contains required keys |
+| `summary_to_dict()` | `json.dumps()` 로 직렬화 가능 (JSON-serializable) / Serializable with `json.dumps()` |
+
+```python
+# 예시 / Example
+def test_generate_baseline_report_creates_html(tmp_path, mock_summary, mock_results):
+    out = tmp_path / "baseline.html"
+    path = generate_baseline_report(mock_summary, mock_results, output_path=out)
+    assert path.exists()
+    assert path.suffix == ".html"
+    assert "<!DOCTYPE html>" in path.read_text(encoding="utf-8")
+```
 
 ---
 
@@ -277,7 +331,10 @@ src/
     │   ├── test_models.py
     │   ├── test_losses.py
     │   ├── test_metrics.py
-    │   └── test_confusion.py
+    │   ├── test_confusion.py
+    │   ├── test_predictor.py          ← §3.6 Inference Mixin 단위 테스트
+    │   ├── test_search_space.py       ← §3.7 Tuning search space
+    │   └── test_reporting.py          ← §3.8 HTML report generation
     ├── integration/                   ← 모듈 간 연결 검증 / Cross-module connection validation
     │   ├── conftest.py
     │   ├── test_data_pipeline.py      ← preprocess → dataset → dataloader

@@ -445,6 +445,24 @@ Feature: 평가 리포트 생성 / Evaluation report generation
 
 ---
 
+### Scenario 4.6 — Baseline HTML 리포트 생성 / Baseline HTML Report Generation
+
+```gherkin
+  Scenario: generate_baseline_report()가 독립 실행형 HTML 리포트를 생성한다
+  Scenario: generate_baseline_report() generates a standalone HTML report
+
+    Given EvaluationSummary와 채널별 추론 결과(results)가 준비되어 있다
+
+    When  generate_baseline_report(summary, results)가 호출된다
+
+    Then  outputs/reports/baseline.html이 생성된다
+    And   생성된 HTML은 Plotly CDN이 내장된 독립 실행형 파일이다
+    And   파일을 브라우저에서 열 때 외부 자산 로드 없이 동작한다
+    And   summary.overall, summary.by_channel 지표가 차트로 표현된다
+```
+
+---
+
 ## 6. Feature 5 — Optuna 하이퍼파라미터 튜닝 / Optuna Hyperparameter Tuning
 
 > **비즈니스 가치 / Business Value**: 데이터 과학자가 수동으로 파라미터를 탐색하지 않고, Optuna가 자동으로 최적 하이퍼파라미터를 탐색하여 모델 성능을 향상시킨다.
@@ -504,6 +522,38 @@ Feature: Optuna 하이퍼파라미터 튜닝 / Optuna hyperparameter tuning
 
     Then  해당 trial이 자동으로 중단된다
     And   나머지 trial 리소스가 더 유망한 파라미터 탐색에 사용된다
+```
+
+---
+
+### Scenario 6.4 — Optuna n_trials=0 처리 / Optuna n_trials=0 Edge Case
+
+```gherkin
+  Scenario: n_trials가 config에 없거나 0이면 기본값(5)으로 폴백된다
+  Scenario: n_trials falls back to default (5) when absent or 0 in config
+
+    Given config.json에 optuna.n_trials 키가 없다
+
+    When  데이터 과학자가 n_trials 인자 없이 run_optuna()를 호출한다
+
+    Then  n_trials = 5 (기본값)으로 실행된다
+    And   0번 실행되거나 오류가 발생하지 않는다
+```
+
+---
+
+### Scenario 6.5 — 역방향 의존성 격리 / Reverse Dependency Isolation
+
+```gherkin
+  Scenario: optuna_tuner.py의 run_baseline 의존성이 런타임에만 활성화된다
+  Scenario: run_baseline dependency in optuna_tuner.py is activated only at runtime
+
+    Given optuna_tuner 모듈이 import된다
+
+    When  run_optuna() 함수 외부에서 run_baseline이 호출되지 않는다
+
+    Then  tuning 모듈이 scripts 모듈 없이 import될 수 있다
+    And   순환 import 오류가 발생하지 않는다
 ```
 
 ---
@@ -616,18 +666,22 @@ Feature: 시스템 안전성 / System safety (Fail-Fast)
 
 ---
 
-### Scenario 8.3 — 정규화 미적용 감지 / Normalization Missing Detection
+### Scenario 8.3 — 정규화 적용 검증 / Normalization Application Verification
+
+> ✅ **SSOT-NM01 해소됨 / Resolved**: `predictor_inference.py` `_preprocess_images()` 에서 `_IMAGENET_NORMALIZE` 적용 완료 (2026-05-14).
+> 시나리오 조건이 "미적용 감지"에서 "정규화 적용 보장"으로 전환됨.
 
 ```gherkin
-  Scenario: ImageNet 정규화 없이 pretrained backbone 사용 시 경고가 발생한다
-  Scenario: Warning is triggered when pretrained backbone is used without ImageNet normalization
+  Scenario: GrayspotPredictor 추론 시 ImageNet 정규화가 학습과 동일하게 적용된다
+  Scenario: GrayspotPredictor applies ImageNet normalization identical to training
 
-    Given pretrained EfficientNet-B0 weights가 사용 중이다
+    Given GrayspotPredictor 가 초기화되어 있다
 
-    When  전처리 파이프라인에서 ImageNet 정규화(mean/std)가 누락된다
+    When  predict() 가 BGR numpy 이미지 배열을 입력받는다
 
-    Then  시스템이 SSOT-NM01 경고를 발생시킨다
-    And   학습 또는 추론이 계속될 경우 성능 저하 가능성이 로그에 기록된다
+    Then  내부적으로 [0,1] 정규화 후 ImageNet mean/std 변환이 적용된다
+    And   dataset.py 의 _IMAGENET_NORMALIZE 와 동일한 변환이 보장된다
+    And   학습(dataset.py) 과 추론(predictor_inference.py) 간 정규화 불일치가 없다
 ```
 
 ---
@@ -649,6 +703,43 @@ Feature: 시스템 안전성 / System safety (Fail-Fast)
 
 ---
 
+### Scenario 8.5 — switch_to_phase2() backbone 키 없을 시 즉시 실패 / Immediate Failure When No Backbone Keys Loaded
+
+```gherkin
+  Scenario: switch_to_phase2()에서 backbone 키가 0개 로드되면 즉시 실패한다
+  Scenario: switch_to_phase2() fails immediately when zero backbone keys are loaded
+
+    Given 아키텍처가 변경되어 phase0 checkpoint의 backbone 키와 현재 모델의 키가 불일치한다
+    And   phase0_backbone_Y_effb0.pt 파일은 존재한다
+
+    When  model.switch_to_phase2(backbone_path, cfg)가 호출된다
+
+    Then  시스템은 RuntimeError를 발생시킨다 (SSOT-FF01)
+    And   오류 메시지에 "Zero backbone keys loaded" 또는 동등 내용이 포함된다
+    And   잘못된 backbone weights로 Phase 2 학습이 시작되지 않는다
+    And   경고(warning)로만 처리되지 않는다
+```
+
+---
+
+### Scenario 8.6 — validate_config() 실패 시 ValueError 발생 / ValueError on Config Validation Failure
+
+```gherkin
+  Scenario: validate_config()가 필수 키 누락 시 ValueError를 발생시킨다
+  Scenario: validate_config() raises ValueError when required keys are missing
+
+    Given config dict에 "phase2.epochs" 키가 없다
+
+    When  validate_config(cfg)가 호출된다
+
+    Then  시스템은 ValueError를 발생시킨다 (SSOT-CF01)
+    And   False를 반환하지 않는다
+    And   오류 메시지에 누락된 키 이름이 포함된다
+    And   실행이 즉시 중단된다
+```
+
+---
+
 ## 9. 시나리오-테스트 추적 매트릭스 / Scenario-Test Traceability Matrix
 
 BDD 시나리오와 TDD 테스트 파일 / BDD scenarios mapped to TDD test files:
@@ -658,6 +749,7 @@ BDD 시나리오와 TDD 테스트 파일 / BDD scenarios mapped to TDD test file
 | 1.1 — AUTO_ACCEPT 플래그 / flag | `test_predictor.py` | `test_confidence_auto_accept_flag` | Unit |
 | 1.2 — WARN 플래그 / flag | `test_predictor.py` | `test_confidence_warn_flag` | Unit |
 | 1.3 — MANUAL_REVIEW 플래그 / flag | `test_predictor.py` | `test_confidence_manual_review_flag` | Unit |
+| 8.3 — ImageNet 정규화 적용 / Applied | `test_predictor.py` | `test_preprocess_images_imagenet_normalized` | Unit |
 | 1.5 — Raw logit 출력 / output | `test_models.py` | `test_output_is_logits_not_probability` | Unit |
 | 2.3 — EfficientNet-B0 head 구조 / structure | `test_models.py` | `test_effb0_direct_compression_mid_dim_none` | Unit |
 | 2.3 — ResNet-50 head 구조 / structure | `test_models.py` | `test_resnet50_staged_compression_mid_dim_512` | Unit |
@@ -675,10 +767,14 @@ BDD 시나리오와 TDD 테스트 파일 / BDD scenarios mapped to TDD test file
 | 7.3 — BGR 일관성 / consistency | `test_preprocessing.py` | `test_no_rgb_conversion` | Unit |
 | 8.1 — FF01 backbone 누락 / missing | `test_smoke_phase2.py` | `test_phase2_fails_without_phase0_backbone` | Smoke |
 | 8.2 — CF01 config 키 누락 / missing key | `test_utils_config.py` | `test_validate_config_missing_key_raises` | Unit |
+| 8.5 — FF01 backbone 키 0개 / zero keys | `test_models.py` | `test_switch_to_phase2_zero_keys_raises` | Unit |
+| 8.6 — CF01 validate_config ValueError | `test_utils_config.py` | `test_validate_config_raises_value_error` | Unit |
+| 4.6 — baseline HTML 생성 / generation | `test_reporting.py` | `test_generate_baseline_report_creates_html` | Unit |
+| 6.4 — Optuna n_trials 기본값 / default | `test_smoke_optuna.py` | `test_optuna_default_n_trials_fallback` | Smoke |
 
-> **미구현 테스트 / Not Yet Implemented**: 시나리오 1.1–1.3 (`test_predictor.py`), 4.1–4.2 (HTML 생성 단위 테스트), 7.1–7.2 (채널 불변식 통합 테스트)
+> **미구현 테스트 / Not Yet Implemented**: 시나리오 1.1–1.3, 8.3 (`test_predictor.py`), 4.1–4.2, 4.6 (HTML 생성 단위 테스트), 6.4–6.5 (Optuna 엣지케이스), 7.1–7.2 (채널 불변식 통합 테스트), 8.5–8.6 (Fail-Fast 신규 시나리오)
 >
-> **Not Yet Implemented**: Scenarios 1.1–1.3 (`test_predictor.py`), 4.1–4.2 (HTML generation unit tests), 7.1–7.2 (channel invariant integration tests)
+> **Not Yet Implemented**: Scenarios 1.1–1.3, 8.3 (`test_predictor.py`), 4.1–4.2, 4.6 (HTML generation unit tests), 6.4–6.5 (Optuna edge cases), 7.1–7.2 (channel invariant integration tests), 8.5–8.6 (new Fail-Fast scenarios)
 
 ---
 
@@ -695,8 +791,3 @@ BDD 시나리오와 TDD 테스트 파일 / BDD scenarios mapped to TDD test file
 | [TDD.md](TDD.md) | 시나리오별 단위 테스트 전략 — §9 매트릭스의 구현 세부 / Per-scenario unit test strategy — implementation detail of the §9 matrix |
 
 ---
-
-**Version**: 1.0.0
-**Last Updated**: 2026-05-12
-**Author**: CMYK Project Team
-**Applies to**: CMYK Grayspot Detection System v0.1.0+

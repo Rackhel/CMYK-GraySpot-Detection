@@ -21,6 +21,8 @@ This document defines the input/output types, shapes, value ranges, and required
 7. [평가 경계 계약 / Evaluation Boundary Contracts](#7-평가-경계-계약--evaluation-boundary-contracts)
 8. [Fail-Fast 집행 포인트 / Fail-Fast Enforcement Points](#8-fail-fast-집행-포인트--fail-fast-enforcement-points)
 9. [모듈별 필수 Config 키 요약 / Required Config Keys per Module](#9-모듈별-필수-config-키-요약--required-config-keys-per-module)
+10. [추론 경계 계약 / Inference Boundary Contracts](#10-추론-경계-계약--inference-boundary-contracts)
+11. [튜닝 경계 계약 / Tuning Boundary Contracts](#11-튜닝-경계-계약--tuning-boundary-contracts)
 
 ---
 
@@ -107,7 +109,7 @@ This document defines the input/output types, shapes, value ranges, and required
 from src.utils import load_config, validate_config, create_directories, get_nested
 
 cfg = load_config()                          # → dict
-validate_config(cfg)                         # → bool  (실패 시 ValueError / ValueError on failure)
+validate_config(cfg)                         # → None  (실패 시 ValueError 발생, SSOT-CF01 / Raises ValueError on failure)
 create_directories(cfg)                      # → None  (storage.* 경로 생성 / creates storage.* paths)
 val = get_nested(cfg, "phase2.learning_rate") # → Any   (None-safe dot-notation)
 ```
@@ -174,6 +176,53 @@ image, label = dataset[i]
 | Phase 0 | `(Tensor, Tensor)` | `(B, 3, 128, 128)`, `(B, 3, 128, 128)` |
 | Phase 2 | `(Tensor, Tensor)` | `(B, 3, 128, 128)`, `(B,)` int |
 
+### 3.5 `augment_supervised()` 계약
+
+```python
+from data.augmentation import augment_supervised
+
+aug_image = augment_supervised(image: np.ndarray, aug_cfg: Optional[dict] = None) -> np.ndarray
+```
+
+| 항목 / Item | 타입 / Type | 제약 / Constraint |
+|---|---|---|
+| `image` (입력) | `np.ndarray` | `(H, W, 3)` float32, 범위 `[0.0, 1.0]`, **BGR** |
+| `aug_cfg` | `Optional[dict]` | `cfg["phase2"]["augmentation"]` — None 이면 모듈 기본값 사용 |
+| 반환 / Return | `np.ndarray` | 입력과 동일 형상·범위·색상 공간 유지 |
+
+**적용 변환 / Applied transforms** (all controlled by `aug_cfg`):
+
+| 변환 / Transform | 파라미터 / Parameter | 기본값 / Default |
+|---|---|---|
+| Random horizontal flip | `flip_prob` | 0.5 |
+| Brightness jitter | `brightness_prob`, `brightness_range` | 0.3, 20 |
+| Additive noise | `noise_prob`, `noise_range` | 0.2, 10 |
+
+### 3.6 `augment_contrastive()` 계약
+
+```python
+from data.augmentation import augment_contrastive
+
+aug_image = augment_contrastive(
+    image     : np.ndarray,    # (H, W, 3) float32 [0,1] BGR
+    image_size: int,           # 출력 크기 / Output size (e.g. 128)
+    aug_cfg   : Optional[dict] = None,  # cfg["phase0"]["augmentation"]
+) -> np.ndarray                # (image_size, image_size, 3) float32 [0,1] BGR
+```
+
+**적용 변환 / Applied transforms** (all controlled by `aug_cfg`):
+
+| 변환 / Transform | 파라미터 / Parameter |
+|---|---|
+| Random horizontal flip | `flip_prob` |
+| Random crop + resize | `crop_prob`, `crop_scale_min`, `crop_scale_max` |
+| Brightness jitter | `blur_prob`, `color_jitter` |
+| Contrast jitter | `blur_prob`, `contrast_scale_min`, `contrast_scale_max` |
+| Gaussian blur | `blur_prob`, `blur_kernels` |
+
+> ⚠️ **SSOT-CS01** 준수: 두 증강 함수 모두 BGR 색상 공간을 유지한다. RGB 변환 없음.
+> Both augmentation functions preserve BGR color space. No RGB conversion.
+
 ---
 
 ## 4. 모델 경계 계약 / Model Boundary Contracts
@@ -213,7 +262,7 @@ If `phase2.heads.{backbone}` absent → fallback to `phase2.hidden_dim` / `phase
 ### 4.3 `build_backbone()` 계약
 
 ```python
-backbone, feature_dim = build_backbone(cfg)
+backbone, feature_dim = build_backbone(backbone_name: str)
 ```
 
 | Backbone | `feature_dim` | Hard SSOT |
@@ -224,11 +273,28 @@ backbone, feature_dim = build_backbone(cfg)
 ### 4.4 Phase 전환 계약 / Phase Transition Contract
 
 ```python
-model.switch_to_phase2(backbone_path: Path)
-# 입력 / Input: phase0_backbone_{channel}_{tag}.pt
+model.switch_to_phase2(backbone_path: Path, cfg: dict) -> None
+# 입력 / Input: phase0_backbone_{channel}_{tag}.pt, config dict
 # 동작 / Action: backbone.* 키만 로드 (strict=False) / Load only backbone.* keys (strict=False)
 # 결과 / Result: Backbone weights 유지 + ClassifierHead 새로 초기화 / Backbone weights preserved + ClassifierHead freshly initialized
+# 실패 / Fail: backbone 키 0개 로드 시 RuntimeError (SSOT-FF01) / RuntimeError if zero backbone keys loaded
 ```
+
+### 4.5 `build_model()` 유틸리티 계약
+
+```python
+from utils.utils_model import build_model
+
+model = build_model(cfg: dict, checkpoint: Path, device: torch.device) -> nn.Module
+```
+
+| 항목 / Item | 타입 / Type | 설명 / Description |
+|---|---|---|
+| `cfg` | `dict` | config dict (Phase 2 head 구성에 사용) |
+| `checkpoint` | `Path` | `best_{ch}.pt` 절대 경로 |
+| `device` | `torch.device` | 연산 디바이스 |
+| 반환 / Return | `nn.Module` | `GrayspotModel(phase=2)`, `model.eval()` 상태 |
+| 주의 / Note | — | `strict=False` 로드 — 키 불일치 허용 / Allows key mismatch |
 
 ---
 
@@ -408,14 +474,122 @@ class ChannelMetrics:
 ```python
 from evaluation import determine_swing_feedback
 
-feedback = determine_swing_feedback(summary)
+feedback = determine_swing_feedback(summary, channels=None)
+# channels: List[str] | None — None 이면 summary.by_channel.keys() 전체 사용
 ```
 
-| 반환값 / Return | 조건 / Condition | 다음 단계 / Next Step |
+**반환 타입 / Return Type**: `dict`
+
+```python
+{
+    "terminate": bool,        # True = 모든 목표 달성 → Swing 종료 / All targets met → exit Swing
+    "decisions": List[str],   # 조치 필요 항목 목록 (비어있으면 계속 진행) / Action items (empty = continue)
+}
+```
+
+| `terminate` | `decisions` | 조건 / Condition | 다음 단계 / Next Step |
+|---|---|---|---|
+| `True` | `[]` | 모든 채널 및 목표 달성 / All channels & targets met | Swing 종료 / Exit Swing |
+| `False` | 채움 | per-color accuracy < `swing_acc_retry` (0.80) | Phase 0 재시작 / Restart Phase 0 |
+| `False` | 채움 | per-class F1 < `swing_f1_retry` (0.70) | Phase 1 레벨 경계 재검토 / Review level boundary |
+| `False` | 채움 | overall MAE > `swing_mae_retry` (0.80) | Phase 0 표현학습 재시도 / Retry representation learning |
+
+> **임계값 출처 / Threshold source**: `cfg["evaluation"]["swing_thresholds"]` 에서 읽음. 기본값은 위 괄호 안 값.
+> Read from `cfg["evaluation"]["swing_thresholds"]`. Defaults shown in parentheses.
+
+### 7.6 `MetricsMixin.compute()` 계약
+
+```python
+metrics = evaluator.compute(results, channels=None)
+```
+
+| 항목 / Item | 타입 / Type | 설명 / Description |
 |---|---|---|
-| `"pass"` | 모든 목표 달성 / All targets met | 시스템 종료 / System exit |
-| `"retry_phase2"` | `accuracy < swing_acc_retry` (0.80) | Phase 2 재학습 / Retrain Phase 2 |
-| `"retry_phase0"` | `macro_f1 < swing_f1_retry` (0.70) | Phase 0 → Phase 2 재학습 / Retrain Phase 0 → Phase 2 |
+| `results` (입력) | `Dict[str, dict]` | `run()` 반환값 — 채널별 `y_true/y_pred/confidences/filenames` |
+| `channels` (입력) | `Optional[List[str]]` | None 이면 `results.keys()` 전체 사용 |
+| 반환 / Return | `Dict[str, dict]` | `compute_all_channels()` 반환값 — `"overall"` 키 포함 |
+
+### 7.7 `MetricsMixin.get_misclassified()` 계약
+
+```python
+df = evaluator.get_misclassified(results, channels=None)
+```
+
+| 반환 컬럼 / Column | 타입 / Type | 설명 / Description |
+|---|---|---|
+| `filename` | `str` | 파일명 |
+| `color` | `str` | 채널 (`Y`/`M`/`C`/`K`) |
+| `true_level` | `int` | 실제 레벨 [0-5] |
+| `pred_level` | `int` | 예측 레벨 [0-5] |
+| `confidence` | `float` | Max-softmax 신뢰도 [0.0-1.0] |
+| `correct` | `bool` | 항상 `False` — 오분류 필터 결과 |
+
+### 7.8 `ExportMixin.save_report()` 계약
+
+```python
+dashboard_path = evaluator.save_report(
+    results,
+    metrics,
+    experiment_name="eval",
+    channels=None,
+    open_browser=False,
+    checkpoint_path=None,
+) -> Path
+```
+
+**생성 파일 / Generated files** (모두 `output_dir/` 아래):
+
+| 파일 / File | 설명 / Description |
+|---|---|
+| `confusion/cm_{channel}.html` | 채널별 정규화 혼동행렬 / Per-channel normalized CM |
+| `confusion/cm_overall.html` | 전체 혼동행렬 / Overall CM |
+| `eval_dashboard.html` | Gauge + Bar 대시보드 (반환 경로) / Dashboard (returned path) |
+| `per_class_metrics.html` | 클래스별 F1 바 차트 / Per-class F1 bar chart |
+| `mae_heatmap.html` | MAE 히트맵 |
+| `misclassified_scatter.html` | 오분류 scatter |
+| `confidence_distribution.html` | 신뢰도 분포 |
+| `evaluation_results_{name}.csv` | 채널별 지표 CSV |
+| `misclassified_{name}.csv` | 오분류 샘플 CSV |
+| `metrics_summary_{name}.json` | JSON 요약 |
+
+### 7.9 `summary_to_dict()` 계약
+
+```python
+from evaluation.metrics import summary_to_dict
+
+d = summary_to_dict(summary)  # → dict (JSON-직렬화 가능 / JSON-serializable)
+```
+
+```python
+{
+    "overall": {"accuracy": float, "macro_f1": float, "mae": float,
+                "n_samples": int, "per_class": [{"level", "precision", "recall", "f1", "support"}, ...]},
+    "by_channel": {"Y": {...}, "M": {...}, "C": {...}, "K": {...}},
+    "meta": dict,
+    "targets": dict,
+}
+```
+
+### 7.10 `generate_baseline_report()` 계약
+
+```python
+from reporting.html_report import generate_baseline_report
+
+path = generate_baseline_report(
+    summary      : EvaluationSummary,
+    results      : Dict[str, dict],
+    output_path  : str | Path = "outputs/reports/baseline.html",
+    channels     : List[str]  = ["Y", "M", "C", "K"],
+    open_browser : bool       = False,
+    logger       = None,
+) -> Path
+```
+
+| 항목 / Item | 설명 / Description |
+|---|---|
+| 반환 / Return | 생성된 HTML 파일의 절대 경로 / Absolute path of generated HTML file |
+| 산출물 / Output | 단일 독립 HTML (Plotly CDN 내장) / Single self-contained HTML with Plotly CDN |
+| 필수 입력 / Required | `summary` (EvaluationSummary), `results` (run() 반환값) |
 
 ---
 
@@ -432,6 +606,109 @@ feedback = determine_swing_feedback(summary)
 | `InfoNCELoss.forward()` | z1, z2 가 L2-정규화되지 않은 경우 / z1, z2 not L2-normalized | — | `RuntimeError` (수치 이상 / numerical anomaly) |
 | `switch_to_phase2()` | backbone 키 0개 로드 (구조 불일치) / zero backbone keys loaded (architecture mismatch) | `SSOT-FF01` | `RuntimeError` |
 | `validate_config()` | 필수 섹션 누락 (`data`, `model`, `phase2` 등) / required section missing (`data`, `model`, `phase2`, etc.) | `SSOT-CF01` | `ValueError` |
+
+---
+
+## 10. 추론 경계 계약 / Inference Boundary Contracts
+
+### 10.1 모듈 트리 / Module Tree
+
+```
+inference/
+├── predictor_device.py    — DeviceMixin      (장치 감지·설정 / Device detection & setup)
+├── predictor_loader.py    — ModelLoaderMixin (모델 로딩·캐시 / Model loading & cache)
+├── predictor_inference.py — InferenceMixin   (추론 실행 / Inference execution)
+└── predictor.py           — GrayspotPredictor (Orchestrator)
+```
+
+### 10.2 `GrayspotPredictor` 공개 API / Public API
+
+```python
+from inference.predictor import GrayspotPredictor
+
+predictor = GrayspotPredictor(config_path=None)
+predictor.load_model(channel="Y", model_path=None)
+result    = predictor.predict(images, channel="Y", batch_size=32, return_confidences=True)
+results   = predictor.predict_batch(images_dict, batch_size=32)
+predictor.clear_cache(channel=None)
+info      = predictor.get_model_info(channel=None)
+```
+
+| 메서드 / Method | 모듈 / Module | Mixin | 설명 / Description |
+|---|---|---|---|
+| `__init__` | `inference.predictor` | Orchestrator | config 로딩, 장치 설정, 캐시 초기화 / Config loading, device setup, cache init |
+| `load_model` | `inference.predictor_loader` | `ModelLoaderMixin` | 채널별 모델 로드 및 캐시 / Per-channel model load & cache |
+| `predict` | `inference.predictor_inference` | `InferenceMixin` | 단일 채널 배치 추론 / Single-channel batch inference |
+| `predict_batch` | `inference.predictor_inference` | `InferenceMixin` | 멀티 채널 배치 추론 / Multi-channel batch inference |
+| `clear_cache` | `inference.predictor_loader` | `ModelLoaderMixin` | 모델 캐시 비우기 / Clear model cache |
+| `get_model_info` | `inference.predictor_loader` | `ModelLoaderMixin` | 로드된 모델 정보 조회 / Query loaded model info |
+
+### 10.3 `__init__` 입출력 / Init I/O
+
+```python
+GrayspotPredictor(config_path: Optional[str | Path] = None) -> GrayspotPredictor
+```
+
+| 항목 / Item | 타입 / Type | 설명 / Description |
+|---|---|---|
+| `config_path` | `Optional[str \| Path]` | None 이면 기본 config.json 경로 사용 / None uses default config.json |
+| **실패 조건 / Fail** | `FileNotFoundError` | config.json 없음 — Fail-Fast (fallback 없음 / no fallback) |
+
+### 10.4 `load_model` 입출력 / Load Model I/O
+
+```python
+load_model(channel: str, model_path: Optional[str | Path] = None) -> None
+```
+
+| 항목 / Item | 타입 / Type | 설명 / Description |
+|---|---|---|
+| `channel` | `str` | `"Y" \| "M" \| "C" \| "K"` (대소문자 무관 / case-insensitive) |
+| `model_path` | `Optional[str \| Path]` | None 이면 `storage.models_dir/best_{channel}.pt` 자동 탐색 |
+| **실패 조건 / Fail** | `ValueError` | 지원하지 않는 채널 / Unsupported channel |
+| **실패 조건 / Fail** | `FileNotFoundError` | 모델 파일 없음 — `SSOT-FF01` |
+
+### 10.5 `predict` 입출력 / Predict I/O
+
+```python
+predict(
+    images: np.ndarray,           # (N, H, W, 3) or (N, H, W) uint8 or float32, BGR
+    channel: str,                 # "Y" | "M" | "C" | "K"
+    batch_size: int = 32,
+    return_confidences: bool = True,
+) -> Dict[str, np.ndarray]
+```
+
+| 반환 키 / Return Key | 형상 / Shape | 타입 / Type | 설명 / Description |
+|---|---|---|---|
+| `predictions` | `(N,)` | `int64` | 예측 클래스 [0-5] / Predicted class |
+| `logits` | `(N, 6)` | `float32` | 원시 로짓 / Raw logits |
+| `probabilities` | `(N, 6)` | `float32` | Softmax 확률 / Softmax probabilities |
+| `confidences` | `(N,)` | `float32` | Max-softmax 신뢰도 (`return_confidences=True` 시) |
+
+> **SSOT-NM01 준수**: `predict()` 내부에서 `[0,1]` 정규화 후 반드시 ImageNet mean/std 를 적용한다.
+> 학습(`dataset.py _IMAGENET_NORMALIZE`)과 동일한 변환 — 불일치 시 성능 저하.
+
+### 10.6 `predict_batch` 입출력 / Predict Batch I/O
+
+```python
+predict_batch(
+    images_dict: Dict[str, np.ndarray],   # {channel: (N,H,W,3) BGR array}
+    batch_size: int = 32,
+) -> Dict[str, Dict[str, np.ndarray]]     # {channel: predict() 반환값}
+```
+
+> 로드되지 않은 채널은 경고 로그 후 결과에서 제외된다.
+> Channels without loaded models are skipped with a warning log.
+
+### 10.7 필수 Config 키 / Required Config Keys
+
+| Config 키 / Key | 사용처 / Used by | 설명 / Description |
+|---|---|---|
+| `system.device` | `DeviceMixin._setup_device` | `"auto" \| "cuda" \| "mps" \| "cpu"` |
+| `storage.models_dir` | `ModelLoaderMixin._resolve_model_path` | 모델 아티팩트 디렉토리 / Model artifact directory |
+| `data.channels` | `GrayspotPredictor.__init__` | 지원 채널 목록 / Supported channels |
+| `data.image_size` | `GrayspotPredictor.__init__` | 입력 이미지 크기 / Input image size |
+| `data.num_levels` | `GrayspotPredictor.__init__` | 분류 클래스 수 / Number of classification levels |
 
 ---
 
@@ -452,6 +729,7 @@ feedback = determine_swing_feedback(summary)
 | `tuning.search_space` | `optuna.search_space.{backbone}.*` (backbone별 분기 / backbone-branched) |
 | `utils.utils_config` | — (config 자체를 로드하므로 의존 없음 / loads config itself, no dependencies) |
 | `utils.utils_model` | `model.backbone`, `storage.models_dir`, `system.device` (`build_model` 사용 시 / when using build_model) |
+| `inference.predictor` | `system.device`, `storage.models_dir`, `data.channels`, `data.image_size`, `data.num_levels` |
 | `scripts.run_phase0` | `data.channels`, `system.device`, `train.seed`, `storage.*` |
 | `scripts.run_phase2` | `data.channels`, `system.device`, `train.seed`, `storage.*` |
 | `scripts.run_baseline` | `data.channels`, `system.device`, `train.seed`, `storage.*` |
@@ -459,8 +737,41 @@ feedback = determine_swing_feedback(summary)
 
 ---
 
-**Version**: 0.4.0
-**Last Updated**: 2026-05-12
-**Python**: 3.11.5
-**PyTorch**: 2.x
-**Applies to**: CMYK Grayspot Detection System v0.1.0+
+## 11. 튜닝 경계 계약 / Tuning Boundary Contracts
+
+### 11.1 `run_optuna()` 계약
+
+```python
+from tuning.optuna_tuner import run_optuna
+
+run_optuna(n_trials: int | None = None, channel: str = "all") -> None
+```
+
+| 항목 / Item | 타입 / Type | 설명 / Description |
+|---|---|---|
+| `n_trials` | `int \| None` | None 이면 `cfg["optuna"]["n_trials"]` 사용 (기본 5) / Uses cfg default if None |
+| `channel` | `str` | `"all"` 또는 단일 채널 (`"Y"/"M"/"C"/"K"`) — 대소문자 무관 |
+| 반환 / Return | `None` | — |
+| 산출물 / Output | — | `outputs/optuna/` 아래 trial 결과 JSON / Trial results JSON under `outputs/optuna/` |
+
+**필수 cfg 키 / Required config keys**: `optuna.n_trials`, `optuna.search_space.{backbone}.*`, `system.device`, `train.seed`
+
+> ⚠️ **역방향 의존성 경고 / Reverse dependency warning**: `optuna_tuner.py` 가 `src.scripts.run_baseline` 을 import 한다. 이는 `tuning → scripts` 방향으로 레이어 위반. 향후 리팩토링 필요.
+> `optuna_tuner.py` imports from `src.scripts.run_baseline` — a layer violation (`tuning → scripts`). Refactor planned.
+
+### 11.2 하이퍼파라미터 탐색 공간 계약 / Hyperparameter Search Space Contract
+
+```python
+from tuning.search_space import get_search_space
+
+space = get_search_space(trial, backbone_name: str) -> dict
+```
+
+| 항목 / Item | 설명 / Description |
+|---|---|
+| `trial` | `optuna.Trial` 객체 |
+| `backbone_name` | `"efficientnet_b0"` 또는 `"resnet50"` |
+| 반환 / Return | `dict` — 탐색 공간에서 샘플링된 하이퍼파라미터 / Hyperparameters sampled from search space |
+| Config 참조 / Config ref | `cfg["optuna"]["search_space"][backbone_name].*` |
+
+---

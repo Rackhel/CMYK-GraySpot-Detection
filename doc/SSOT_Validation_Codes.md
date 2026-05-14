@@ -242,7 +242,3 @@ def warn_dead_configs(cfg_flat: dict) -> None:
 ```
 
 ---
-
-**Version**: 0.2.0
-**Last Updated**: 2026-05-11
-**Applies to**: CMYK Grayspot Detection System v0.1.0+
