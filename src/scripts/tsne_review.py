@@ -35,9 +35,9 @@ import argparse
 from pathlib import Path
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 
 try:
