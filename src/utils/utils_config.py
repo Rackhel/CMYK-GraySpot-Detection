@@ -146,7 +146,7 @@ def load_config(
     return cfg
 
 
-def validate_config(cfg: dict) -> bool:
+def validate_config(cfg: dict) -> None:
     """
     필수 설정 항목을 검증한다. 실패 시 즉시 ValueError 발생 (Fail-Fast, SSOT-CF01).
     Validates required configuration fields. Raises ValueError on failure (Fail-Fast, SSOT-CF01).
@@ -177,7 +177,6 @@ def validate_config(cfg: dict) -> bool:
                     raise ValueError(
                         f"[CONFIG ERROR / SSOT-CF01] {phase}.learning_rate must be > 0"
                     )
-    return True
 
 
 def create_directories(cfg: dict) -> None:
