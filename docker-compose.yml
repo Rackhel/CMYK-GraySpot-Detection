@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  grayspot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: grayspot_container
+    volumes:
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
+    command: /bin/bash
