@@ -41,4 +41,21 @@ env/
 # IDE
 .vscode/
 .idea/
+
+# 로그 파일 / log files
+*.log
+
+# 기타 / others
+*.tmp
+*.bak
+
+# 빌드 결과물 / build artifacts
+dist/
+build/
+
+# 테스트 결과물 / test artifacts
+test_outputs/
+
+# 개인 설정 파일 / personal config files
+*.env
 .claude/
