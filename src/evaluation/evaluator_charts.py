@@ -428,8 +428,8 @@ class ChartsMixin:
         overall_mf1 = metrics["overall"]["macro_f1"]
 
         # cfg에서 swing 재시도 임계값을 읽는다 / Read swing retry thresholds from cfg
-        cfg_swing = getattr(self, "cfg", {}).get("evaluation", {}).get(
-            "swing_thresholds", {}
+        cfg_swing = (
+            getattr(self, "cfg", {}).get("evaluation", {}).get("swing_thresholds", {})
         )
         acc_retry = cfg_swing.get("swing_acc_retry", 0.80)
         f1_retry = cfg_swing.get("swing_f1_retry", 0.70)

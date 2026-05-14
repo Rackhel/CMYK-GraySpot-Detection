@@ -167,9 +167,7 @@ def validate_config(cfg: dict) -> None:
             )
 
     if cfg["data"]["num_levels"] < 2:
-        raise ValueError(
-            "[CONFIG ERROR / SSOT-CF01] data.num_levels must be >= 2"
-        )
+        raise ValueError("[CONFIG ERROR / SSOT-CF01] data.num_levels must be >= 2")
 
     for phase in ("phase0", "phase2"):
         if phase in cfg:

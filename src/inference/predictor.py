@@ -36,11 +36,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from utils.utils_config import load_config
-
 from inference.predictor_device import DeviceMixin
 from inference.predictor_inference import InferenceMixin
 from inference.predictor_loader import ModelLoaderMixin
+from utils.utils_config import load_config
 
 
 class GrayspotPredictor(DeviceMixin, ModelLoaderMixin, InferenceMixin):
@@ -91,11 +90,11 @@ class GrayspotPredictor(DeviceMixin, ModelLoaderMixin, InferenceMixin):
         self.logger.info(f"  Device: {self.device}")
 
         # 모델 캐시 초기화 — ModelLoaderMixin에서 사용
-        self.models: Dict[str, Any]       = {}
+        self.models: Dict[str, Any] = {}
         self.model_paths: Dict[str, Path] = {}
 
         # SSOT 상수 (config 우선, SSOT 기본값 fallback)
-        self.channels   = self.cfg.get("data", {}).get("channels")   or ["Y", "M", "C", "K"]
+        self.channels = self.cfg.get("data", {}).get("channels") or ["Y", "M", "C", "K"]
         self.image_size = self.cfg.get("data", {}).get("image_size") or 128
         self.num_levels = self.cfg.get("data", {}).get("num_levels") or 6
 

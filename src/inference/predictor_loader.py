@@ -83,7 +83,7 @@ class ModelLoaderMixin(LoggerMixin):
         model.load_state_dict(checkpoint, strict=False)
         model = model.to(self.device).eval()
 
-        self.models[channel]      = model
+        self.models[channel] = model
         self.model_paths[channel] = resolved_path
         self.logger.info(f"  ✓ [{channel}] loaded successfully")
 
@@ -115,9 +115,7 @@ class ModelLoaderMixin(LoggerMixin):
             dict — device, model_path, num_parameters
         """
         if channel is None:
-            return {
-                ch: self._channel_info(ch) for ch in self.models
-            }
+            return {ch: self._channel_info(ch) for ch in self.models}
         ch = channel.upper()
         if ch not in self.models:
             return {"error": f"Model not loaded for [{ch}]"}
@@ -138,7 +136,7 @@ class ModelLoaderMixin(LoggerMixin):
 
     def _channel_info(self, ch: str) -> Dict[str, Any]:
         return {
-            "device"        : str(self.device),
-            "model_path"    : str(self.model_paths.get(ch, "N/A")),
+            "device": str(self.device),
+            "model_path": str(self.model_paths.get(ch, "N/A")),
             "num_parameters": sum(p.numel() for p in self.models[ch].parameters()),
         }

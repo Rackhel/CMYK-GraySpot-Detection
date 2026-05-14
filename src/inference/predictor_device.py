@@ -15,6 +15,7 @@ SSOT 근거 / SSOT Reference:
 from __future__ import annotations
 
 import torch
+
 from utils.logger import LoggerMixin
 
 
@@ -43,8 +44,8 @@ class DeviceMixin(LoggerMixin):
         handlers = {
             "auto": self._device_auto,
             "cuda": self._device_cuda,
-            "mps":  self._device_mps,
-            "cpu":  self._device_cpu,
+            "mps": self._device_mps,
+            "cpu": self._device_cpu,
         }
 
         handler = handlers.get(device_cfg, self._device_cpu)

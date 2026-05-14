@@ -89,7 +89,7 @@ class InferenceMixin(LoggerMixin):
             )
 
         img_tensor = self._preprocess_images(images)
-        loader     = DataLoader(
+        loader = DataLoader(
             TensorDataset(img_tensor), batch_size=batch_size, shuffle=False
         )
 
@@ -98,9 +98,9 @@ class InferenceMixin(LoggerMixin):
 
         with torch.no_grad():
             for (batch,) in loader:
-                batch  = batch.to(self.device)
+                batch = batch.to(self.device)
                 logits = model(batch)
-                probs  = F.softmax(logits, dim=1)
+                probs = F.softmax(logits, dim=1)
                 conf, pred = probs.max(dim=1)
 
                 all_logits.append(logits.cpu().numpy())
@@ -108,15 +108,13 @@ class InferenceMixin(LoggerMixin):
                 all_confs.append(conf.cpu().numpy())
 
         logits_arr = np.concatenate(all_logits, axis=0)
-        preds_arr  = np.concatenate(all_preds,  axis=0)
-        confs_arr  = np.concatenate(all_confs,  axis=0)
-        probs_arr  = F.softmax(
-            torch.from_numpy(logits_arr), dim=1
-        ).numpy()
+        preds_arr = np.concatenate(all_preds, axis=0)
+        confs_arr = np.concatenate(all_confs, axis=0)
+        probs_arr = F.softmax(torch.from_numpy(logits_arr), dim=1).numpy()
 
         result: Dict[str, np.ndarray] = {
-            "predictions"  : preds_arr,
-            "logits"       : logits_arr,
+            "predictions": preds_arr,
+            "logits": logits_arr,
             "probabilities": probs_arr,
         }
         if return_confidences:
@@ -145,15 +143,11 @@ class InferenceMixin(LoggerMixin):
         for channel, images in images_dict.items():
             ch = channel.upper()
             if ch not in self.models:
-                self.logger.warning(
-                    f"  [{ch}] Model not loaded — skipping"
-                )
+                self.logger.warning(f"  [{ch}] Model not loaded — skipping")
                 continue
             results[ch] = self.predict(images, ch, batch_size)
 
-        self.logger.info(
-            f"  ✓ Batch inference complete for {len(results)} channel(s)"
-        )
+        self.logger.info(f"  ✓ Batch inference complete for {len(results)} channel(s)")
         return results
 
     # ------------------------------------------------------------------
