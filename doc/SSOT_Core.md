@@ -446,16 +446,16 @@ All Python code in this project **must** follow the three principles below.
 
 | 위반 / Violation | 위치 / Location | 등급 / Level | 해결 방향 / Resolution |
 |---|---|---|---|
-| `backbone_tag()` 이중 정의 / Dual definition | `training/trainer.py:92`, `utils/utils_model.py:54` | Level 2 | `utils/utils_model.py` 를 단일 출처로, `trainer.py`에서 import / Import from `utils_model.py` as single source |
-| `_IMAGENET_NORMALIZE` 이중 정의 / Dual definition | `data/dataset.py`, `inference/predictor_inference.py` | Level 2 | `data/normalize.py` 신규 모듈로 통합 후 양쪽에서 import / Consolidate into new `data/normalize.py` and import from both |
-| `optuna_tuner.py` → `run_baseline` 역방향 의존성 / Reverse dependency | `tuning/optuna_tuner.py:138` | Level 2 | tuning layer에서 scripts layer를 import하는 구조 위반 — 향후 리팩토링 / Layer violation: tuning→scripts; refactor planned |
-| `run_optuna()` best_params 이중 저장 / Duplicate save | `tuning/optuna_tuner.py` | Level 2 | `json.dump` 직접 호출 + `save_best_params()` 중복 — 직접 `json.dump` 블록 제거 필요 / Direct `json.dump` + `save_best_params()` both called; remove the direct block |
+| `optuna_tuner.py` → `run_baseline` 역방향 의존성 / Reverse dependency | `tuning/optuna_tuner.py` | Level 2 | tuning layer에서 scripts layer를 import하는 구조 위반 — 향후 리팩토링 / Layer violation: tuning→scripts; refactor planned |
 
 > ✅ **해소됨 / Resolved** (이전 위반들 / Previous violations):
 > - SSOT-CS01: `evaluator_inference.py` BGR→RGB 변환 제거 (2026-05-14)
 > - SSOT-NM01: `predictor_inference.py` ImageNet 정규화 적용 (2026-05-14)
 > - `validate_config()`: `False` 반환 → `ValueError` 발생으로 수정 (2026-05-14)
 > - `switch_to_phase2()`: backbone 키 0개 시 경고 → `RuntimeError` 발생으로 수정 (2026-05-14)
+> - `backbone_tag()` 이중 정의: `trainer.py` 로컬 정의 제거, `utils_model.py`에서 import (2026-05-14)
+> - `_IMAGENET_NORMALIZE` 이중 정의: `data/normalize.py` 단일 출처 생성, `dataset.py`·`predictor_inference.py` 양쪽 import (2026-05-14)
+> - `run_optuna()` best_params 이중 저장: 직접 `json.dump` 블록 제거, `save_best_params()` 단독 호출 (2026-05-14)
 
 ---
 

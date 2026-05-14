@@ -149,14 +149,14 @@ Any discrepancy causes **distribution shift**, leading to silent accuracy degrad
 
 | 단계 / Stage | 파일 / File | 정규화 / Normalization | 상태 / Status |
 |---|---|---|---|
-| 학습 Phase 0 / Training Phase 0 | `data/dataset.py` | `_IMAGENET_NORMALIZE` | ✅ |
-| 학습 Phase 2 / Training Phase 2 | `data/dataset.py` | `_IMAGENET_NORMALIZE` | ✅ |
-| 추론 / Inference | `inference/predictor_inference.py` | `_IMAGENET_NORMALIZE` | ✅ |
+| 학습 Phase 0 / Training Phase 0 | `data/dataset.py` | `_IMAGENET_NORMALIZE` (from `data/normalize.py`) | ✅ |
+| 학습 Phase 2 / Training Phase 2 | `data/dataset.py` | `_IMAGENET_NORMALIZE` (from `data/normalize.py`) | ✅ |
+| 추론 / Inference | `inference/predictor_inference.py` | `_IMAGENET_NORMALIZE` (from `data/normalize.py`) | ✅ |
 | 평가 / Evaluation | `evaluation/evaluator_inference.py` | `_IMAGENET_NORMALIZE` (via Dataset) | ✅ |
 
-> ⚠️ **미해소 / Open**: `_IMAGENET_NORMALIZE` 가 `dataset.py` 와 `predictor_inference.py` 두 곳에 정의되어 있다. SSOT 단일 출처 원칙 위반. 향후 `data/normalize.py` 로 통합 예정.
+> ✅ **해소됨 / Resolved** (2026-05-14): `data/normalize.py` 신규 모듈로 단일 출처 통합. `dataset.py` · `predictor_inference.py` 양쪽에서 import.
 >
-> `_IMAGENET_NORMALIZE` is currently defined in both `dataset.py` and `predictor_inference.py`. Violates SSOT single-source principle. Planned consolidation into `data/normalize.py`.
+> `data/normalize.py` created as the single source. Both `dataset.py` and `predictor_inference.py` now import from it.
 
 ---
 

@@ -21,19 +21,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
-from torchvision import transforms as T
 
+from data.normalize import _IMAGENET_NORMALIZE  # SSOT-NM01: 단일 출처 사용
 from utils.logger import LoggerMixin
-
-# ---------------------------------------------------------------------------
-# ImageNet 정규화 상수 / ImageNet normalization constant
-# SSOT_Data_Pipeline.md §3.2 — 학습·추론 공통 적용 필수
-# Must be applied consistently in both training and inference.
-# ---------------------------------------------------------------------------
-_IMAGENET_NORMALIZE = T.Normalize(
-    mean=[0.485, 0.456, 0.406],
-    std=[0.229, 0.224, 0.225],
-)
 
 
 class InferenceMixin(LoggerMixin):
