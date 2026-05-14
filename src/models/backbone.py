@@ -28,15 +28,17 @@ def build_backbone(backbone_name: str) -> tuple[nn.Module, int]:
     """
     if backbone_name == "efficientnet_b0":
         from torchvision.models import EfficientNet_B0_Weights
-        backbone    = models.efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
+
+        backbone = models.efficientnet_b0(weights=EfficientNet_B0_Weights.DEFAULT)
         feature_dim = backbone.classifier[1].in_features  # 1280
         # Classifier Head 제거 → GAP 출력만 사용 / Remove classifier head → use GAP output only
         backbone.classifier = nn.Identity()
 
     elif backbone_name == "resnet50":
         from torchvision.models import ResNet50_Weights
-        backbone    = models.resnet50(weights=ResNet50_Weights.DEFAULT)
-        feature_dim = backbone.fc.in_features              # 2048
+
+        backbone = models.resnet50(weights=ResNet50_Weights.DEFAULT)
+        feature_dim = backbone.fc.in_features  # 2048
         # FC Layer 제거 / Remove FC layer
         backbone.fc = nn.Identity()
 

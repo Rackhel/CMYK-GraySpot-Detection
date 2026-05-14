@@ -18,30 +18,40 @@ Validates Phase 0 Contrastive Learning training in isolation.
     python src/tests/test_training_phase0.py --channel all
 """
 
-import sys
 import argparse
 import copy
-import yaml
-import torch
+import sys
 from pathlib import Path
+
+import torch
+import yaml
 from torch.utils.data import DataLoader
 
 # CMYK_MAIN 루트를 sys.path에 추가 / Add CMYK_MAIN root to sys.path
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent  # CMYK_MAIN/
-SRC_DIR  = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
 from models.grayspot_model import GrayspotModel
-from training.trainer      import ContrastiveDataset, Phase0Trainer
+from training.trainer import ContrastiveDataset, Phase0Trainer
 
 CHANNELS = ["Y", "M", "C", "K"]
 
 
 # ── 출력 헬퍼 / Output helpers ────────────────────────────────
-def pass_(msg): print(f"  [PASS] {msg}")
-def fail_(msg): print(f"  [FAIL] {msg}")
-def info_(msg): print(f"  [INFO] {msg}")
+def pass_(msg):
+    print(f"  [PASS] {msg}")
+
+
+def fail_(msg):
+    print(f"  [FAIL] {msg}")
+
+
+def info_(msg):
+    print(f"  [INFO] {msg}")
+
+
 def section(title):
     print(f"\n{'─'*55}")
     print(f"  {title}")
@@ -63,7 +73,7 @@ def mini_cfg(cfg: dict, epochs: int = 3) -> dict:
     epoch 수를 줄여 빠르게 검증한다 / Reduces epochs for fast validation.
     """
     c = copy.deepcopy(cfg)
-    c["phase0"]["epochs"]     = epochs
+    c["phase0"]["epochs"] = epochs
     c["phase0"]["batch_size"] = 4
     return c
 
@@ -76,14 +86,16 @@ def test_config() -> bool:
     try:
         cfg = load_config()
         required = ["data", "model", "phase0", "phase2", "storage", "train"]
-        missing  = [k for k in required if k not in cfg]
+        missing = [k for k in required if k not in cfg]
         if missing:
             fail_(f"누락된 키 / Missing keys: {missing}")
             return False
         pass_(f"config.yaml 로드 성공 / Loaded successfully")
-        pass_(f"backbone: {cfg['model']['backbone']} | "
-              f"image_size: {cfg['data']['image_size']} | "
-              f"channels: {cfg['data']['channels']}")
+        pass_(
+            f"backbone: {cfg['model']['backbone']} | "
+            f"image_size: {cfg['data']['image_size']} | "
+            f"channels: {cfg['data']['channels']}"
+        )
         return True
     except Exception as e:
         fail_(f"config 로드 오류 / Load error: {e}")
@@ -101,17 +113,23 @@ def test_dataset(cfg: dict, channels: list) -> bool:
         try:
             ds = ContrastiveDataset(cfg, ch)
             if len(ds) == 0:
-                info_(f"[{ch}] 데이터 없음 / No data — "
-                      f"labeled/{ch}/ 폴더를 확인하세요 / Check labeled/{ch}/")
+                info_(
+                    f"[{ch}] 데이터 없음 / No data — "
+                    f"labeled/{ch}/ 폴더를 확인하세요 / Check labeled/{ch}/"
+                )
             else:
                 # Positive Pair 형태 확인 / Verify positive pair shape
                 v1, v2 = ds[0]
                 if v1.shape != v2.shape:
-                    fail_(f"[{ch}] Positive Pair shape 불일치 / Mismatch: {v1.shape} vs {v2.shape}")
+                    fail_(
+                        f"[{ch}] Positive Pair shape 불일치 / Mismatch: {v1.shape} vs {v2.shape}"
+                    )
                     passed = False
                 else:
-                    pass_(f"[{ch}] {len(ds)}개 이미지 / images | "
-                          f"Pair shape: {tuple(v1.shape)}")
+                    pass_(
+                        f"[{ch}] {len(ds)}개 이미지 / images | "
+                        f"Pair shape: {tuple(v1.shape)}"
+                    )
         except Exception as e:
             fail_(f"[{ch}] Dataset 오류 / Error: {e}")
             passed = False
@@ -126,23 +144,25 @@ def test_model_init(cfg: dict) -> bool:
     section("TEST 3. Phase 0 모델 초기화 확인 / Phase 0 Model Initialization")
 
     device = torch.device(
-        "cuda" if torch.cuda.is_available() else
-        "mps"  if torch.backends.mps.is_available() else
-        "cpu"
+        "cuda"
+        if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available() else "cpu"
     )
 
     try:
-        model        = GrayspotModel(cfg, phase=0).to(device)
-        size         = cfg["data"]["image_size"]
-        dummy        = torch.randn(2, 3, size, size).to(device)
+        model = GrayspotModel(cfg, phase=0).to(device)
+        size = cfg["data"]["image_size"]
+        dummy = torch.randn(2, 3, size, size).to(device)
         expected_dim = cfg["phase0"]["projection_dim"]
 
         with torch.no_grad():
             output = model(dummy)
 
         if output.shape != (2, expected_dim):
-            fail_(f"출력 형태 오류 / Wrong shape: {output.shape} "
-                  f"(expected (2, {expected_dim}))")
+            fail_(
+                f"출력 형태 오류 / Wrong shape: {output.shape} "
+                f"(expected (2, {expected_dim}))"
+            )
             return False
 
         pass_(f"Phase 0 모델 초기화 / Initialized: {cfg['model']['backbone']}")
@@ -161,13 +181,13 @@ def test_model_init(cfg: dict) -> bool:
 def test_phase0_training(cfg: dict, channels: list) -> tuple[bool, dict]:
     section("TEST 4. Phase 0 미니 학습 (3 epoch) / Phase 0 Mini Training")
 
-    device   = torch.device(
-        "cuda" if torch.cuda.is_available() else
-        "mps"  if torch.backends.mps.is_available() else
-        "cpu"
+    device = torch.device(
+        "cuda"
+        if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available() else "cpu"
     )
-    mcfg     = mini_cfg(cfg, epochs=3)
-    passed   = True
+    mcfg = mini_cfg(cfg, epochs=3)
+    passed = True
     backbone_paths = {}
 
     for ch in channels:
@@ -177,14 +197,14 @@ def test_phase0_training(cfg: dict, channels: list) -> tuple[bool, dict]:
                 info_(f"[{ch}] 데이터 없음 — 건너뜀 / No data — skipping")
                 continue
 
-            loader  = DataLoader(
+            loader = DataLoader(
                 ds,
                 batch_size=min(mcfg["phase0"]["batch_size"], len(ds)),
                 shuffle=True,
                 drop_last=True,
                 num_workers=0,
             )
-            model   = GrayspotModel(mcfg, phase=0).to(device)
+            model = GrayspotModel(mcfg, phase=0).to(device)
             trainer = Phase0Trainer(model, mcfg, ch, device)
             history = trainer.train(loader)
 
@@ -194,8 +214,10 @@ def test_phase0_training(cfg: dict, channels: list) -> tuple[bool, dict]:
                 if last < first * 1.5:
                     pass_(f"[{ch}] Loss: {first:.4f} → {last:.4f}")
                 else:
-                    info_(f"[{ch}] Loss 감소 미확인 (데이터 부족 가능) / "
-                          f"Loss decrease not confirmed (possibly insufficient data)")
+                    info_(
+                        f"[{ch}] Loss 감소 미확인 (데이터 부족 가능) / "
+                        f"Loss decrease not confirmed (possibly insufficient data)"
+                    )
 
             # Backbone 저장 / Save backbone
             backbone_path = trainer.save_backbone()
@@ -215,7 +237,9 @@ def test_backbone_saved(backbone_paths: dict) -> bool:
     section("TEST 5. Backbone 저장 확인 / Backbone Save Verification")
 
     if not backbone_paths:
-        info_("저장된 Backbone 없음 — TEST 4 데이터 확인 / No backbones — check TEST 4 data")
+        info_(
+            "저장된 Backbone 없음 — TEST 4 데이터 확인 / No backbones — check TEST 4 data"
+        )
         return True
 
     passed = True
@@ -237,8 +261,12 @@ def main():
     parser = argparse.ArgumentParser(
         description="Grayspot Phase 0 학습 검증 / Phase 0 Training Validation"
     )
-    parser.add_argument("--channel", type=str, default="all",
-                        help="테스트할 채널 / Channel to test (Y/M/C/K/all, default: all)")
+    parser.add_argument(
+        "--channel",
+        type=str,
+        default="all",
+        help="테스트할 채널 / Channel to test (Y/M/C/K/all, default: all)",
+    )
     args = parser.parse_args()
 
     target_channels = CHANNELS if args.channel == "all" else [args.channel.upper()]
@@ -248,16 +276,16 @@ def main():
     print(f"  Channels: {target_channels}")
     print("=" * 55)
 
-    cfg     = load_config()
+    cfg = load_config()
     results = {}
 
-    results["config 로드 / Load"]                = test_config()
-    results["ContrastiveDataset"]                = test_dataset(cfg, target_channels)
-    results["Phase 0 모델 초기화 / Model Init"]   = test_model_init(cfg)
+    results["config 로드 / Load"] = test_config()
+    results["ContrastiveDataset"] = test_dataset(cfg, target_channels)
+    results["Phase 0 모델 초기화 / Model Init"] = test_model_init(cfg)
 
     train_passed, backbone_paths = test_phase0_training(cfg, target_channels)
-    results["Phase 0 미니 학습 / Mini Training"]  = train_passed
-    results["Backbone 저장 / Save"]               = test_backbone_saved(backbone_paths)
+    results["Phase 0 미니 학습 / Mini Training"] = train_passed
+    results["Backbone 저장 / Save"] = test_backbone_saved(backbone_paths)
 
     # 최종 결과 / Final results
     print(f"\n{'='*55}")

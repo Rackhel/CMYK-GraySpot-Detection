@@ -35,7 +35,6 @@ from sklearn.metrics import (
     recall_score,
 )
 
-
 # ---------------------------------------------------------------------------
 # Constants / 상수
 # ---------------------------------------------------------------------------
@@ -60,8 +59,8 @@ DEFAULT_TARGET_PER_COLOR_ACC: float = TARGET_PER_COLOR_ACC
 DEFAULT_TARGET_MAE: float = TARGET_MAE
 
 # 신뢰도 임계값 / Confidence thresholds (PRD Section 14.2)
-CONF_THRESH_AUTO: float = 0.8    # 자동 판정 / Auto judgment
-CONF_THRESH_WARN: float = 0.5    # 경고 포함 자동 / Warn + auto
+CONF_THRESH_AUTO: float = 0.8  # 자동 판정 / Auto judgment
+CONF_THRESH_WARN: float = 0.5  # 경고 포함 자동 / Warn + auto
 CONF_THRESH_MANUAL: float = 0.3  # 수동 검수 대기 / Manual queue
 
 
@@ -69,9 +68,11 @@ CONF_THRESH_MANUAL: float = 0.3  # 수동 검수 대기 / Manual queue
 # Data classes for structured results / 결과를 위한 데이터 클래스
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PerClassMetric:
     """단일 레벨의 분류 지표 / Classification metrics for a single level."""
+
     level: int
     precision: float
     recall: float
@@ -85,6 +86,7 @@ class ChannelMetrics:
     단일 채널(Y/M/C/K) 또는 전체(overall)의 평가 지표.
     Evaluation metrics for a single channel or overall.
     """
+
     accuracy: float
     macro_f1: float
     mae: float
@@ -111,20 +113,24 @@ class EvaluationSummary:
     전체 평가 결과 요약 — html_report.py 에서 사용한다.
     Full evaluation result summary — used by html_report.py.
     """
+
     overall: ChannelMetrics
     by_channel: Dict[str, ChannelMetrics]
     meta: Dict = field(default_factory=dict)
-    targets: Dict = field(default_factory=lambda: {
-        "overall_accuracy": TARGET_OVERALL_ACC,
-        "per_color_accuracy": TARGET_PER_COLOR_ACC,
-        "per_class_f1": TARGET_PER_CLASS_F1,
-        "mae": TARGET_MAE,
-    })
+    targets: Dict = field(
+        default_factory=lambda: {
+            "overall_accuracy": TARGET_OVERALL_ACC,
+            "per_color_accuracy": TARGET_PER_COLOR_ACC,
+            "per_class_f1": TARGET_PER_CLASS_F1,
+            "mae": TARGET_MAE,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Core metric functions / 핵심 지표 함수
 # ---------------------------------------------------------------------------
+
 
 def compute_per_class_metrics(
     y_true: np.ndarray,
@@ -139,21 +145,22 @@ def compute_per_class_metrics(
         List of dicts: [{'level': int, 'precision': float, 'recall': float, 'f1': float}, ...]
     """
     labels = list(range(num_classes))
-    prec   = precision_score(y_true, y_pred, labels=labels, average=None, zero_division=0)
-    rec    = recall_score   (y_true, y_pred, labels=labels, average=None, zero_division=0)
-    f1     = f1_score       (y_true, y_pred, labels=labels, average=None, zero_division=0)
+    prec = precision_score(y_true, y_pred, labels=labels, average=None, zero_division=0)
+    rec = recall_score(y_true, y_pred, labels=labels, average=None, zero_division=0)
+    f1 = f1_score(y_true, y_pred, labels=labels, average=None, zero_division=0)
 
     # Count support per class / 클래스별 샘플 수
     from collections import Counter
+
     counts = Counter(y_true.tolist())
 
     return [
         {
-            "level"    : i,
+            "level": i,
             "precision": float(prec[i]),
-            "recall"   : float(rec[i]),
-            "f1"       : float(f1[i]),
-            "support"  : int(counts.get(i, 0)),
+            "recall": float(rec[i]),
+            "f1": float(f1[i]),
+            "support": int(counts.get(i, 0)),
         }
         for i in labels
     ]
@@ -183,21 +190,21 @@ def compute_metrics(
             for i in range(num_classes)
         ]
         return {
-            "accuracy" : 0.0,
-            "macro_f1" : 0.0,
-            "mae"      : 0.0,
+            "accuracy": 0.0,
+            "macro_f1": 0.0,
+            "mae": 0.0,
             "per_class": empty_per_class,
             "n_samples": 0,
         }
 
     accuracy = float(accuracy_score(y_true, y_pred))
     macro_f1 = float(f1_score(y_true, y_pred, average="macro", zero_division=0))
-    mae      = float(np.mean(np.abs(y_true.astype(float) - y_pred.astype(float))))
+    mae = float(np.mean(np.abs(y_true.astype(float) - y_pred.astype(float))))
 
     return {
-        "accuracy" : accuracy,
-        "macro_f1" : macro_f1,
-        "mae"      : mae,
+        "accuracy": accuracy,
+        "macro_f1": macro_f1,
+        "mae": mae,
         "per_class": compute_per_class_metrics(y_true, y_pred, num_classes),
         "n_samples": int(len(y_true)),
     }
@@ -249,41 +256,40 @@ def check_targets(
     results: Dict[str, dict] = {}
 
     # Overall targets
-    m   = metrics.get("overall", {})
+    m = metrics.get("overall", {})
     acc = m.get("accuracy", 0.0)
-    f1  = m.get("macro_f1", 0.0)
+    f1 = m.get("macro_f1", 0.0)
     mae = m.get("mae", 9.9)
 
     per_class_f1_ok = all(
-        pc["f1"] >= TARGET_PER_CLASS_F1
-        for pc in m.get("per_class", [])
+        pc["f1"] >= TARGET_PER_CLASS_F1 for pc in m.get("per_class", [])
     )
 
     results["overall"] = {
-        "acc_pass"       : bool(acc >= TARGET_OVERALL_ACC),
-        "f1_pass"        : bool(f1  >= TARGET_PER_CLASS_F1),
-        "mae_pass"       : bool(mae <= TARGET_MAE),
+        "acc_pass": bool(acc >= TARGET_OVERALL_ACC),
+        "f1_pass": bool(f1 >= TARGET_PER_CLASS_F1),
+        "mae_pass": bool(mae <= TARGET_MAE),
         "per_class_f1_ok": per_class_f1_ok,
-        "all_pass"       : bool(
+        "all_pass": bool(
             acc >= TARGET_OVERALL_ACC
-            and f1  >= TARGET_PER_CLASS_F1
+            and f1 >= TARGET_PER_CLASS_F1
             and mae <= TARGET_MAE
             and per_class_f1_ok
         ),
     }
 
     for color in channels:
-        m   = metrics.get(color, {})
+        m = metrics.get(color, {})
         acc = m.get("accuracy", 0.0)
-        f1  = m.get("macro_f1", 0.0)
+        f1 = m.get("macro_f1", 0.0)
         mae = m.get("mae", 9.9)
         results[color] = {
             "acc_pass": bool(acc >= TARGET_PER_COLOR_ACC),
-            "f1_pass" : bool(f1  >= TARGET_PER_CLASS_F1),
+            "f1_pass": bool(f1 >= TARGET_PER_CLASS_F1),
             "mae_pass": bool(mae <= TARGET_MAE),
             "all_pass": bool(
                 acc >= TARGET_PER_COLOR_ACC
-                and f1  >= TARGET_PER_CLASS_F1
+                and f1 >= TARGET_PER_CLASS_F1
                 and mae <= TARGET_MAE
             ),
         }
@@ -330,9 +336,7 @@ def print_summary(
     print(f"  MAE              <= {TARGET_MAE:.2f}")
 
     overall_pass = targets.get("overall", {}).get("all_pass", False)
-    all_color_ok = all(
-        targets.get(c, {}).get("acc_pass", False) for c in channels
-    )
+    all_color_ok = all(targets.get(c, {}).get("acc_pass", False) for c in channels)
     if overall_pass and all_color_ok:
         print("\n  All targets met / 모든 목표 달성 -- TERMINATE Swing")
     else:
@@ -342,6 +346,7 @@ def print_summary(
 # ---------------------------------------------------------------------------
 # Helper: build EvaluationSummary from raw results dict
 # ---------------------------------------------------------------------------
+
 
 def build_evaluation_summary(
     results: Dict[str, dict],
@@ -367,61 +372,62 @@ def build_evaluation_summary(
     def _to_channel_metrics(m: dict) -> ChannelMetrics:
         per_class = [
             PerClassMetric(
-                level     = pc["level"],
-                precision = pc["precision"],
-                recall    = pc["recall"],
-                f1        = pc["f1"],
-                support   = pc.get("support", 0),
+                level=pc["level"],
+                precision=pc["precision"],
+                recall=pc["recall"],
+                f1=pc["f1"],
+                support=pc.get("support", 0),
             )
             for pc in m.get("per_class", [])
         ]
         return ChannelMetrics(
-            accuracy  = m["accuracy"],
-            macro_f1  = m["macro_f1"],
-            mae       = m["mae"],
-            n_samples = m["n_samples"],
-            per_class = per_class,
+            accuracy=m["accuracy"],
+            macro_f1=m["macro_f1"],
+            mae=m["mae"],
+            n_samples=m["n_samples"],
+            per_class=per_class,
         )
 
     by_channel = {
-        ch: _to_channel_metrics(raw_metrics[ch])
-        for ch in channels
-        if ch in raw_metrics
+        ch: _to_channel_metrics(raw_metrics[ch]) for ch in channels if ch in raw_metrics
     }
-    overall = _to_channel_metrics(raw_metrics.get("overall", compute_metrics(np.array([]), np.array([]))))
+    overall = _to_channel_metrics(
+        raw_metrics.get("overall", compute_metrics(np.array([]), np.array([])))
+    )
 
     return EvaluationSummary(
-        overall    = overall,
-        by_channel = by_channel,
-        meta       = meta or {},
+        overall=overall,
+        by_channel=by_channel,
+        meta=meta or {},
     )
 
 
 def summary_to_dict(summary: EvaluationSummary) -> dict:
     """EvaluationSummary 를 JSON-직렬화 가능한 dict 로 변환한다."""
+
     def _cm_to_dict(cm: ChannelMetrics) -> dict:
         return {
-            "accuracy" : cm.accuracy,
-            "macro_f1" : cm.macro_f1,
-            "mae"      : cm.mae,
+            "accuracy": cm.accuracy,
+            "macro_f1": cm.macro_f1,
+            "mae": cm.mae,
             "n_samples": cm.n_samples,
             "per_class": [
                 {
-                    "level"    : pc.level,
+                    "level": pc.level,
                     "precision": pc.precision,
-                    "recall"   : pc.recall,
-                    "f1"       : pc.f1,
-                    "support"  : pc.support,
+                    "recall": pc.recall,
+                    "f1": pc.f1,
+                    "support": pc.support,
                 }
                 for pc in cm.per_class
             ],
         }
 
     return {
-        "overall"   : _cm_to_dict(summary.overall),
+        "overall": _cm_to_dict(summary.overall),
         "by_channel": {ch: _cm_to_dict(cm) for ch, cm in summary.by_channel.items()},
-        "meta"      : summary.meta,
-        "targets"   : summary.targets,
+        "meta": summary.meta,
+        "targets": summary.targets,
     }
 
 
@@ -442,8 +448,8 @@ def determine_swing_feedback(
         channels = list(summary.by_channel.keys())
 
     decisions: List[str] = []
-    overall   = summary.overall
-    targets   = summary.targets
+    overall = summary.overall
+    targets = summary.targets
 
     # Check 1: per-color accuracy < 0.80 -> Phase 0
     for color in channels:

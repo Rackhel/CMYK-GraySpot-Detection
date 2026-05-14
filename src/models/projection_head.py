@@ -32,7 +32,7 @@ class ProjectionHead(nn.Module):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(in_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),   # 배치 정규화 / Batch normalization
+            nn.BatchNorm1d(hidden_dim),  # 배치 정규화 / Batch normalization
             nn.ReLU(inplace=True),
             nn.Linear(hidden_dim, out_dim),
             # Softmax 없음 — InfoNCE Loss에서 L2 정규화 후 처리

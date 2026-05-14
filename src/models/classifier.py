@@ -31,14 +31,19 @@ class ClassifierHead(nn.Module):
         dropout:     Dropout 비율 / Dropout rate (default: 0.3)
     """
 
-    def __init__(self, in_dim: int, hidden_dim: int = 256,
-                 num_classes: int = 6, dropout: float = 0.3):
+    def __init__(
+        self,
+        in_dim: int,
+        hidden_dim: int = 256,
+        num_classes: int = 6,
+        dropout: float = 0.3,
+    ):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(in_dim, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),    # 배치 정규화 / Batch normalization
+            nn.BatchNorm1d(hidden_dim),  # 배치 정규화 / Batch normalization
             nn.ReLU(inplace=True),
-            nn.Dropout(dropout),           # 과적합 방지 / Prevent overfitting
+            nn.Dropout(dropout),  # 과적합 방지 / Prevent overfitting
             nn.Linear(hidden_dim, num_classes),
             # Softmax 없음 — CrossEntropyLoss가 내부적으로 포함
             # No Softmax — included internally in CrossEntropyLoss
