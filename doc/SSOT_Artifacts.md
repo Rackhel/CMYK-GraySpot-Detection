@@ -189,10 +189,42 @@ phase0_backbone_Y_effb0.pt → best_M.pt   (채널 교차 금지 / Cross-channel
 
 ### 3.6 Optuna 산출물 / Optuna Artifacts
 
-| 파일명 패턴 / Pattern | 형식 / Format | 내용 / Content | SSOT |
-|------------|------|------|-----------|
-| `study_{ch}.db` | SQLite | Optuna study 전체 trial 기록 / All trial records for Optuna study | ❌ Soft |
-| `best_params_{ch}.json` | JSON | 최적 하이퍼파라미터 / Optimal hyperparameters | ❌ Soft |
+> **채널 suffix 규칙**: Optuna 산출물의 `{ch}` 는 **소문자**를 사용한다 (`y`, `m`, `c`, `k`, `all`).
+> 학습 모델 산출물(`best_Y.pt` 등)이 대문자를 사용하는 것과 다름에 주의.
+>
+> **Channel suffix rule**: Optuna artifacts use **lowercase** `{ch}` (`y`, `m`, `c`, `k`, `all`).
+> Note this differs from training model artifacts (e.g. `best_Y.pt`) which use uppercase.
+
+| 파일명 패턴 / Pattern | 형식 / Format | 내용 / Content | SSOT | 생산자 / Producer |
+|------------|------|------|-----------|---|
+| `study_{ch}.db` | SQLite | Optuna study 전체 trial 기록 / All trial records for Optuna study | ❌ Soft | `optuna_tuner.py` |
+| `best_params_{ch}.json` | JSON | 최적 하이퍼파라미터 / Optimal hyperparameters | ❌ Soft | `optuna_utils.save_best_params()` |
+| `trials_summary_{ch}.json` | JSON | 전체 trial 결과 요약 (number, value, state, params) / All trial results summary | ❌ Soft | `optuna_utils.save_trials_summary()` |
+
+**예시 / Examples** (all-channel 튜닝 기준):
+- `outputs/optuna/study_all.db`
+- `outputs/optuna/best_params_all.json`
+- `outputs/optuna/trials_summary_all.json`
+
+**best_params JSON 스키마 / Schema** (EfficientNet-B0 기준):
+
+```json
+{
+  "learning_rate": 0.0001,
+  "batch_size": 16,
+  "weight_decay": 0.0001,
+  "epochs": 10,
+  "dropout": 0.2,
+  "hidden_dim": 128
+}
+```
+
+**ResNet-50 추가 필드 / ResNet-50 additional field**:
+```json
+{
+  "mid_dim": 512
+}
+```
 
 ---
 
@@ -216,7 +248,7 @@ CMYK_MAIN/
 │   ├── evaluation/                  metrics.py, confusion.py, evaluator.py (Orchestrator), evaluator_inference.py, evaluator_metrics.py, evaluator_export.py, evaluator_charts.py
 │   ├── inference/                   predictor.py (Orchestrator), predictor_device.py, predictor_loader.py, predictor_inference.py
 │   ├── reporting/                   html_report.py
-│   ├── tuning/                      optuna_tuner.py, search_space.py
+│   ├── tuning/                      optuna_tuner.py, search_space.py, optuna_utils.py
 │   ├── utils/                       utils_config.py, utils_model.py, logger.py
 │   ├── scripts/                     train.py, run_phase0.py, run_phase2.py, run_baseline.py, run_optuna.py
 │   ├── tests/
@@ -245,8 +277,9 @@ CMYK_MAIN/
 │   │       ├── cm_{ch}.html
 │   │       └── cm_overall.html
 │   └── optuna/                      ← Optuna 튜닝 결과 / Optuna tuning results
-│       ├── study_{ch}.db
-│       └── best_params_{ch}.json
+│       ├── study_{ch}.db                  ← ch = 소문자 / lowercase (y/m/c/k/all)
+│       ├── best_params_{ch}.json          ← ch = 소문자 / lowercase
+│       └── trials_summary_{ch}.json       ← ch = 소문자 / lowercase
 ├── pytest.ini                       ← Pytest 설정
 ├── requirements.txt
 ├── Dockerfile
