@@ -214,7 +214,7 @@ CMYK_MAIN/
 │   ├── models/                      backbone.py, classifier.py, grayspot_model.py, projection_head.py
 │   ├── training/                    trainer.py, contrastive_loss.py, losses.py
 │   ├── evaluation/                  metrics.py, confusion.py, evaluator.py (Orchestrator), evaluator_inference.py, evaluator_metrics.py, evaluator_export.py, evaluator_charts.py
-│   ├── inference/                   predictor.py
+│   ├── inference/                   predictor.py (Orchestrator), predictor_device.py, predictor_loader.py, predictor_inference.py
 │   ├── reporting/                   html_report.py
 │   ├── tuning/                      optuna_tuner.py, search_space.py
 │   ├── utils/                       utils_config.py, utils_model.py, logger.py
@@ -309,7 +309,3 @@ model.load_state_dict(checkpoint, strict=False)
 - `strict=False`: 버전 간 호환성 / Cross-version compatibility
 
 ---
-
-**Version**: 0.2.0
-**Last Updated**: 2026-05-08
-**Applies to**: CMYK Grayspot Detection System v0.1.0+

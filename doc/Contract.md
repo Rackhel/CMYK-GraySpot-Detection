@@ -435,6 +435,109 @@ feedback = determine_swing_feedback(summary)
 
 ---
 
+## 10. 추론 경계 계약 / Inference Boundary Contracts
+
+### 10.1 모듈 트리 / Module Tree
+
+```
+inference/
+├── predictor_device.py    — DeviceMixin      (장치 감지·설정 / Device detection & setup)
+├── predictor_loader.py    — ModelLoaderMixin (모델 로딩·캐시 / Model loading & cache)
+├── predictor_inference.py — InferenceMixin   (추론 실행 / Inference execution)
+└── predictor.py           — GrayspotPredictor (Orchestrator)
+```
+
+### 10.2 `GrayspotPredictor` 공개 API / Public API
+
+```python
+from inference.predictor import GrayspotPredictor
+
+predictor = GrayspotPredictor(config_path=None)
+predictor.load_model(channel="Y", model_path=None)
+result    = predictor.predict(images, channel="Y", batch_size=32, return_confidences=True)
+results   = predictor.predict_batch(images_dict, batch_size=32)
+predictor.clear_cache(channel=None)
+info      = predictor.get_model_info(channel=None)
+```
+
+| 메서드 / Method | 모듈 / Module | Mixin | 설명 / Description |
+|---|---|---|---|
+| `__init__` | `inference.predictor` | Orchestrator | config 로딩, 장치 설정, 캐시 초기화 / Config loading, device setup, cache init |
+| `load_model` | `inference.predictor_loader` | `ModelLoaderMixin` | 채널별 모델 로드 및 캐시 / Per-channel model load & cache |
+| `predict` | `inference.predictor_inference` | `InferenceMixin` | 단일 채널 배치 추론 / Single-channel batch inference |
+| `predict_batch` | `inference.predictor_inference` | `InferenceMixin` | 멀티 채널 배치 추론 / Multi-channel batch inference |
+| `clear_cache` | `inference.predictor_loader` | `ModelLoaderMixin` | 모델 캐시 비우기 / Clear model cache |
+| `get_model_info` | `inference.predictor_loader` | `ModelLoaderMixin` | 로드된 모델 정보 조회 / Query loaded model info |
+
+### 10.3 `__init__` 입출력 / Init I/O
+
+```python
+GrayspotPredictor(config_path: Optional[str | Path] = None) -> GrayspotPredictor
+```
+
+| 항목 / Item | 타입 / Type | 설명 / Description |
+|---|---|---|
+| `config_path` | `Optional[str \| Path]` | None 이면 기본 config.json 경로 사용 / None uses default config.json |
+| **실패 조건 / Fail** | `FileNotFoundError` | config.json 없음 — Fail-Fast (fallback 없음 / no fallback) |
+
+### 10.4 `load_model` 입출력 / Load Model I/O
+
+```python
+load_model(channel: str, model_path: Optional[str | Path] = None) -> None
+```
+
+| 항목 / Item | 타입 / Type | 설명 / Description |
+|---|---|---|
+| `channel` | `str` | `"Y" \| "M" \| "C" \| "K"` (대소문자 무관 / case-insensitive) |
+| `model_path` | `Optional[str \| Path]` | None 이면 `storage.models_dir/best_{channel}.pt` 자동 탐색 |
+| **실패 조건 / Fail** | `ValueError` | 지원하지 않는 채널 / Unsupported channel |
+| **실패 조건 / Fail** | `FileNotFoundError` | 모델 파일 없음 — `SSOT-FF01` |
+
+### 10.5 `predict` 입출력 / Predict I/O
+
+```python
+predict(
+    images: np.ndarray,           # (N, H, W, 3) or (N, H, W) uint8 or float32, BGR
+    channel: str,                 # "Y" | "M" | "C" | "K"
+    batch_size: int = 32,
+    return_confidences: bool = True,
+) -> Dict[str, np.ndarray]
+```
+
+| 반환 키 / Return Key | 형상 / Shape | 타입 / Type | 설명 / Description |
+|---|---|---|---|
+| `predictions` | `(N,)` | `int64` | 예측 클래스 [0-5] / Predicted class |
+| `logits` | `(N, 6)` | `float32` | 원시 로짓 / Raw logits |
+| `probabilities` | `(N, 6)` | `float32` | Softmax 확률 / Softmax probabilities |
+| `confidences` | `(N,)` | `float32` | Max-softmax 신뢰도 (`return_confidences=True` 시) |
+
+> **SSOT-NM01 준수**: `predict()` 내부에서 `[0,1]` 정규화 후 반드시 ImageNet mean/std 를 적용한다.
+> 학습(`dataset.py _IMAGENET_NORMALIZE`)과 동일한 변환 — 불일치 시 성능 저하.
+
+### 10.6 `predict_batch` 입출력 / Predict Batch I/O
+
+```python
+predict_batch(
+    images_dict: Dict[str, np.ndarray],   # {channel: (N,H,W,3) BGR array}
+    batch_size: int = 32,
+) -> Dict[str, Dict[str, np.ndarray]]     # {channel: predict() 반환값}
+```
+
+> 로드되지 않은 채널은 경고 로그 후 결과에서 제외된다.
+> Channels without loaded models are skipped with a warning log.
+
+### 10.7 필수 Config 키 / Required Config Keys
+
+| Config 키 / Key | 사용처 / Used by | 설명 / Description |
+|---|---|---|
+| `system.device` | `DeviceMixin._setup_device` | `"auto" \| "cuda" \| "mps" \| "cpu"` |
+| `storage.models_dir` | `ModelLoaderMixin._resolve_model_path` | 모델 아티팩트 디렉토리 / Model artifact directory |
+| `data.channels` | `GrayspotPredictor.__init__` | 지원 채널 목록 / Supported channels |
+| `data.image_size` | `GrayspotPredictor.__init__` | 입력 이미지 크기 / Input image size |
+| `data.num_levels` | `GrayspotPredictor.__init__` | 분류 클래스 수 / Number of classification levels |
+
+---
+
 ## 9. 모듈별 필수 Config 키 요약 / Required Config Keys per Module
 
 | 모듈 / Module | 필수 config 키 / Required Keys |
@@ -452,15 +555,10 @@ feedback = determine_swing_feedback(summary)
 | `tuning.search_space` | `optuna.search_space.{backbone}.*` (backbone별 분기 / backbone-branched) |
 | `utils.utils_config` | — (config 자체를 로드하므로 의존 없음 / loads config itself, no dependencies) |
 | `utils.utils_model` | `model.backbone`, `storage.models_dir`, `system.device` (`build_model` 사용 시 / when using build_model) |
+| `inference.predictor` | `system.device`, `storage.models_dir`, `data.channels`, `data.image_size`, `data.num_levels` |
 | `scripts.run_phase0` | `data.channels`, `system.device`, `train.seed`, `storage.*` |
 | `scripts.run_phase2` | `data.channels`, `system.device`, `train.seed`, `storage.*` |
 | `scripts.run_baseline` | `data.channels`, `system.device`, `train.seed`, `storage.*` |
 | `scripts.run_optuna` | `optuna.*`, `system.device` |
 
 ---
-
-**Version**: 0.4.0
-**Last Updated**: 2026-05-12
-**Python**: 3.11.5
-**PyTorch**: 2.x
-**Applies to**: CMYK Grayspot Detection System v0.1.0+

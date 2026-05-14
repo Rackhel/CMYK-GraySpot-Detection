@@ -262,8 +262,3 @@ Level 5:  24장
 > CSV merge improves evaluation coverage, but PRD shortfalls can only be resolved by collecting additional data.
 
 ---
-
-**Version**: 1.0.0
-**Date**: 2026-05-13
-**Author**: CMYK Project Team
-**Applies to**: CMYK Grayspot Detection System v0.1.0+

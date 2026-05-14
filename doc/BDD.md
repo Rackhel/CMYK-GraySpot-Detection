@@ -616,18 +616,22 @@ Feature: 시스템 안전성 / System safety (Fail-Fast)
 
 ---
 
-### Scenario 8.3 — 정규화 미적용 감지 / Normalization Missing Detection
+### Scenario 8.3 — 정규화 적용 검증 / Normalization Application Verification
+
+> ✅ **SSOT-NM01 해소됨 / Resolved**: `predictor_inference.py` `_preprocess_images()` 에서 `_IMAGENET_NORMALIZE` 적용 완료 (2026-05-14).
+> 시나리오 조건이 "미적용 감지"에서 "정규화 적용 보장"으로 전환됨.
 
 ```gherkin
-  Scenario: ImageNet 정규화 없이 pretrained backbone 사용 시 경고가 발생한다
-  Scenario: Warning is triggered when pretrained backbone is used without ImageNet normalization
+  Scenario: GrayspotPredictor 추론 시 ImageNet 정규화가 학습과 동일하게 적용된다
+  Scenario: GrayspotPredictor applies ImageNet normalization identical to training
 
-    Given pretrained EfficientNet-B0 weights가 사용 중이다
+    Given GrayspotPredictor 가 초기화되어 있다
 
-    When  전처리 파이프라인에서 ImageNet 정규화(mean/std)가 누락된다
+    When  predict() 가 BGR numpy 이미지 배열을 입력받는다
 
-    Then  시스템이 SSOT-NM01 경고를 발생시킨다
-    And   학습 또는 추론이 계속될 경우 성능 저하 가능성이 로그에 기록된다
+    Then  내부적으로 [0,1] 정규화 후 ImageNet mean/std 변환이 적용된다
+    And   dataset.py 의 _IMAGENET_NORMALIZE 와 동일한 변환이 보장된다
+    And   학습(dataset.py) 과 추론(predictor_inference.py) 간 정규화 불일치가 없다
 ```
 
 ---
@@ -658,6 +662,7 @@ BDD 시나리오와 TDD 테스트 파일 / BDD scenarios mapped to TDD test file
 | 1.1 — AUTO_ACCEPT 플래그 / flag | `test_predictor.py` | `test_confidence_auto_accept_flag` | Unit |
 | 1.2 — WARN 플래그 / flag | `test_predictor.py` | `test_confidence_warn_flag` | Unit |
 | 1.3 — MANUAL_REVIEW 플래그 / flag | `test_predictor.py` | `test_confidence_manual_review_flag` | Unit |
+| 8.3 — ImageNet 정규화 적용 / Applied | `test_predictor.py` | `test_preprocess_images_imagenet_normalized` | Unit |
 | 1.5 — Raw logit 출력 / output | `test_models.py` | `test_output_is_logits_not_probability` | Unit |
 | 2.3 — EfficientNet-B0 head 구조 / structure | `test_models.py` | `test_effb0_direct_compression_mid_dim_none` | Unit |
 | 2.3 — ResNet-50 head 구조 / structure | `test_models.py` | `test_resnet50_staged_compression_mid_dim_512` | Unit |
@@ -676,9 +681,9 @@ BDD 시나리오와 TDD 테스트 파일 / BDD scenarios mapped to TDD test file
 | 8.1 — FF01 backbone 누락 / missing | `test_smoke_phase2.py` | `test_phase2_fails_without_phase0_backbone` | Smoke |
 | 8.2 — CF01 config 키 누락 / missing key | `test_utils_config.py` | `test_validate_config_missing_key_raises` | Unit |
 
-> **미구현 테스트 / Not Yet Implemented**: 시나리오 1.1–1.3 (`test_predictor.py`), 4.1–4.2 (HTML 생성 단위 테스트), 7.1–7.2 (채널 불변식 통합 테스트)
+> **미구현 테스트 / Not Yet Implemented**: 시나리오 1.1–1.3, 8.3 (`test_predictor.py`), 4.1–4.2 (HTML 생성 단위 테스트), 7.1–7.2 (채널 불변식 통합 테스트)
 >
-> **Not Yet Implemented**: Scenarios 1.1–1.3 (`test_predictor.py`), 4.1–4.2 (HTML generation unit tests), 7.1–7.2 (channel invariant integration tests)
+> **Not Yet Implemented**: Scenarios 1.1–1.3, 8.3 (`test_predictor.py`), 4.1–4.2 (HTML generation unit tests), 7.1–7.2 (channel invariant integration tests)
 
 ---
 
@@ -695,8 +700,3 @@ BDD 시나리오와 TDD 테스트 파일 / BDD scenarios mapped to TDD test file
 | [TDD.md](TDD.md) | 시나리오별 단위 테스트 전략 — §9 매트릭스의 구현 세부 / Per-scenario unit test strategy — implementation detail of the §9 matrix |
 
 ---
-
-**Version**: 1.0.0
-**Last Updated**: 2026-05-12
-**Author**: CMYK Project Team
-**Applies to**: CMYK Grayspot Detection System v0.1.0+

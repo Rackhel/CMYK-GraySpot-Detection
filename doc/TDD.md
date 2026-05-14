@@ -248,18 +248,31 @@ def test_determine_swing_feedback_returns_retry_below_threshold():
 
 ### 3.6 `inference/` — 추론 파이프라인 / Inference Pipeline
 
-**파일 / Files:** `tests/unit/test_predictor.py`
+리팩토링 후 모듈 구조 / Module structure after refactoring:
 
-단위 테스트 대상이 적음 (모델 로드 의존). 아래만 단위 테스트:
-Few unit test targets (model load dependent). Only the following are unit tested:
+```
+inference/
+├── predictor_device.py    — DeviceMixin      (장치 감지·설정)
+├── predictor_loader.py    — ModelLoaderMixin (모델 로딩·캐시)
+├── predictor_inference.py — InferenceMixin   (추론 실행 + SSOT-NM01)
+└── predictor.py           — GrayspotPredictor (Orchestrator)
+```
 
-| 항목 / Item | 테스트 내용 / Test Content |
-|------|------------|
-| confidence threshold 분기 / Confidence threshold branching | `>= 0.8` → AUTO, `0.5–0.8` → WARN, `< 0.3` → MANUAL |
-| 반환 dict 구조 / Return dict structure | `{"label", "confidence", "flag"}` 키 존재 / keys present |
+**단위 테스트 파일 / Unit test files:** `tests/unit/test_predictor.py`
 
-나머지는 `tests/integration/test_predictor_integration.py` 에서 처리.
-The remainder is handled in `tests/integration/test_predictor_integration.py`.
+| 항목 / Item | 테스트 내용 / Test Content | 대상 Mixin / Mixin |
+|---|---|---|
+| confidence threshold AUTO 분기 | `conf >= 0.8` → AUTO 플래그 반환 / Returns AUTO flag | `InferenceMixin` |
+| confidence threshold WARN 분기 | `0.5 <= conf < 0.8` → WARN 플래그 / Returns WARN flag | `InferenceMixin` |
+| confidence threshold MANUAL 분기 | `conf < 0.3` → MANUAL 플래그 / Returns MANUAL flag | `InferenceMixin` |
+| `predict()` 반환 dict 구조 | `predictions`, `logits`, `probabilities`, `confidences` 키 존재 | `InferenceMixin` |
+| ImageNet 정규화 적용 (SSOT-NM01) | `_preprocess_images()` 출력이 `[0,1]` 정규화 후 mean/std 변환됨 | `InferenceMixin` |
+| 장치 분기 — auto | CUDA 있으면 cuda, 없으면 mps → cpu 순 / CUDA→MPS→CPU fallback | `DeviceMixin` |
+| 미로드 채널 추론 시 RuntimeError | `predict()` before `load_model()` raises `RuntimeError` | `InferenceMixin` |
+| 미존재 모델 파일 시 FileNotFoundError | `load_model()` with missing file raises `FileNotFoundError` (SSOT-FF01) | `ModelLoaderMixin` |
+
+나머지 실모델 의존 테스트는 `tests/integration/test_predictor_integration.py` 에서 처리.
+Model-dependent tests are handled in `tests/integration/test_predictor_integration.py`.
 
 ---
 

@@ -379,7 +379,3 @@ for channel in channels:
 > ✅ **해소됨 / Resolved**: `phase0.hidden_dim` → `ProjectionHead` hidden_dim 소비 완료.
 
 ---
-
-**Version**: 0.4.0
-**Last Updated**: 2026-05-12
-**Applies to**: CMYK Grayspot Detection System v0.1.0+

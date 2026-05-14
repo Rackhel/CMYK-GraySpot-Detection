@@ -338,7 +338,3 @@ python src/scripts/generate_baseline_report.py
 > 작성 예정 / To be filled in.
 
 ---
-
-**Version**: 0.1.0 (초안 / Draft)
-**Last Updated**: 2026-05-11
-**Applies to**: CMYK Grayspot Detection System — Sprint S3

@@ -286,16 +286,12 @@ SSOT validation codes triggered within the data pipeline. See [SSOT_Validation_C
 | 코드 / Code | 위반 내용 / Violation | 등급 / Level | 상태 / Status |
 |---|---|---|---|
 | SSOT-CS01 | BGR/RGB 불일치 위험 — 추론 시 동일 공간 유지 필수 / BGR/RGB mismatch risk — same color space must be maintained at inference | Level 1 | ⚠️ 지속 모니터링 / Ongoing monitoring |
-| SSOT-NM01 | ImageNet 정규화 미적용 — pretrained backbone 성능 저하 가능 / ImageNet normalization not applied — may degrade pretrained backbone performance | Level 2 | ✅ **해소됨 / Resolved** |
+| SSOT-NM01 | ImageNet 정규화 미적용 — pretrained backbone 성능 저하 가능 / ImageNet normalization not applied — may degrade pretrained backbone performance | Level 2 | ✅ **해소됨 / Resolved** (dataset.py 2026-05-08, predictor_inference.py 2026-05-14) |
 
 > ✅ **해소됨 / Resolved**: `data.split_ratios` Dead Config → `dataset.py`에서 소비 완료.
 > ✅ **해소됨 / Resolved**: `phase0.augmentation.color_jitter` / `blur_prob` → `augment_contrastive(aug_cfg)` 소비 완료.
 > ✅ **해소됨 / Resolved**: `phase0.augmentation` 나머지 키 (flip/crop/contrast/blur_kernels) → `augment_contrastive()` 소비 완료.
 > ✅ **해소됨 / Resolved**: `phase2.augmentation.*` 신규 추가 → `CMYKDataset.sup_aug_cfg` 경유 `augment_supervised()` 소비 완료.
-> ✅ **해소됨 / Resolved**: SSOT-NM01 — `_IMAGENET_NORMALIZE` 적용 완료 (`dataset.py`, 2026-05-08).
+> ✅ **해소됨 / Resolved**: SSOT-NM01 — `_IMAGENET_NORMALIZE` 적용 완료 (`dataset.py` 2026-05-08, `predictor_inference.py` 2026-05-14 — 학습·추론 정규화 완전 일치 / training-inference normalization fully aligned).
 
 ---
-
-**Version**: 0.4.0
-**Last Updated**: 2026-05-11
-**Applies to**: CMYK Grayspot Detection System v0.1.0+

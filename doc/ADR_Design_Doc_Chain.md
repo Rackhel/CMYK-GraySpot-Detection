@@ -191,9 +191,3 @@ Because Contract froze `from evaluation.evaluator import Evaluator` first, the i
 | [`src/evaluation/evaluator.py`](../src/evaluation/evaluator.py) | 설계 연쇄 적용 결과 — 4 Mixin + Orchestrator / Result of applying the design chain — 4 Mixins + Orchestrator |
 
 ---
-
-**Version**: 1.0.0
-**Date**: 2026-05-12
-**Author**: CMYK Project Team
-**Status**: Accepted / 채택됨
-**Applies to**: CMYK Grayspot Detection System v0.1.0+

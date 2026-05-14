@@ -118,22 +118,31 @@ All Python code in this project uses SOLID principles as **design criteria**. Cu
 
 **SRP 위반 판단 기준 / SRP violation test**: 함수/클래스 설명에 "그리고(and)"가 필요하면 책임이 두 개다. / If describing a function/class requires the word "and", it has more than one responsibility.
 
-**현재 상태 / Current Status**: ⚠️ **부분 위반**
+**현재 상태 / Current Status**: ✅ **해결됨 / Resolved**
 - `Phase0Trainer` / `Phase2Trainer` — 각 Phase 학습만 담당 ✅
 - `ClassifierHead` / `ProjectionHead` — 각 head 구조 정의만 담당 ✅
 - `utils_config.py` / `utils_model.py` / `logger.py` — 관심사 분리 완료 ✅
-- **`evaluator.py` — SRP 심각 위반** ❌: ~950줄 단일 파일에 추론(inference) + 지표 계산(metrics) + CSV/JSON/HTML 저장 + 차트 생성(7종) + 오분류 추출이 혼재. 변경 이유(reason to change)가 7개 이상 존재.
+- **`evaluator.py` — SRP 위반 해결** ✅: 4 Mixin + Orchestrator 분해 완료 (2026-05-12)
+- **`predictor.py` — SRP 위반 해결** ✅: 3 Mixin + Orchestrator 분해 완료 (2026-05-14)
 
-**리팩토링 우선순위 / Refactoring Priority**: 🔴 **1순위** — 즉시 분해 대상
-- **분해 대상 / Decomposition Plan**:
+**분해 결과 / Decomposition Result — `evaluator.py`**:
 
-| 분리 모듈 / Proposed Module | 책임 / Responsibility |
+| 분리 모듈 / Module | 책임 / Responsibility |
 |---|---|
 | `evaluator_inference.py` | 모델 추론, 배치 처리 / Model inference, batch processing |
 | `evaluator_metrics.py` | 지표 계산 (Acc, F1, MAE, Confusion Matrix) / Metric computation |
 | `evaluator_export.py` | CSV / JSON / HTML 저장 / CSV, JSON, HTML export |
 | `evaluator_charts.py` | 차트 7종 생성 / 7 chart builders |
 | `evaluator.py` (조율자 / Orchestrator) | 위 모듈 조합, 진입점 / Orchestrates submodules, entry point |
+
+**분해 결과 / Decomposition Result — `predictor.py`**:
+
+| 분리 모듈 / Module | 책임 / Responsibility |
+|---|---|
+| `predictor_device.py` | 장치 감지·설정 / Device detection & setup |
+| `predictor_loader.py` | 모델 로딩·캐시 관리 / Model loading & cache management |
+| `predictor_inference.py` | 단일·멀티 채널 추론 실행 / Single & multi-channel inference |
+| `predictor.py` (조율자 / Orchestrator) | 위 모듈 조합, 진입점 / Orchestrates submodules, entry point |
 
 ---
 
@@ -332,17 +341,18 @@ except ImportError:
 
 | 원칙 / Principle | 현재 상태 / Status | 대상 파일 / Target File | 리팩토링 우선순위 / Priority | 적용 시기 / When to Apply |
 |---|---|---|---|---|
-| **S** — SRP | ✅ **해결됨** / Resolved | `evaluator.py` → 4 Mixin + Orchestrator | ✅ 완료 | 분해 완료 (2026-05-12) |
+| **S** — SRP | ✅ **해결됨** / Resolved | `evaluator.py` → 4 Mixin + Orchestrator, `predictor.py` → 3 Mixin + Orchestrator | ✅ 완료 | 분해 완료 (2026-05-12 / 2026-05-14) |
 | **O** — OCP | ⚠️ 부분 위반 / Partial violation | `grayspot_model.py`, `search_space.py` | 🟡 **3순위** | Phase 추가 시 / Backbone 3번째 추가 시 |
 | **L** — LSP | ✅ 준수 / Compliant | — | 불필요 / Not needed | — |
-| **I** — ISP | ✅ **해결됨** / Resolved | `evaluator.py` → SRP 분해로 동시 해결 | ✅ 완료 | 분해 완료 (2026-05-12) |
-| **D** — DIP | ✅ **해결됨** / Resolved | `optuna_tuner.py` shim 제거, try/except 적용 | ✅ 완료 | 완료 (2026-05-12) |
+| **I** — ISP | ✅ **해결됨** / Resolved | `evaluator.py` / `predictor.py` → SRP 분해로 동시 해결 | ✅ 완료 | 분해 완료 (2026-05-12 / 2026-05-14) |
+| **D** — DIP | ✅ **해결됨** / Resolved | `optuna_tuner.py` shim 제거, `predictor.py` fallback import 제거 | ✅ 완료 | 완료 (2026-05-12 / 2026-05-14) |
 
 ### 5.7 리팩토링 우선순위 목록 / Refactoring Priority List
 
 | 순위 / Priority | 대상 / Target | 위반 원칙 / Violated | 핵심 문제 / Core Issue | 상태 / Status |
 |---|---|---|---|---|
 | 🔴 **1순위 / Priority 1** | `evaluator.py` | SRP + ISP | ~950줄 단일 파일에 추론·지표·저장·차트 7종 혼재 / ~950-line monolith mixing inference, metrics, export, and 7 chart types | ✅ **완료 / Done** — 4 Mixin + Orchestrator 분해 / decomposed |
+| 🔴 **1순위 / Priority 1** | `predictor.py` | SRP + OCP + ISP + DIP | 책임 5개 단일 클래스, fallback import, if/elif 장치 분기 / 5 responsibilities in one class, fallback import, if/elif device branching | ✅ **완료 / Done** — 3 Mixin + Orchestrator 분해, SSOT-NM01 해소 / decomposed, SSOT-NM01 resolved |
 | 🟠 **2순위 / Priority 2** | `optuna_tuner.py` | DIP | `sys.modules` 직접 조작으로 전역 인터프리터 상태 오염 / Direct `sys.modules` manipulation contaminates global interpreter state | ✅ **완료 / Done** — shim 제거, try/except 패턴 적용 / shim removed, try/except applied |
 | 🟡 **3순위 / Priority 3** | `grayspot_model.py` | OCP | Phase 분기 if/elif — Phase 추가 시 기존 코드 수정 필요 / if/elif Phase branching requires modifying existing code when adding a Phase | Phase 추가 시 적용 / Apply when Phase is added |
 | ⏸ **보류 / Deferred** | `trainer.py` | OCP | optimizer 2종 if/elif — 현재 규모에서 Registry 과설계 / 2-optimizer if/elif — Registry pattern is over-engineering at current scale | 보류 (optimizer 추가 시 검토) / Deferred (revisit when optimizer is added) |
@@ -501,23 +511,21 @@ All Python code in this project **must** follow the three principles below.
 #### Core Interface / 핵심 인터페이스
 
 ```python
-from src.inference.predictor import GrayspotPredictor
+from inference.predictor import GrayspotPredictor
 
+# Orchestrator: DeviceMixin + ModelLoaderMixin + InferenceMixin
 predictor = GrayspotPredictor()
-predictor.load_model(channel="Y")  # 모델 로드 / Load model
-results = predictor.predict(image)  # 단일 이미지 추론 / Single image inference
-batch_results = predictor.predict_batch(images_dict)  # 배치 추론 / Batch inference
+predictor.load_model(channel="Y")                        # ModelLoaderMixin
+results      = predictor.predict(images, channel="Y")    # InferenceMixin — ImageNet norm 적용 / Applied
+batch_results = predictor.predict_batch(images_dict)     # InferenceMixin
 ```
 
-#### ONNX Export / ONNX 내보내기
-
-```python
-# ONNX 변환 지원 / ONNX conversion support
-predictor.export_to_onnx(
-    channel="Y",
-    onnx_path="models/grayspot_Y.onnx",
-    opset_version=11
-)
+```
+inference/
+├── predictor_device.py    — DeviceMixin      (장치 감지·설정 / Device detection)
+├── predictor_loader.py    — ModelLoaderMixin (모델 로딩·캐시 / Loading & cache)
+├── predictor_inference.py — InferenceMixin   (추론 실행 + SSOT-NM01 / Inference + NM01)
+└── predictor.py           — GrayspotPredictor (Orchestrator)
 ```
 
 ### 11.2 Deployment Requirements / 배포 요구사항
@@ -552,9 +560,3 @@ COPY src/inference/ /app/src/inference/
 | ONNX 호환성 / ONNX compatibility | opset 11+ | Export and runtime validation |
 
 ---
-
-**Version**: 0.6.0
-**Last Updated**: 2026-05-13
-**Python**: 3.11.5
-**PyTorch**: 2.x
-**Applies to**: CMYK Grayspot Detection System v0.1.0+

@@ -280,7 +280,3 @@ src/utils/
 > `SSOT-CF01`: If code references a key absent from config.json, **fail immediately**.
 
 ---
-
-**Version**: 0.5.0
-**Last Updated**: 2026-05-08
-**Applies to**: CMYK Grayspot Detection System v0.1.0+

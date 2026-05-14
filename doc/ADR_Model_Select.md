@@ -138,9 +138,3 @@ ResNet-50 outputs 2048-dim features without channel selection. The head must als
 | [SSOT_GlobalVariables.md](SSOT_GlobalVariables.md) | Hard SSOT `mid_dim`, `hidden_dim` 분류 / Hard SSOT classification of `mid_dim`, `hidden_dim` |
 
 ---
-
-**Version**: 1.0.0
-**Date**: 2026-05-12
-**Author**: CMYK Project Team
-**Status**: Accepted / 채택됨
-**Applies to**: CMYK Grayspot Detection System v0.1.0+
