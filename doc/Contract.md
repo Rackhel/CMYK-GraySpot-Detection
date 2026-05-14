@@ -762,16 +762,93 @@ run_optuna(n_trials: int | None = None, channel: str = "all") -> None
 ### 11.2 하이퍼파라미터 탐색 공간 계약 / Hyperparameter Search Space Contract
 
 ```python
-from tuning.search_space import get_search_space
+from tuning.search_space import get_phase2_search_space
 
-space = get_search_space(trial, backbone_name: str) -> dict
+space = get_phase2_search_space(trial: optuna.Trial, cfg: dict = None) -> dict
 ```
 
 | 항목 / Item | 설명 / Description |
 |---|---|
 | `trial` | `optuna.Trial` 객체 |
-| `backbone_name` | `"efficientnet_b0"` 또는 `"resnet50"` |
-| 반환 / Return | `dict` — 탐색 공간에서 샘플링된 하이퍼파라미터 / Hyperparameters sampled from search space |
-| Config 참조 / Config ref | `cfg["optuna"]["search_space"][backbone_name].*` |
+| `cfg` | config dict — `None` 이면 기본값 사용 (`efficientnet_b0` 기준) |
+| backbone 감지 | `cfg["model"]["backbone"]` — 없으면 `"efficientnet_b0"` fallback |
+| 반환 / Return | `dict` — 샘플링된 하이퍼파라미터. ResNet-50 에만 `"mid_dim"` 포함 |
+| Config 참조 / Config ref | `cfg["optuna"]["search_space"][backbone_name].*` → 최상위 → 기본값 순 fallback |
+
+**반환 dict 필수 키 / Required return keys** (항상 / always):
+
+| 키 / Key | 타입 / Type | 설명 / Description |
+|---|---|---|
+| `learning_rate` | `float` | log-uniform 탐색 |
+| `batch_size` | `int` | categorical 선택 |
+| `weight_decay` | `float` | log-uniform 탐색 |
+| `epochs` | `int` | 정수 범위 탐색 |
+| `dropout` | `float` | uniform 탐색 |
+| `hidden_dim` | `int` | categorical 선택 |
+| `mid_dim` | `int` | **ResNet-50 전용** — EfficientNet-B0 시 키 없음 |
+
+### 11.3 `tuning/optuna_utils.py` 공개 API 계약
+
+> **위치 / Location**: `src/tuning/optuna_utils.py` (not `src/utils/`)
+>
+> Optuna artifact 저장·불러오기, 채널 정규화, Phase 2 config 적용을 담당한다.
+> 저장·불러오기 책임은 `optuna_tuner.py` 에서 분리 (SRP).
+
+```python
+from tuning.optuna_utils import (
+    normalize_channel,
+    load_best_params,
+    save_best_params,
+    save_trials_summary,
+    apply_phase2_params,
+)
+```
+
+#### `normalize_channel(channel: str) -> str`
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| 입력 / Input | `"Y"` / `"M"` / `"C"` / `"K"` / `"all"` (대소문자 무관) |
+| 반환 / Return | 소문자 suffix (`"y"` / `"m"` / `"c"` / `"k"` / `"all"`) |
+| **실패 / Fail** | `ValueError` — `VALID_CHANNELS = {Y,M,C,K,ALL}` 외 입력 |
+
+#### `load_best_params(channel: str, output_dir: str | Path = "outputs/optuna") -> dict`
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| 입력 / Input | `channel` (normalize_channel 경유), `output_dir` |
+| 반환 / Return | best params `dict` |
+| **실패 / Fail** | `FileNotFoundError` — `best_params_{ch}.json` 미존재 (SSOT-FF01) |
+| **실패 / Fail** | `ValueError` — 유효하지 않은 channel |
+
+#### `save_best_params(params: dict, channel: str, output_dir) -> Path`
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| 반환 / Return | 저장된 `Path` 객체 |
+| 파일명 / Filename | `best_params_{channel_lower}.json` |
+
+#### `save_trials_summary(trials: list, channel: str, output_dir) -> Path`
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| `trials` | `optuna.trial.FrozenTrial` 목록 (study.trials) |
+| 파일명 / Filename | `trials_summary_{channel_lower}.json` |
+| 저장 스키마 / Schema | `[{number, value, state, params}, ...]` |
+
+#### `apply_phase2_params(cfg: dict, params: dict) -> dict`
+
+```python
+cfg = apply_phase2_params(cfg, params)
+```
+
+| 항목 / Item | 내용 / Detail |
+|---|---|
+| 입력 `params` 필수 키 | `learning_rate`, `batch_size`, `weight_decay`, `epochs`, `dropout`, `hidden_dim` |
+| ResNet-50 추가 키 | `mid_dim` (있으면 적용, 없으면 스킵) |
+| 적용 대상 / Applied to | `cfg["phase2"]["learning_rate/batch_size/weight_decay/epochs"]`, `cfg["phase2"]["heads"][backbone]["dropout/hidden_dim"]` |
+| **Backbone 불변식** | `cfg["model"]["backbone"]` 값은 변경되지 않는다 / Must not be modified |
+| 반환 / Return | 수정된 `cfg` dict (in-place + return) |
+| **실패 / Fail** | `KeyError` — 필수 params 키 누락 |
 
 ---

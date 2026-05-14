@@ -2,9 +2,11 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
 RUN python -m pip install --upgrade pip
-RUN python -m pip install --no-cache-dir -r requirements.txt
+
+COPY requirements.txt .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --no-cache-dir -r requirements.txt
 
 COPY src ./src
 COPY gui ./gui
@@ -12,6 +14,5 @@ COPY gui ./gui
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8501
 
-# Default: training
-# For GUI: docker run -p 8501:8501 grayspot streamlit run gui/app.py
-CMD ["python", "src/scripts/train.py"]
+# Default: Starts a standard terminal session instead of a specific script
+CMD ["/bin/bash"]

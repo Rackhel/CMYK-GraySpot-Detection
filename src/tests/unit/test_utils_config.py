@@ -129,24 +129,24 @@ class TestLoadConfig:
 
 
 class TestValidateConfig:
-    def test_valid_config_returns_true(self, minimal_cfg):
-        assert validate_config(minimal_cfg) is True
+    def test_valid_config_returns_none(self, minimal_cfg):
+        assert validate_config(minimal_cfg) is None
 
-    def test_missing_data_channels_returns_false(self, minimal_cfg):
+    def test_missing_data_channels_raises(self, minimal_cfg):
         del minimal_cfg["data"]["channels"]
         with pytest.raises(
             ValueError, match=r"\[CONFIG ERROR / SSOT-CF01\].*data\.channels"
         ):
             validate_config(minimal_cfg)
 
-    def test_missing_model_backbone_returns_false(self, minimal_cfg):
+    def test_missing_model_backbone_raises(self, minimal_cfg):
         del minimal_cfg["model"]["backbone"]
         with pytest.raises(
             ValueError, match=r"\[CONFIG ERROR / SSOT-CF01\].*model\.backbone"
         ):
             validate_config(minimal_cfg)
 
-    def test_num_levels_less_than_2_returns_false(self, minimal_cfg):
+    def test_num_levels_less_than_2_raises(self, minimal_cfg):
         minimal_cfg["data"]["num_levels"] = 1
         with pytest.raises(
             ValueError,
@@ -154,7 +154,7 @@ class TestValidateConfig:
         ):
             validate_config(minimal_cfg)
 
-    def test_zero_learning_rate_returns_false(self, minimal_cfg):
+    def test_zero_learning_rate_raises(self, minimal_cfg):
         minimal_cfg["phase2"]["learning_rate"] = 0
         with pytest.raises(
             ValueError,
@@ -162,7 +162,7 @@ class TestValidateConfig:
         ):
             validate_config(minimal_cfg)
 
-    def test_negative_learning_rate_returns_false(self, minimal_cfg):
+    def test_negative_learning_rate_raises(self, minimal_cfg):
         minimal_cfg["phase0"]["learning_rate"] = -1e-3
         with pytest.raises(
             ValueError,

@@ -41,13 +41,13 @@ to automatically search Phase 2 hyperparameters.
     python -m src.scripts.run_optuna --trials 10 --channel M
 """
 
-import json
 from functools import partial
 from pathlib import Path
 
 import optuna
 import torch
 
+from src.tuning.optuna_utils import save_best_params, save_trials_summary
 from src.tuning.search_space import get_phase2_search_space
 
 
@@ -202,28 +202,9 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     print("Best Value (Val Acc):", study.best_value)
     print("Best Params:", study.best_trial.params)
 
-    # Save best params
-    # 최적 파라미터 저장
-    best_params_path = output_dir / f"best_params_{study_suffix}.json"
-    with open(best_params_path, "w", encoding="utf-8") as f:
-        json.dump(study.best_trial.params, f, indent=2, ensure_ascii=False)
-
-    # Save trial summary
-    # trial 요약 저장
-    trials_summary = []
-    for t in study.trials:
-        trials_summary.append(
-            {
-                "number": t.number,
-                "value": t.value,
-                "state": str(t.state),
-                "params": t.params,
-            }
-        )
-
-    trials_summary_path = output_dir / f"trials_summary_{study_suffix}.json"
-    with open(trials_summary_path, "w", encoding="utf-8") as f:
-        json.dump(trials_summary, f, indent=2, ensure_ascii=False)
+    # Save best params and trial summary via optuna_utils (SSOT 단일 출처)
+    save_best_params(study.best_trial.params, study_suffix, output_dir)
+    save_trials_summary(study.trials, study_suffix, output_dir)
 
 
 if __name__ == "__main__":

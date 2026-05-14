@@ -94,9 +94,21 @@ def test_get_nested_missing_key_returns_default():
     assert get_nested(cfg, "a.c", default=0) == 0
 
 def test_resolve_device_auto_returns_mps_on_mac():
-    # torch.backends.mps.is_available() 가 True인 환경 가정 / Assumes torch.backends.mps.is_available() is True
     result = _resolve_device("auto")
     assert result in ("mps", "cuda", "cpu")  # 환경 의존, 타입만 확인 / Environment-dependent, check type only
+
+def test_valid_config_returns_none(minimal_cfg):
+    assert validate_config(minimal_cfg) is None  # None 반환 (예외 없으면 정상) / Returns None (no exception = valid)
+
+def test_missing_data_channels_raises(minimal_cfg):
+    del minimal_cfg["data"]["channels"]
+    with pytest.raises(ValueError, match="SSOT-CF01"):
+        validate_config(minimal_cfg)
+
+def test_zero_learning_rate_raises(minimal_cfg):
+    minimal_cfg["phase2"]["learning_rate"] = 0
+    with pytest.raises(ValueError, match="SSOT-CF01"):
+        validate_config(minimal_cfg)
 ```
 
 ---
@@ -280,17 +292,36 @@ Model-dependent tests are handled in `tests/integration/test_predictor_integrati
 
 ### 3.7 `tuning/` — 하이퍼파라미터 튜닝 / Hyperparameter Tuning
 
-**단위 테스트 파일 / Unit test files:** `tests/unit/test_search_space.py`, Smoke: `tests/test_smoke_optuna.py`
+**모듈 위치 / Module locations:**
+
+```
+src/tuning/
+├── search_space.py    — get_phase2_search_space(trial, cfg=None)
+├── optuna_tuner.py    — run_optuna()
+└── optuna_utils.py    — normalize_channel(), load/save_best_params(), save_trials_summary(), apply_phase2_params()
+```
+
+**단위 테스트 파일 / Unit test files:** `tests/unit/test_search_space.py`, Smoke: `tests/smoke/test_smoke_optuna.py`
 
 | 함수 / Function | 테스트 항목 / Test Items |
 |---|---|
-| `get_search_space(trial, "efficientnet_b0")` | 반환 dict에 `hidden_dim`, `dropout`, `learning_rate` 키 존재 / Required keys present in returned dict |
-| `get_search_space(trial, "resnet50")` | 추가로 `mid_dim` 키 존재 / Additionally contains `mid_dim` key |
+| `get_phase2_search_space(trial, cfg=None)` — EfficientNet-B0 | 반환 dict에 `hidden_dim`, `dropout`, `learning_rate` 키 존재 / Required keys present in returned dict |
+| `get_phase2_search_space(trial, cfg=None)` — ResNet-50 | 추가로 `mid_dim` 키 존재 (`cfg["model"]["backbone"] == "resnet50"` 분기) / Additionally contains `mid_dim` key |
 | `run_optuna(n_trials=None, channel="all")` | `n_trials` None → cfg fallback → 기본값 5 / `n_trials` None → cfg fallback → default 5 |
 | `run_optuna()` 목적 함수 | `float` 반환 (val_acc) — trial마다 정상 반환 / Returns `float` (val_acc) for each trial |
+| `normalize_channel(channel)` | 대소문자 무관 → 소문자 반환 (`"Y"` → `"y"`) / Case-insensitive → lowercase returned |
+| `normalize_channel("invalid")` | `ValueError` 발생 — 유효하지 않은 채널명 / Raises `ValueError` for unknown channel |
+| `load_best_params(channel, output_dir)` | 파일 존재 시 dict 반환, 미존재 시 `FileNotFoundError` / Returns dict if file exists, raises `FileNotFoundError` otherwise |
+| `save_best_params(params, channel, output_dir)` | 파일 생성 확인, JSON 직렬화 가능 / File created, JSON-serializable content |
+| `save_trials_summary(study, channel, output_dir)` | `trials_summary_{ch}.json` 생성 확인 / `trials_summary_{ch}.json` file created |
+| `apply_phase2_params(cfg, params)` | 반환 dict에 학습률·드롭아웃 반영, `cfg["model"]["backbone"]` 불변 / Learning rate & dropout applied; `backbone` key unchanged |
+| `apply_phase2_params()` backbone 불변 | EfficientNet→ResNet 전환 불가 — backbone 키 변경 시 `ValueError` / Cannot switch backbone; raises `ValueError` on backbone key change |
 
 > ⚠️ **역방향 의존성 / Reverse Dependency**: `optuna_tuner.py` 가 `src.scripts.run_baseline` 을 런타임 import — 단위 테스트 시 mock 필요.
 > `optuna_tuner.py` runtime-imports `src.scripts.run_baseline` — unit tests require mocking.
+>
+> ⚠️ **이중 저장 버그 / Duplicate Save Bug** (OPTUNA 브랜치): `run_optuna()` 내부에서 `best_params` 를 `json.dump` 직접 호출 + `save_best_params()` 중복 호출로 두 번 저장됨. 직접 `json.dump` 블록 제거 필요.
+> `run_optuna()` saves `best_params` twice: direct `json.dump` + `save_best_params()` call. Remove the direct `json.dump` block.
 
 ---
 
@@ -339,6 +370,8 @@ src/
     │   ├── conftest.py
     │   ├── test_data_pipeline.py      ← preprocess → dataset → dataloader
     │   └── test_predictor_integration.py
+    ├── smoke/                         ← Smoke 테스트 폴더 / Smoke test folder
+    │   └── test_smoke_optuna.py       ← Optuna 21개 smoke 테스트 (13 passed / 8 skipped) / 21 optuna smoke tests
     ├── test_training_phase0.py        ← 기존 Smoke 테스트 (유지) / Existing smoke tests (kept)
     ├── test_training_phase2.py        ← 기존 Smoke 테스트 (유지) / Existing smoke tests (kept)
     ├── test_evaluation.py             ← 기존 Smoke 테스트 (유지) / Existing smoke tests (kept)

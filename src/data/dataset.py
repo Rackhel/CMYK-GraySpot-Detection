@@ -19,16 +19,10 @@ from pathlib import Path
 import cv2
 import torch
 from torch.utils.data import Dataset
-from torchvision import transforms as T
 
 from data.augmentation import augment_contrastive, augment_supervised
+from data.normalize import _IMAGENET_NORMALIZE  # SSOT-NM01: 단일 출처 사용
 from data.preprocessing import preprocess
-
-_IMAGENET_NORMALIZE = T.Normalize(
-    mean=[0.485, 0.456, 0.406],
-    std=[0.229, 0.224, 0.225],
-)
-
 
 # ──────────────────────────────────────────────────────────────
 # Supervised Dataset / Phase 2
