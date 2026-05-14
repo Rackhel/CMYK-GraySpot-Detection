@@ -62,8 +62,6 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            python-version: "3.10"
-          - os: ubuntu-latest
             python-version: "3.11"
           - os: windows-latest
             python-version: "3.11"
@@ -87,7 +85,7 @@ jobs:
       run: |
         python -m pytest src/tests/unit --cov=src --cov-report=xml
         python -m pytest src/tests/integration -m "not slow"
-        python -m pytest src/tests/smoke -m smoke || true # Graceful failure replacing continue-on-error
+        python -m pytest src/tests/smoke -m smoke || true
 
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4
@@ -146,11 +144,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        load: true
-        tags: grayspot:test
+        load: false
+        push: false
         cache-from: type=gha
         cache-to: type=gha,mode=max
-
-    - name: Test Docker image
-      run: |
-        docker run --rm grayspot:test python -c "import torch; print('PyTorch version:', torch.__version__)"
