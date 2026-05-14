@@ -10,19 +10,6 @@ This document is the authoritative reference for the neural network architecture
 
 ---
 
-## Table of Contents / 목차
-
-1. [모델 구성 요소 / Components](#1-모델-구성-요소--components)
-2. [GrayspotModel — 통합 모델 / Unified Model](#2-grayspotmodel--통합-모델--unified-model)
-3. [Backbone 지원 목록 / Supported Backbones](#3-backbone-지원-목록--supported-backbones)
-4. [ProjectionHead — Phase 0 Head](#4-projectionhead--phase-0-head)
-5. [ClassifierHead — Phase 2 Head](#5-classifierhead--phase-2-head)
-6. [Phase 전환 규칙 / Phase Transition Rules](#6-phase-전환-규칙--phase-transition-rules)
-7. [Hard SSOT 파라미터 / Hard SSOT Parameters](#7-hard-ssot-파라미터--hard-ssot-parameters)
-8. [SSOT 위반 현황 / Violations](#8-ssot-위반-현황--violations)
-
----
-
 ## 1. 모델 구성 요소 / Components
 
 | 클래스 / Class | 모듈 / Module | Phase | 역할 / Role |
@@ -32,39 +19,31 @@ This document is the authoritative reference for the neural network architecture
 | `ProjectionHead` | `models.projection_head` | 0 | SimCLR Contrastive 투영 Head / SimCLR Contrastive projection head |
 | `ClassifierHead` | `models.classifier` | 2 | Supervised 분류 Head / Supervised classification head |
 
-```python
-from models import GrayspotModel, build_backbone, ProjectionHead, ClassifierHead
-```
-
 ---
 
 ## 2. GrayspotModel — 통합 모델 / Unified Model
 
 ### 2.1 Phase 0 구성 / Phase 0 Configuration
 
-```python
-model = GrayspotModel(cfg, phase=0)
-# Backbone (feature extractor) + ProjectionHead
-# Input:  (B, 3, 128, 128) float32
-# Output: (B, projection_dim=128) L2-normalized projection vector
-```
+| 항목 / Item | 값 / Value |
+|---|---|
+| 구성 / Architecture | Backbone + ProjectionHead |
+| 입력 / Input | `(B, 3, 128, 128)` float32 |
+| 출력 / Output | `(B, projection_dim=128)` L2-normalized projection vector |
 
 ### 2.2 Phase 2 구성 / Phase 2 Configuration
 
-```python
-model = GrayspotModel(cfg, phase=2)
-# Backbone (feature extractor) + ClassifierHead
-# Input:  (B, 3, 128, 128) float32
-# Output: (B, num_levels=6) logits (Softmax 없음 / No Softmax)
-```
+| 항목 / Item | 값 / Value |
+|---|---|
+| 구성 / Architecture | Backbone + ClassifierHead |
+| 입력 / Input | `(B, 3, 128, 128)` float32 |
+| 출력 / Output | `(B, num_levels=6)` raw logits (Softmax 없음 / No Softmax) |
 
 ### 2.3 Phase 전환 / Phase Switching
 
-```python
-# Phase 0 backbone을 Phase 2 모델로 전환 / Switch Phase 0 backbone weights into Phase 2 model
-model.switch_to_phase2(backbone_path)
-# backbone_path: data_set/models/phase0_backbone_{channel}_{tag}.pt
-```
+`GrayspotModel.switch_to_phase2(backbone_path)` — Phase 0 backbone 가중치를 Phase 2 모델로 전환.
+
+- `backbone_path`: `{models_dir}/phase0_backbone_{channel}_{tag}.pt`
 
 ---
 
@@ -77,24 +56,20 @@ model.switch_to_phase2(backbone_path)
 
 ### 3.1 Backbone 태그 함수 / Tag Function
 
-```python
-from training import backbone_tag
+`utils.utils_model.backbone_tag(backbone_name: str) → str` — 아티팩트 파일명 생성에 사용.
+Tags are used for artifact filename generation (e.g., `phase0_backbone_Y_effb0.pt`).
 
-backbone_tag("efficientnet_b0")  # → "effb0"
-backbone_tag("resnet50")         # → "res50"
-```
-
-태그는 아티팩트 파일명 생성에 사용된다. / Tags are used for artifact filename generation (e.g., `phase0_backbone_Y_effb0.pt`).
+| backbone 이름 / Name | 반환 태그 / Tag |
+|---|---|
+| `efficientnet_b0` | `effb0` |
+| `resnet50` | `res50` |
 
 ### 3.2 Backbone 로드 팩토리 / Factory Function
 
-```python
-from models import build_backbone
+`models.build_backbone(backbone_name: str) → (nn.Sequential, int)`
 
-backbone, feature_dim = build_backbone(cfg)
-# Returns: (nn.Sequential, int)
-# feature_dim: 1280 for efficientnet_b0, 2048 for resnet50
-```
+- 반환: `(backbone module, feature_dim)`
+- `feature_dim`: `1280` (efficientnet_b0), `2048` (resnet50)
 
 ### 3.3 Channel Invariant
 
@@ -113,20 +88,11 @@ phase0_backbone_Y_res50.pt → GrayspotModel(backbone="efficientnet_b0", channel
 
 Phase 0 SimCLR Contrastive Learning용 투영 Head. / Projection head for Phase 0 SimCLR Contrastive Learning.
 
-```python
-# 구조 / Architecture
-Linear(feature_dim, proj_hidden) → BatchNorm → ReLU
-→ Linear(proj_hidden, projection_dim)
-→ L2 Normalize
-
-# 파라미터 / Parameters
-feature_dim    = 1280 (effb0) or 2048 (res50)         ← Hard SSOT
-proj_hidden    = config["phase0"]["hidden_dim"]  = 256 ← Hard SSOT (ProjectionHead 전용 중간 차원 / Intermediate dim for ProjectionHead)
-projection_dim = config["phase0"]["projection_dim"] = 128 ← Hard SSOT
-```
+**구조 / Architecture**: `Linear(feature_dim, proj_hidden) → BatchNorm → ReLU → Linear(proj_hidden, projection_dim) → L2 Normalize`
 
 | 파라미터 / Parameter | config 키 / Key | 기본값 / Default | Hard SSOT |
 |---|---|---|---|
+| `feature_dim` | — | 1280 (effb0) / 2048 (res50) | ✅ |
 | `proj_hidden` | `phase0.hidden_dim` 🟢 | 256 | ✅ |
 | `projection_dim` | `phase0.projection_dim` 🟢 | 128 | ✅ |
 
@@ -140,37 +106,17 @@ Phase 2 Supervised Classification용 분류 Head. Backbone별로 구조가 다�
 
 SE-attention이 backbone 내부에서 채널 선택을 완료하므로 직접 압축 구조를 사용한다. / SE-attention completes channel selection inside backbone — use direct compression.
 
-```python
-# 구조 / Architecture (mid_dim=None)
-Linear(feature_dim=1280, hidden_dim) → BatchNorm → ReLU → Dropout(dropout)
-→ Linear(hidden_dim, num_levels)
-# 출력: raw logits (Softmax 없음 / No Softmax applied)
+**구조 / Architecture** (`mid_dim=None`): `Linear(1280, hidden_dim) → BatchNorm → ReLU → Dropout → Linear(hidden_dim, num_levels)`
 
-# 파라미터 / Parameters
-feature_dim = 1280                                             ← Hard SSOT
-hidden_dim  = config["phase2"]["heads"]["efficientnet_b0"]["hidden_dim"] = 256  ← Hard SSOT
-dropout     = config["phase2"]["heads"]["efficientnet_b0"]["dropout"]    = 0.2  ← Soft SSOT
-num_levels  = config["data"]["num_levels"]                 = 6    ← Hard SSOT
-```
+출력: raw logits (Softmax 없음 / No Softmax applied)
 
 ### 5.2 ResNet-50 특화 / ResNet-50 Specialized
 
 2048차원 비선별 features를 단계적으로 압축한다. / Staged compression of unfiltered 2048-dim features.
 
-```python
-# 구조 / Architecture (mid_dim=512)
-Linear(feature_dim=2048, mid_dim) → BatchNorm → ReLU → Dropout(dropout)
-→ Linear(mid_dim, hidden_dim) → BatchNorm → ReLU → Dropout(dropout)
-→ Linear(hidden_dim, num_levels)
-# 출력: raw logits (Softmax 없음 / No Softmax applied)
+**구조 / Architecture** (`mid_dim=512`): `Linear(2048, mid_dim) → BatchNorm → ReLU → Dropout → Linear(mid_dim, hidden_dim) → BatchNorm → ReLU → Dropout → Linear(hidden_dim, num_levels)`
 
-# 파라미터 / Parameters
-feature_dim = 2048                                             ← Hard SSOT
-mid_dim     = config["phase2"]["heads"]["resnet50"]["mid_dim"]     = 512  ← Hard SSOT
-hidden_dim  = config["phase2"]["heads"]["resnet50"]["hidden_dim"]  = 256  ← Hard SSOT
-dropout     = config["phase2"]["heads"]["resnet50"]["dropout"]     = 0.4  ← Soft SSOT
-num_levels  = config["data"]["num_levels"]                     = 6    ← Hard SSOT
-```
+출력: raw logits (Softmax 없음 / No Softmax applied)
 
 ### 5.3 파라미터 비교 / Parameter Comparison
 
@@ -187,22 +133,11 @@ num_levels  = config["data"]["num_levels"]                     = 6    ← Hard S
 
 ### 6.1 switch_to_phase2() 로드 규칙 / Load Rules
 
-```python
-state = torch.load(backbone_path)
-backbone_keys = {k: v for k, v in state.items() if k.startswith("backbone.")}
-model.load_state_dict(backbone_keys, strict=False)
-```
-
 - `backbone.*` prefix 키만 선택적 로드 / Only `backbone.*` prefix keys are loaded selectively
 - Head 키 무시 (ProjectionHead → ClassifierHead 교체) / Head keys ignored (ProjectionHead replaced by ClassifierHead)
 - `strict=False`: 새 head 키 불일치 허용 / Allows new head key mismatches
 
 ### 6.2 추론 시 로드 / Inference Load Rules
-
-```python
-checkpoint = torch.load(path, map_location="cpu", weights_only=True)
-model.load_state_dict(checkpoint, strict=False)
-```
 
 - `weights_only=True`: pickle 보안 (임의 코드 실행 방지) / Pickle security (prevent arbitrary code execution)
 - `strict=False`: 버전 간 호환성 / Cross-version compatibility
@@ -224,14 +159,5 @@ model.load_state_dict(checkpoint, strict=False)
 | `mid_dim` (Res50 전용 / only) | 512 | `phase2.heads.resnet50.mid_dim` | ResNet-50 단계적 압축 구조 / ResNet-50 staged compression structure |
 | Phase 순서 / Phase ordering | Phase 0 → 2 | — | backbone 가중치 의존성 / Backbone weight dependency |
 | 색상 공간 / Color space | BGR [0, 1] | — | 입력 분포 / Input distribution |
-
----
-
-## 8. SSOT 위반 현황 / Violations
-
-| 코드 / Code | 위반 내용 / Violation | 등급 / Level |
-|---|---|---|
-| SSOT-FF01 | Phase 0 backbone 없이 Phase 2 `switch_to_phase2()` 호출 / Calling `switch_to_phase2()` without Phase 0 backbone | Level 1 — 즉시 중단 / Immediate halt |
-| SSOT-PH01 | Phase 0 학습 없이 Phase 2 직행 (backbone 미존재) / Going directly to Phase 2 without Phase 0 training (backbone absent) | Level 1 — 즉시 중단 / Immediate halt |
 
 ---

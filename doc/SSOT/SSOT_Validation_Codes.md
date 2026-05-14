@@ -10,16 +10,6 @@ This document is the authoritative reference for all Fail-Fast error codes, thei
 
 ---
 
-## Table of Contents / 목차
-
-1. [코드 명명 규칙 / Code Naming Convention](#1-코드-명명-규칙--code-naming-convention)
-2. [등급 체계 / Severity Levels](#2-등급-체계--severity-levels)
-3. [코드 전체 목록 / Complete Code List](#3-코드-전체-목록--complete-code-list)
-4. [코드별 상세 정의 / Detailed Definitions](#4-코드별-상세-정의--detailed-definitions)
-5. [감지 가이드 / Detection Guide](#5-감지-가이드--detection-guide)
-
----
-
 ## 1. 코드 명명 규칙 / Code Naming Convention
 
 ```
@@ -75,16 +65,6 @@ NUM: 순번 (01, 02, ...) / Sequential number
 | 즉각 조치 / Immediate Action | `raise FileNotFoundError(f"[SSOT-FF01] {path}")` |
 | 해결 방법 / Fix | Phase 0 학습 완료 후 Phase 2 진행. 평가 전 Phase 2 학습 완료 확인 / Complete Phase 0 training before starting Phase 2. Verify Phase 2 training is complete before evaluation. |
 
-```python
-# 올바른 Fail-Fast 구현 / Correct Fail-Fast implementation
-backbone_path = model_dir / f"phase0_backbone_{channel}_{tag}.pt"
-if not backbone_path.exists():
-    raise FileNotFoundError(
-        f"[SSOT-FF01] Phase 0 backbone not found: {backbone_path}. "
-        f"Run Phase 0 training first."  # Phase 0 학습 먼저 실행 필요 / Run Phase 0 training first
-    )
-```
-
 ---
 
 ### SSOT-PH01 — Phase 순서 위반 / Phase Ordering Violation
@@ -97,18 +77,6 @@ if not backbone_path.exists():
 | 즉각 조치 / Immediate Action | 즉시 중단 + 명시적 에러 메시지 / Immediate halt + explicit error message |
 | 해결 방법 / Fix | `python -m src.scripts.run_phase0` 먼저 실행 후 Phase 2 진행 / Run `python -m src.scripts.run_phase0` first, then proceed to Phase 2 |
 
-```python
-# Phase 2 시작 전 반드시 확인 / Always check before starting Phase 2
-for channel in channels:  # 채널별 확인 / Check per channel
-    tag = backbone_tag(cfg["model"]["backbone"])
-    backbone_path = model_dir / f"phase0_backbone_{channel}_{tag}.pt"
-    if not backbone_path.exists():
-        raise RuntimeError(
-            f"[SSOT-PH01] Phase 0 backbone missing for channel {channel}. "
-            f"Phase order violation: Phase 0 must complete before Phase 2."
-        )
-```
-
 ---
 
 ### SSOT-CS01 — 색상 공간 불일치 / Color Space Mismatch
@@ -119,13 +87,9 @@ for channel in channels:  # 채널별 확인 / Check per channel
 | 트리거 조건 / Trigger | 학습 시 BGR 사용, 평가/추론 시 RGB 사용 / BGR used during training, RGB used during evaluation/inference |
 | 감지 위치 / Detection | `Evaluator`, `GrayspotPredictor` 입력 전처리 단계 / Input preprocessing stage of `Evaluator` and `GrayspotPredictor` |
 | 즉각 조치 / Immediate Action | 색상 공간 강제 확인 후 불일치 시 중단 / Force color space check and halt on mismatch |
-| 해결 방법 / Fix | `cv2.imread()` → BGR 유지. PIL/torchvision 사용 시 BGR 변환 명시 / Keep BGR with `cv2.imread()`. Explicitly convert to BGR when using PIL/torchvision. |
+| 해결 방법 / Fix | `cv2.imread()` 사용 → BGR 유지. PIL/torchvision 사용 시 BGR 변환 명시 / Use `cv2.imread()` to keep BGR. Explicitly convert to BGR when using PIL/torchvision. |
 
-```python
-# 올바른 로드 / Correct loading (BGR 유지 / BGR preserved)
-image = cv2.imread(path)          # BGR uint8  ✅
-# image = Image.open(path)        # RGB        ❌ SSOT-CS01
-```
+적용 범위 / Scope: `data/dataset.py`, `data/augmentation.py`, `inference/predictor_inference.py`, `scripts/tsne_review.py`
 
 ---
 
@@ -135,22 +99,10 @@ image = cv2.imread(path)          # BGR uint8  ✅
 |---|---|
 | 등급 / Level | Level 2 — Warning |
 | 트리거 조건 / Trigger | Pretrained backbone 사용 시 ImageNet mean/std 정규화 미적용 / ImageNet mean/std normalization not applied when using pretrained backbone |
-| 현재 상태 / Current | ✅ **해소됨 / Resolved** — `dataset.py`의 `_IMAGENET_NORMALIZE`가 `CMYKDataset`·`ContrastiveDataset` 모두에 적용됨 (2026-05-08) / `_IMAGENET_NORMALIZE` applied in both `CMYKDataset` and `ContrastiveDataset` in `dataset.py` |
+| SSOT 원천 / SSOT Source | `data/normalize.py` — `_IMAGENET_NORMALIZE` 단일 정의 / Single definition of `_IMAGENET_NORMALIZE` |
+| 정규화 값 / Values | `mean=[0.485, 0.456, 0.406]`, `std=[0.229, 0.224, 0.225]` |
 | 즉각 조치 / Immediate Action | 경고 로그 출력 후 계속 실행 / Log warning and continue execution |
-| 해결 방법 / Fix | ✅ 완료 — `_IMAGENET_NORMALIZE = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])` 적용 / Done |
-
-```python
-# 현재 구현 / Current implementation (data/dataset.py — resolved 2026-05-08)
-from torchvision import transforms as T
-
-_IMAGENET_NORMALIZE = T.Normalize(
-    mean=[0.485, 0.456, 0.406],
-    std=[0.229, 0.224, 0.225],
-)
-# preprocess() → /255.0 이후 dataset.py에서 추가 적용 / Applied in dataset.py after preprocess() / 255.0
-tensor = torch.tensor(image).permute(2, 0, 1).float()
-return _IMAGENET_NORMALIZE(tensor), level
-```
+| 해결 방법 / Fix | `data.normalize._IMAGENET_NORMALIZE`를 모든 소비 모듈에서 import / Import `_IMAGENET_NORMALIZE` from `data.normalize` in all consuming modules |
 
 ---
 
@@ -164,6 +116,8 @@ return _IMAGENET_NORMALIZE(tensor), level
 | 즉각 조치 / Immediate Action | `KeyError` 즉시 발생 + 에러 메시지에 코드 SSOT-CF01 명시 / Raise `KeyError` immediately + include code SSOT-CF01 in error message |
 | 해결 방법 / Fix | `config.json`에 키 추가 또는 코드의 잘못된 키 참조 수정 / Add key to `config.json` or fix the incorrect key reference in code |
 
+`validate_config(cfg) → None`: 필수 키 부재 시 `ValueError("[CONFIG ERROR / SSOT-CF01] …")` 발생. 반환값 없음 (bool 아님).
+
 ---
 
 ### SSOT-CF02 — Dead Config 감지 / Dead Config Detected
@@ -172,9 +126,10 @@ return _IMAGENET_NORMALIZE(tensor), level
 |---|---|
 | 등급 / Level | Level 2 — Warning |
 | 트리거 조건 / Trigger | `config.json`에 선언된 키가 코드에서 소비되지 않음 / Key declared in `config.json` is not consumed by code |
-| 현재 Dead Config 수 / Current Dead | ✅ **0개 / 0 keys** — 전체 해소 또는 config.json에서 제거 완료 / All resolved or removed from config.json (상세 목록 / full list: [SSOT_GlobalVariables.md §5](SSOT_GlobalVariables.md)) |
 | 즉각 조치 / Immediate Action | Warning 로그 출력, 실행 계속 / Log warning, continue execution |
 | 해결 방법 / Fix | 해당 키 기능 구현 또는 `config.json`에서 제거 / Implement the key's feature or remove it from `config.json` |
+
+상세 목록 / Full list: [SSOT_GlobalVariables.md §5](SSOT_GlobalVariables.md)
 
 ---
 
@@ -184,22 +139,10 @@ return _IMAGENET_NORMALIZE(tensor), level
 |---|---|
 | 등급 / Level | Level 2 — Warning |
 | 트리거 조건 / Trigger | 동일 seed에서 다른 데이터 분할 또는 학습 결과 / Same seed produces different data splits or training results |
-| 현재 상태 / Current | ✅ **해소됨 / Resolved** — `set_seed()`에서 `cuda.deterministic` / `cuda.benchmark` 소비 완료 (2026-05-08). 분할 seed는 `dataset.py` stratified split에서 `train.seed` 사용 / `cuda.deterministic` / `cuda.benchmark` consumed in `set_seed()`; split seed uses `train.seed` in `dataset.py` stratified split |
 | 즉각 조치 / Immediate Action | Warning 로그 출력 / Log warning |
-| 해결 방법 / Fix | ✅ 완료 — 아래 코드 적용됨 / Done — code below is applied |
+| 해결 방법 / Fix | `utils.set_seed(seed, cfg)` 호출 — `random`, `numpy`, `torch`, `cuda.deterministic`, `cuda.benchmark` 모두 설정 |
 
-```python
-# 완전한 재현성 보장 / Full reproducibility guarantee
-import random, numpy as np, torch
-
-seed = cfg["train"]["seed"]
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
-torch.backends.cudnn.deterministic = True   # cuda.deterministic 소비 / consumes cuda.deterministic
-torch.backends.cudnn.benchmark     = False  # cuda.benchmark 소비 / consumes cuda.benchmark
-```
+`set_seed()` 적용 범위: `random`, `numpy`, `torch.manual_seed`, `torch.cuda.manual_seed_all`, `cudnn.deterministic`, `cudnn.benchmark`
 
 ---
 
@@ -207,38 +150,18 @@ torch.backends.cudnn.benchmark     = False  # cuda.benchmark 소비 / consumes c
 
 ### 5.1 자동 감지 체크리스트 / Automated Detection Checklist
 
-Phase 2 시작 전 확인 / Before starting Phase 2:
+Phase 2 시작 전 확인 사항 / Before starting Phase 2:
 
-```python
-def validate_phase2_preconditions(cfg, channels):
-    model_dir = Path(cfg["storage"]["model_dir"])
-    tag       = backbone_tag(cfg["model"]["backbone"])
-    
-    for ch in channels:
-        path = model_dir / f"phase0_backbone_{ch}_{tag}.pt"
-        if not path.exists():
-            raise FileNotFoundError(f"[SSOT-FF01/PH01] {path}")
-    
-    print("✅ All Phase 2 preconditions satisfied.")  # 모든 Phase 2 전제 조건 충족
-```
+| 항목 / Item | 검증 대상 / Target | 코드 / Code |
+|---|---|---|
+| Phase 0 backbone 존재 여부 | `{models_dir}/phase0_backbone_{ch}_{tag}.pt` | SSOT-FF01 / PH01 |
+| config 필수 키 / Required config keys | `validate_config(cfg)` — ValueError 발생 시 중단 | SSOT-CF01 |
+| 색상 공간 / Color space | 이미지 로드 모듈이 `cv2.imread()` 사용 여부 | SSOT-CS01 |
+| 정규화 / Normalization | `_IMAGENET_NORMALIZE`가 `data.normalize`에서 import 되는지 여부 | SSOT-NM01 |
 
-### 5.2 경고 감지 / Warning Detection
+### 5.2 Dead Config 감지 / Dead Config Detection
 
-Dead Config 감지 (선택사항 / Optional — not required at startup):
-
-```python
-LIVE_KEYS = {
-    "system.device", "system.num_workers", "system.pin_memory",
-    "data.root_dir", "data.channels", "data.num_levels",
-    "data.image_size", "data.image_extensions",
-    "storage.output_dir", "storage.model_dir", "storage.report_dir",
-    # ... 소비 키 전체 목록 / ... full list of consumed keys
-}
-
-def warn_dead_configs(cfg_flat: dict) -> None:
-    for key in cfg_flat:
-        if key not in LIVE_KEYS:
-            logger.warning(f"[SSOT-CF02] Dead Config detected: {key}")  # Dead Config 감지 / Dead config key detected
-```
+Dead Config 목록은 [SSOT_GlobalVariables.md §5](SSOT_GlobalVariables.md)에서 관리된다.
+Dead Config list is maintained in [SSOT_GlobalVariables.md §5](SSOT_GlobalVariables.md).
 
 ---

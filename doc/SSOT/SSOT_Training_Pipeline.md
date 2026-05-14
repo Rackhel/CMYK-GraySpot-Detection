@@ -10,21 +10,6 @@ This document is the authoritative reference for training loops, optimizers, and
 
 ---
 
-## Table of Contents / 목차
-
-1. [Swing Architecture 개요 / Swing Architecture Overview](#1-swing-architecture-개요--swing-architecture-overview)
-2. [Phase 0 — SimCLR Contrastive Learning](#2-phase-0--simclr-contrastive-learning)
-3. [Phase 2 — Supervised Classification](#3-phase-2--supervised-classification)
-4. [손실 함수 / Loss Functions](#4-손실-함수--loss-functions)
-5. [Optimizer / Scheduler](#5-optimizer--scheduler)
-6. [학습 파라미터 요약 / Parameter Summary](#6-학습-파라미터-요약--parameter-summary)
-7. [Optuna 하이퍼파라미터 탐색 / Optuna Hyperparameter Search](#7-optuna-하이퍼파라미터-탐색--optuna-hyperparameter-search)
-8. [실행 명령어 / Run Commands](#8-실행-명령어--run-commands)
-9. [멀티 채널 실행 / Multi-Channel Execution](#9-멀티-채널-실행--multi-channel-execution)
-10. [SSOT 위반 현황 / Violations](#10-ssot-위반-현황--violations)
-
----
-
 ## 1. Swing Architecture 개요 / Swing Architecture Overview
 
 ```
@@ -55,12 +40,7 @@ Phase 3 ─ Evaluation & Feedback
 > **SSOT-PH01**: Phase 0 학습 없이 Phase 2를 시작하면 즉시 실패.
 > **SSOT-PH01**: Starting Phase 2 without a trained Phase 0 backbone **must fail immediately**.
 
-```python
-# Phase 2 시작 전 반드시 확인 / Must check before Phase 2
-backbone_path = model_dir / f"phase0_backbone_{channel}_{tag}.pt"
-if not backbone_path.exists():
-    raise FileNotFoundError(f"[SSOT-FF01] {backbone_path}")
-```
+Phase 2 시작 전 `{models_dir}/phase0_backbone_{channel}_{tag}.pt` 존재 여부를 반드시 검증한다. 미존재 시 `SSOT-FF01` 오류를 발생시킨다.
 
 ---
 
@@ -68,14 +48,9 @@ if not backbone_path.exists():
 
 ### 2.1 학습기 / Trainer
 
-```python
-from training import Phase0Trainer
+`training.Phase0Trainer(model, cfg, channel, device)` → `.train(loader)` → `.save_backbone()`
 
-trainer = Phase0Trainer(model, cfg, channel="Y", device=device)
-history = trainer.train(loader)
-trainer.save_backbone()
-# 출력 / Output: data_set/models/phase0_backbone_{channel}_{tag}.pt
-```
+- 출력 / Output: `{models_dir}/phase0_backbone_{channel}_{tag}.pt`
 
 ### 2.2 실제 학습 파라미터 / Actual Training Parameters
 
@@ -96,11 +71,9 @@ trainer.save_backbone()
 
 ### 2.3 체크포인트 저장 / Checkpoint Save
 
-```python
-Phase0Trainer.save_backbone()
-# → data_set/models/phase0_backbone_{channel}_{tag}.pt
-# 전체 model.state_dict() 저장 (backbone + ProjectionHead) / Save full model.state_dict() (backbone + ProjectionHead)
-```
+`Phase0Trainer.save_backbone()` → `{models_dir}/phase0_backbone_{channel}_{tag}.pt`
+
+전체 `model.state_dict()` 저장 (backbone + ProjectionHead 포함) / Saves full `model.state_dict()` (backbone + ProjectionHead included).
 
 ---
 
@@ -108,15 +81,9 @@ Phase0Trainer.save_backbone()
 
 ### 3.1 학습기 / Trainer
 
-```python
-from training import Phase2Trainer
+`training.Phase2Trainer(model, cfg, channel, device, train_ds)` → `.train(train_loader, val_loader)` → `.save_history(history)`
 
-trainer = Phase2Trainer(model, cfg, channel="Y", device=device, train_ds=train_ds)
-history = trainer.train(train_loader, val_loader)
-trainer.save_history(history)
-# 출력 / Output: data_set/models/best_{channel}.pt
-#               data_set/reports/phase2_history_{channel}.csv
-```
+- 출력 / Output: `{models_dir}/best_{channel}.pt`, `{reports_dir}/phase2_history_{channel}.csv`
 
 ### 3.2 실제 학습 파라미터 / Actual Training Parameters
 
@@ -148,24 +115,19 @@ Head structure and regularization strength differ per backbone. Read from `phase
 > `phase2.heads.{backbone}` 키가 없으면 `phase2.hidden_dim` / `phase2.dropout` 최상위 기본값으로 fallback한다.
 > Falls back to top-level `phase2.hidden_dim` / `phase2.dropout` if `phase2.heads.{backbone}` is absent.
 
-### 3.3 Best Model 기준 / Best Model Criteria
+### 3.4 Best Model 기준 / Best Model Criteria
 
-```python
-# val_acc 기준 best 모델 저장 (early stopping 포함) / Save best model by val_acc (including early stopping)
-if val_acc > best_val_acc + es_delta:
-    best_val_acc = val_acc
-    torch.save(model.state_dict(), model_dir / f"best_{channel}.pt")
-```
+`val_acc > best_val_acc + es_delta` 조건 충족 시 `best_{channel}.pt` 저장.
 
 > ⚠️ 저장 기준이 `val_acc`(accuracy)이며, PRD 목표 지표인 `macro_f1`과 다름. Optuna도 `best_val_acc`를 목적 함수로 사용한다.
 > ⚠️ Best model is saved by `val_acc` (accuracy), which differs from the PRD target metric `macro_f1`. Optuna also uses `best_val_acc` as its objective function.
 
-### 3.4 체크포인트 흐름 / Checkpoint Flow
+### 3.5 체크포인트 흐름 / Checkpoint Flow
 
 ```
 Phase2Trainer.train()
-    → data_set/models/best_{ch}.pt           (best val_acc 기준 / by best val_acc)
-    → data_set/reports/phase2_history_{ch}.csv  (에폭별 이력 CSV / per-epoch history CSV)
+    → {models_dir}/best_{ch}.pt              (best val_acc 기준 / by best val_acc)
+    → {reports_dir}/phase2_history_{ch}.csv  (에폭별 이력 CSV / per-epoch history CSV)
 ```
 
 ---
@@ -174,38 +136,33 @@ Phase2Trainer.train()
 
 ### 4.1 InfoNCELoss — Phase 0
 
-```python
-from training import InfoNCELoss
-
-loss_fn = InfoNCELoss(temperature=cfg["phase0"]["temperature"])
-loss = loss_fn(z1, z2)
-# z1, z2: (B, projection_dim) L2-normalized vectors
-# Returns: scalar contrastive loss
-```
+`training.InfoNCELoss(temperature)` — SimCLR NT-Xent 기반 대조 손실.
 
 | 파라미터 / Parameter | config 키 / Key | 값 / Value | Hard SSOT |
 |---|---|---|---|
 | temperature (τ) | `phase0.temperature` 🟢 | 0.1 | ✅ |
 
+입력: `z1, z2` — `(B, projection_dim)` L2-normalized vectors  
+출력: scalar contrastive loss
+
 ### 4.2 CrossEntropyLoss — Phase 2
 
-```python
-import torch.nn as nn
-loss_fn = nn.CrossEntropyLoss(weight=class_weights)
-loss = loss_fn(logits, labels)
-# logits: (B, 6) raw logits
-# labels: (B,) int [0, 5]
-# class_weights: 학습 데이터 분포 기반 자동 계산 / Auto-computed from training distribution
-```
+`nn.CrossEntropyLoss(weight=class_weights)` — 학습 데이터 분포 기반 자동 계산된 클래스 가중치 적용.
+
+| 입력 / Input | 형상 / Shape | 비고 / Note |
+|---|---|---|
+| `logits` | `(B, 6)` | raw logits (Softmax 없음 / No Softmax) |
+| `labels` | `(B,)` | int `[0, 5]` |
+| `class_weights` | `(6,)` | 학습 분포 기반 자동 계산 / Auto-computed from training distribution |
 
 ### 4.3 get_loss() 팩토리 / Factory
 
-```python
-from training import get_loss
+`training.get_loss(phase: int, cfg: dict, train_samples: list = None) → nn.Module`
 
-loss_fn = get_loss(cfg, phase=0)                      # InfoNCELoss
-loss_fn = get_loss(cfg, phase=2, train_samples=...)   # CrossEntropyLoss (balanced weights)
-```
+| `phase` | 반환 / Returns | 비고 / Note |
+|---|---|---|
+| `0` | `InfoNCELoss` | `cfg["phase0"]["temperature"]` 사용 |
+| `2` | `nn.CrossEntropyLoss` | `train_samples` 기반 균형 가중치 계산 |
 
 ---
 
@@ -216,34 +173,15 @@ Dynamically selected from config via `_build_optimizer()` / `_build_scheduler()`
 
 ### 5.1 Optimizer Factory
 
-```python
-def _build_optimizer(model, lr, weight_decay, cfg):
-    name = cfg["train"].get("optimizer", "adamw").lower()
-    if name == "sgd":
-        return SGD(model.parameters(), lr=lr, weight_decay=weight_decay,
-                   momentum=cfg["train"].get("momentum", 0.9))
-    else:  # adamw (default)
-        betas = tuple(cfg["train"].get("betas", [0.9, 0.999]))
-        return AdamW(model.parameters(), lr=lr, weight_decay=weight_decay, betas=betas)
-```
-
 | 컴포넌트 / Component | config 키 / Key | 기본값 / Default | 소비 여부 / Consumed |
 |---|---|---|---|
 | optimizer 종류 / Optimizer type | `train.optimizer` | `"adamw"` | 🟢 |
 | AdamW betas | `train.betas` | `[0.9, 0.999]` | 🟢 (adamw 선택 시 / when adamw selected) |
 | SGD momentum | `train.momentum` | `0.9` | 🟢 (sgd 선택 시 / when sgd selected) |
 
-### 5.2 Scheduler Factory
+지원 optimizer: `adamw` (기본 / default), `sgd`
 
-```python
-def _build_scheduler(optimizer, epochs, cfg):
-    name = cfg["train"].get("scheduler", "cosine").lower()
-    if name == "step":
-        return StepLR(optimizer, step_size=max(1, epochs // 3),
-                      gamma=cfg["train"].get("gamma", 0.1))
-    else:  # cosine (default)
-        return CosineAnnealingLR(optimizer, T_max=epochs, eta_min=cfg["train"]["eta_min"])
-```
+### 5.2 Scheduler Factory
 
 | 컴포넌트 / Component | config 키 / Key | 기본값 / Default | 소비 여부 / Consumed |
 |---|---|---|---|
@@ -251,6 +189,8 @@ def _build_scheduler(optimizer, epochs, cfg):
 | CosineAnnealingLR eta_min | `train.eta_min` | 1e-6 | 🟢 |
 | StepLR gamma | `train.gamma` | 0.1 | 🟢 (step 선택 시 / when step selected) |
 | Gradient clipping | `train.gradient_clip` | 1.0 | 🟢 |
+
+지원 scheduler: `cosine` (기본 / default), `step`
 
 ---
 
@@ -272,19 +212,10 @@ def _build_scheduler(optimizer, epochs, cfg):
 
 ### 6.2 Snapshot 통합 / Snapshot Integration
 
-학습 시작 시 설정 스냅샷 저장 / Config snapshot saved at training start:
+학습 시작 시 `utils.log_snapshot()` 을 통해 config 스냅샷을 `outputs/snapshots/` 에 저장한다.
+Config snapshot is saved to `outputs/snapshots/` at training start via `utils.log_snapshot()`.
 
-```python
-from utils import log_snapshot
-from pathlib import Path
-
-snap_path = log_snapshot(
-    config=cfg,
-    snapshot_dir=Path("outputs/snapshots"),
-    tag=f"{channel}_phase0",
-)
-# → outputs/snapshots/config_snapshot_{channel}_phase0_{timestamp}.json
-```
+- 출력 경로 / Output path: `outputs/snapshots/config_snapshot_{channel}_{phase}_{timestamp}.json`
 
 ---
 
@@ -315,43 +246,10 @@ Reads backbone-specific ranges from `optuna.search_space.{backbone_name}`.
 
 ---
 
-## 8. 실행 명령어 / Run Commands
-
-```bash
-# Phase 0 — SimCLR 사전 학습 / Contrastive pretraining
-python -m src.scripts.run_phase0
-
-# Phase 2 — Supervised 학습 / Supervised classification
-python -m src.scripts.run_phase2
-
-# Baseline (Phase 0 없이 비교용 / Without Phase 0, for comparison)
-python -m src.scripts.run_baseline
-
-# Optuna HPO 튜닝 / Hyperparameter optimization
-python -m src.scripts.run_optuna
-
-# 통합 학습 진입점 / Unified training entry point
-python -m src.scripts.train
-```
-
----
-
-## 9. 멀티 채널 실행 / Multi-Channel Execution
+## 8. 멀티 채널 실행 / Multi-Channel Execution
 
 4개 CMYK 채널은 **독립적으로** 학습된다. 모델을 공유하지 않으며, 채널별로 Phase 0 → Phase 2 전체 파이프라인이 개별 실행된다.
 The 4 CMYK channels are trained **independently**. No model is shared — each channel runs through the full Phase 0 → Phase 2 pipeline separately.
-
-```python
-# scripts/run_phase2.py 기준 / Based on scripts/run_phase2.py
-channels = cfg["data"]["channels"]   # ["Y", "M", "C", "K"]
-for channel in channels:
-    run_phase2(channel, cfg)
-# 결과: 채널별 독립 모델 4개 생성 / Result: 4 independent models, one per channel
-# outputs/checkpoints/best_Y.pt
-# outputs/checkpoints/best_M.pt
-# outputs/checkpoints/best_C.pt
-# outputs/checkpoints/best_K.pt
-```
 
 | 채널 / Channel | Phase 0 backbone | Phase 2 모델 / Model | 독립성 / Independence |
 |---|---|---|---|
@@ -362,20 +260,5 @@ for channel in channels:
 
 > **Channel Invariant**: 동일 channel의 Phase 0 backbone만 해당 channel의 Phase 2에 사용할 수 있다. (SSOT-FF01)
 > Only the Phase 0 backbone of the **same** channel may be used for that channel's Phase 2 training.
-
----
-
-## 10. SSOT 위반 현황 / Violations
-
-| 코드 / Code | 위반 내용 / Violation | 등급 / Level | 해결 방법 / Fix |
-|---|---|---|---|
-| SSOT-PH01 | Phase 0 없이 Phase 2 직행 시 FF01 미발생 위험 / Risk of missing FF01 when skipping Phase 0 and going directly to Phase 2 | Level 1 | `backbone_path.exists()` 검증 구현 완료 ✅ |
-
-> ✅ **해소됨 / Resolved**: `train.optimizer`, `train.scheduler` → `_build_optimizer()` / `_build_scheduler()` factory 구현 완료.
-> ✅ **해소됨 / Resolved**: `train.gradient_clip` → Phase0/2Trainer `clip_grad_norm_` 적용 완료.
-> ✅ **해소됨 / Resolved**: `phase2.early_stopping.*` → `Phase2Trainer.train()` 구현 완료.
-> ✅ **해소됨 / Resolved**: `cuda.deterministic` / `cuda.benchmark` → `set_seed()` 소비 완료.
-> ✅ **해소됨 / Resolved**: `phase0.weight_decay` → Phase0Trainer AdamW 소비 완료.
-> ✅ **해소됨 / Resolved**: `phase0.hidden_dim` → `ProjectionHead` hidden_dim 소비 완료.
 
 ---

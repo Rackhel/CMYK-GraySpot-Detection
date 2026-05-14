@@ -10,21 +10,6 @@ This document defines the core SSOT principles, terminology, and document invent
 
 ---
 
-## Table of Contents / 목차
-
-1. [SSOT 정의 / Definition](#1-ssot-정의--definition)
-2. [핵심 용어 / Glossary](#2-핵심-용어--glossary)
-3. [상태 아이콘 범례 / Icon Legend](#3-상태-아이콘-범례--icon-legend)
-4. [프로젝트 정체성 / Project Identity](#4-프로젝트-정체성--project-identity)
-5. [SOLID 설계 원칙 / SOLID Design Principles](#5-solid-설계-원칙--solid-design-principles) (§5.1 SRP · §5.2 OCP · §5.3 LSP · §5.4 ISP · §5.5 DIP · §5.6 요약 · §5.7 리팩토링 우선순위)
-6. [코딩 컨벤션 / Coding Conventions](#6-코딩-컨벤션--coding-conventions)
-7. [Fail-Fast 정책 / Fail-Fast Policy](#7-fail-fast-정책--fail-fast-policy)
-8. [Hard / Soft SSOT 분류 / Classification](#8-hard--soft-ssot-분류--classification)
-9. [SSOT 문서 목록 / Document Index](#9-ssot-문서-목록--document-index)
-10. [관련 문서 / Related Documents](#10-관련-문서--related-documents)
-
----
-
 ## 1. SSOT 정의 / Definition
 
 **SSOT(Single Source of Truth)**는 데이터/파라미터/아티팩트의 **의미(semantic)를 정의하는 유일 출처**이며, 다른 컴포넌트는 이를 **재정의·우회·대체 없이 그대로 소비**해야 한다.
@@ -100,8 +85,8 @@ This document defines the core SSOT principles, terminology, and document invent
 
 ## 5. SOLID 설계 원칙 / SOLID Design Principles
 
-이 프로젝트의 모든 Python 코드는 SOLID 5원칙을 **설계 기준**으로 사용한다. 각 원칙의 현재 준수 상태와 리팩토링 필요 여부를 함께 기술한다.
-All Python code in this project uses SOLID principles as **design criteria**. Current compliance and refactoring necessity are documented for each principle.
+이 프로젝트의 모든 Python 코드는 SOLID 5원칙을 **설계 기준**으로 사용한다.
+All Python code in this project uses SOLID principles as **design criteria**.
 
 ---
 
@@ -118,14 +103,7 @@ All Python code in this project uses SOLID principles as **design criteria**. Cu
 
 **SRP 위반 판단 기준 / SRP violation test**: 함수/클래스 설명에 "그리고(and)"가 필요하면 책임이 두 개다. / If describing a function/class requires the word "and", it has more than one responsibility.
 
-**현재 상태 / Current Status**: ✅ **해결됨 / Resolved**
-- `Phase0Trainer` / `Phase2Trainer` — 각 Phase 학습만 담당 ✅
-- `ClassifierHead` / `ProjectionHead` — 각 head 구조 정의만 담당 ✅
-- `utils_config.py` / `utils_model.py` / `logger.py` — 관심사 분리 완료 ✅
-- **`evaluator.py` — SRP 위반 해결** ✅: 4 Mixin + Orchestrator 분해 완료 (2026-05-12)
-- **`predictor.py` — SRP 위반 해결** ✅: 3 Mixin + Orchestrator 분해 완료 (2026-05-14)
-
-**분해 결과 / Decomposition Result — `evaluator.py`**:
+**분해 구조 / Decomposition — `evaluator.py`**:
 
 | 분리 모듈 / Module | 책임 / Responsibility |
 |---|---|
@@ -135,7 +113,7 @@ All Python code in this project uses SOLID principles as **design criteria**. Cu
 | `evaluator_charts.py` | 차트 7종 생성 / 7 chart builders |
 | `evaluator.py` (조율자 / Orchestrator) | 위 모듈 조합, 진입점 / Orchestrates submodules, entry point |
 
-**분해 결과 / Decomposition Result — `predictor.py`**:
+**분해 구조 / Decomposition — `predictor.py`**:
 
 | 분리 모듈 / Module | 책임 / Responsibility |
 |---|---|
@@ -160,32 +138,9 @@ New functionality should be addable without modifying existing code. Conditional
 | Optuna 탐색 공간 / Optuna search space | `search_space.py` 내 `if backbone_name == "resnet50"` 분기 수정 / Must modify backbone branch | backbone별 독립 search_space 함수 등록 / Register per-backbone function |
 | Head 구조 추가 / Add head variant | `ClassifierHead.__init__` 내 `if mid_dim is not None` 분기 / `if mid_dim` branch inside | Head 클래스를 상속·확장 / Inherit and extend head class |
 
-```python
-# ❌ OCP 위반 — 새 backbone마다 기존 함수 수정 / Violation: modify existing function for each new backbone
-def build_backbone(backbone_name):
-    if backbone_name == "efficientnet_b0":  ...
-    elif backbone_name == "resnet50":       ...
-    # resnet18 추가 시 여기를 수정해야 함 / Must add here for resnet18
-
-# ✅ OCP 준수 — Registry 패턴으로 확장 / Compliant: extend via Registry
-_BACKBONE_REGISTRY = {
-    "efficientnet_b0": _build_effb0,
-    "resnet50":        _build_res50,
-    # resnet18 추가 시 기존 코드 무수정 / No existing code change needed for resnet18
-}
-def build_backbone(backbone_name):
-    if backbone_name not in _BACKBONE_REGISTRY:
-        raise ValueError(f"Unsupported backbone: {backbone_name}")
-    return _BACKBONE_REGISTRY[backbone_name]()
-```
-
-**현재 상태 / Current Status**: ⚠️ **부분 위반**
-- `build_backbone()`: if/elif 체인 — backbone 추가 시 기존 함수 수정 필요
-- `get_phase2_search_space()`: `if backbone_name == "resnet50"` 분기
-
-**리팩토링 필요 여부 / Refactoring Assessment**:
-> **선택적 개선 권장** (즉시 필수 아님). Backbone이 2개뿐인 현재 규모에서 Registry 패턴은 낮은 비용으로 미래 확장성을 보장한다. 3번째 backbone 추가 시 반드시 적용.
-> **Optional improvement** (not immediately required). With only 2 backbones, a Registry pattern is low-cost insurance for future expansion. Apply when adding a 3rd backbone.
+**⚠️ OCP 미적용 지점 / Partial violation points**:
+- `build_backbone()`: if/elif 체인 — backbone 추가 시 기존 함수 수정 필요 / backbone 3개 이상 시 Registry 패턴 도입
+- `get_phase2_search_space()`: `if backbone_name == "resnet50"` 분기 — backbone-aware search space 분리 필요
 
 ---
 
@@ -197,23 +152,6 @@ def build_backbone(backbone_name):
 서브클래스가 베이스클래스의 계약(전제 조건, 후행 조건, 불변 조건)을 약화시키면 LSP 위반이다.
 A subclass violates LSP if it weakens the base class's contract (preconditions, postconditions, invariants).
 
-```python
-# ✅ LSP 준수 예시 — 베이스 클래스 계약을 유지 / Compliant: subclass honors base contract
-class BaseHead(nn.Module):
-    def forward(self, x: Tensor) -> Tensor:
-        """입력: (B, in_dim), 출력: (B, num_classes) logits"""
-        ...
-
-class ClassifierHead(BaseHead):   # 계약 완전 유지 / Contract fully honored
-    def forward(self, x):
-        return self.net(x)   # (B, in_dim) → (B, num_classes) ✅
-
-# ❌ LSP 위반 예시 — 출력 타입 변경 / Violation: changes output type
-class BrokenHead(BaseHead):
-    def forward(self, x):
-        return F.softmax(self.net(x), dim=1)  # Softmax 추가 — 계약 위반 / Breaks CrossEntropyLoss contract
-```
-
 **현재 준수 규칙 / Rules for This Project**:
 
 | 규칙 / Rule | 설명 / Description |
@@ -222,9 +160,6 @@ class BrokenHead(BaseHead):
 | Softmax 위치 고정 / Fixed Softmax position | `ClassifierHead.forward()` 는 raw logits만 반환. 서브클래스도 동일. / Always return raw logits; subclasses must do the same |
 | Trainer 계약 유지 / Honor Trainer contract | `Phase0Trainer` / `Phase2Trainer` 를 상속할 경우 `train()` 반환 타입 `List[dict]` 유지 필수 / If subclassing trainers, `train()` must return `List[dict]` |
 
-**현재 상태 / Current Status**: ✅ **위반 없음**
-- `Phase0Trainer` / `Phase2Trainer`는 독립 클래스 — 상속 관계 없어 위반 불가
-- `ClassifierHead` / `ProjectionHead`는 모두 `nn.Module` forward 계약 완전 준수
 
 ---
 
@@ -235,18 +170,6 @@ class BrokenHead(BaseHead):
 
 하나의 큰 인터페이스보다 목적별로 작은 인터페이스 여러 개가 낫다. / Many small purpose-specific interfaces are better than one large general-purpose interface.
 
-**현재 주의 지점 / Current Attention Point**:
-
-```python
-# ⚠️ ISP 잠재적 우려 — Phase 0 클라이언트가 Phase 2 메서드를 봄
-# Potential ISP concern: Phase 0 clients see Phase 2 methods
-class GrayspotModel(nn.Module):
-    def forward(self, x):  ...        # Phase 0/2 모두 사용 / Used by both
-    def switch_to_phase2(self, ...):  # Phase 2 클라이언트만 사용 / Phase 2 client only
-    # Phase 0 Trainer는 switch_to_phase2를 절대 호출하지 않음에도 인터페이스에 노출됨
-    # Phase 0 Trainer never calls switch_to_phase2, yet it is exposed
-```
-
 **준수 가이드라인 / Compliance Guidelines**:
 
 | 원칙 / Rule | 설명 / Description |
@@ -255,22 +178,6 @@ class GrayspotModel(nn.Module):
 | 평가·추론은 eval 인터페이스만 의존 / Evaluator/Predictor depend only on eval interface | `Evaluator`, `GrayspotPredictor` → `model.eval()` + `model.forward()` 만 사용 / Use only `model.eval()` + `model.forward()` |
 | 설정 주입 분리 / Separate config injection | 모듈은 자신이 필요한 cfg 키만 접근. 전체 cfg를 내부 저장하되 필요한 키만 읽음 / Access only needed cfg keys — store full cfg but read selectively |
 
-**현재 상태 / Current Status**: ⚠️ **복합 우려** (기능 영향: GrayspotModel 경미, evaluator.py 심각)
-
-- `GrayspotModel`의 `switch_to_phase2()`가 Phase 0 학습 컨텍스트에도 노출 — Python duck typing 특성상 실제 강제 의존성은 없으나 인터페이스 명확성 측면에서 주의
-- **`evaluator.py` — ISP 심각 위반** ❌: 단일 `Evaluator` 인터페이스가 추론 클라이언트 · 지표 클라이언트 · 리포트 클라이언트 · 시각화 클라이언트가 필요로 하는 메서드를 모두 노출. 각 클라이언트는 다른 클라이언트의 메서드에 의존하도록 강요된다.
-
-**준수 가이드라인 / Compliance Guidelines**:
-
-| 원칙 / Rule | 설명 / Description |
-|---|---|
-| Trainer는 필요한 모델 메서드만 호출 / Trainers call only needed model methods | `Phase0Trainer` → `model.forward()` 만 호출. `switch_to_phase2()` 절대 호출 금지 / Call only `model.forward()`; never call `switch_to_phase2()` |
-| 평가·추론은 eval 인터페이스만 의존 / Evaluator/Predictor depend only on eval interface | `Evaluator`, `GrayspotPredictor` → `model.eval()` + `model.forward()` 만 사용 / Use only `model.eval()` + `model.forward()` |
-| 설정 주입 분리 / Separate config injection | 모듈은 자신이 필요한 cfg 키만 접근. 전체 cfg를 내부 저장하되 필요한 키만 읽음 / Access only needed cfg keys — store full cfg but read selectively |
-
-**리팩토링 필요 여부 / Refactoring Assessment**:
-- `GrayspotModel.switch_to_phase2()` 노출: **현재 규모에서 불필요**. Phase 수 ≥ 3 추가 시 재검토.
-- `evaluator.py` ISP 위반: **🔴 1순위 리팩토링 대상** — SRP 분해(§5.1)와 연동하여 동시에 해결. 책임별 분리 모듈이 ISP를 자연스럽게 만족시킨다.
 
 ---
 
@@ -280,23 +187,6 @@ class GrayspotModel(nn.Module):
 > **High-level modules must not depend directly on low-level modules. Both should depend on abstractions.**
 
 구체 클래스(concrete class)가 아닌 추상화(프로토콜·인터페이스·base class)에 의존해야 외부에서 구현체를 교체할 수 있다. / Depending on abstractions rather than concrete classes allows substituting implementations externally.
-
-```python
-# ❌ DIP 위반 — 고수준 모델이 구체 클래스를 직접 인스턴스화
-# Violation: high-level model directly instantiates concrete classes
-class GrayspotModel(nn.Module):
-    def __init__(self, cfg, phase):
-        self.head = ClassifierHead(...)   # 구체 클래스 직접 생성 / Direct concrete instantiation
-        # ClassifierHead를 MockHead로 교체하려면 GrayspotModel 수정 필요
-        # Replacing ClassifierHead with MockHead requires modifying GrayspotModel
-
-# ✅ DIP 준수 — 추상화(nn.Module)에 의존, 외부에서 주입
-# Compliant: depend on abstraction (nn.Module), inject from outside
-class GrayspotModel(nn.Module):
-    def __init__(self, backbone: nn.Module, head: nn.Module):
-        self.backbone = backbone  # 외부에서 주입된 nn.Module / nn.Module injected externally
-        self.head     = head      # 어떤 head든 교체 가능 / Any head is substitutable
-```
 
 **현재 이 프로젝트에서의 적용 수준 / Current Application Level**:
 
@@ -317,49 +207,6 @@ class GrayspotModel(nn.Module):
 | Evaluator → Model: `model.eval()` + `model(x)` 만 의존 / Depend only on eval interface | Evaluator는 model 내부 구조를 알지 못함 / Evaluator has no knowledge of model internals |
 | Config 주입 / Config injection | 모든 컴포넌트는 `cfg: dict` 를 외부에서 주입받음 — 내부 파일 로드 금지 / All components receive `cfg: dict` from outside — no internal file loading |
 
-**리팩토링 필요 여부 / Refactoring Assessment**:
-- `GrayspotModel` → `ClassifierHead` 직접 인스턴스화: **현재 규모에서 선택적**. `nn.Module` 추상화가 실질적 DIP 역할을 수행. 테스트에서 Head 교체 필요 시 의존성 주입 적용.
-- **`optuna_tuner.py` sys.modules shim: 🟠 2순위 리팩토링 대상** — `sys.modules` 직접 조작은 전역 인터프리터 상태를 오염시키며 테스트 격리를 방해한다. 표준 import 또는 try/except 호환성 패턴으로 교체가 필요하다.
-
-```python
-# ❌ DIP 위반 — sys.modules 직접 조작으로 전역 상태 오염
-# Violation: global state contamination via sys.modules manipulation
-import sys
-sys.modules["some_module"] = compatibility_shim  # 모든 다른 모듈에 영향
-
-# ✅ DIP 준수 — 표준 호환성 패턴
-# Compliant: standard compatibility pattern
-try:
-    from some_module import target_func
-except ImportError:
-    from compat_module import target_func  # 동일 인터페이스 준수
-```
-
----
-
-### 5.6 SOLID 준수 현황 요약 / SOLID Compliance Summary
-
-| 원칙 / Principle | 현재 상태 / Status | 대상 파일 / Target File | 리팩토링 우선순위 / Priority | 적용 시기 / When to Apply |
-|---|---|---|---|---|
-| **S** — SRP | ✅ **해결됨** / Resolved | `evaluator.py` → 4 Mixin + Orchestrator, `predictor.py` → 3 Mixin + Orchestrator | ✅ 완료 | 분해 완료 (2026-05-12 / 2026-05-14) |
-| **O** — OCP | ⚠️ 부분 위반 / Partial violation | `grayspot_model.py`, `search_space.py` | 🟡 **3순위** | Phase 추가 시 / Backbone 3번째 추가 시 |
-| **L** — LSP | ✅ 준수 / Compliant | — | 불필요 / Not needed | — |
-| **I** — ISP | ✅ **해결됨** / Resolved | `evaluator.py` / `predictor.py` → SRP 분해로 동시 해결 | ✅ 완료 | 분해 완료 (2026-05-12 / 2026-05-14) |
-| **D** — DIP | ✅ **해결됨** / Resolved | `optuna_tuner.py` shim 제거, `predictor.py` fallback import 제거 | ✅ 완료 | 완료 (2026-05-12 / 2026-05-14) |
-
-### 5.7 리팩토링 우선순위 목록 / Refactoring Priority List
-
-| 순위 / Priority | 대상 / Target | 위반 원칙 / Violated | 핵심 문제 / Core Issue | 상태 / Status |
-|---|---|---|---|---|
-| 🔴 **1순위 / Priority 1** | `evaluator.py` | SRP + ISP | ~950줄 단일 파일에 추론·지표·저장·차트 7종 혼재 / ~950-line monolith mixing inference, metrics, export, and 7 chart types | ✅ **완료 / Done** — 4 Mixin + Orchestrator 분해 / decomposed |
-| 🔴 **1순위 / Priority 1** | `predictor.py` | SRP + OCP + ISP + DIP | 책임 5개 단일 클래스, fallback import, if/elif 장치 분기 / 5 responsibilities in one class, fallback import, if/elif device branching | ✅ **완료 / Done** — 3 Mixin + Orchestrator 분해, SSOT-NM01 해소 / decomposed, SSOT-NM01 resolved |
-| 🟠 **2순위 / Priority 2** | `optuna_tuner.py` | DIP | `sys.modules` 직접 조작으로 전역 인터프리터 상태 오염 / Direct `sys.modules` manipulation contaminates global interpreter state | ✅ **완료 / Done** — shim 제거, try/except 패턴 적용 / shim removed, try/except applied |
-| 🟡 **3순위 / Priority 3** | `grayspot_model.py` | OCP | Phase 분기 if/elif — Phase 추가 시 기존 코드 수정 필요 / if/elif Phase branching requires modifying existing code when adding a Phase | Phase 추가 시 적용 / Apply when Phase is added |
-| ⏸ **보류 / Deferred** | `trainer.py` | OCP | optimizer 2종 if/elif — 현재 규모에서 Registry 과설계 / 2-optimizer if/elif — Registry pattern is over-engineering at current scale | 보류 (optimizer 추가 시 검토) / Deferred (revisit when optimizer is added) |
-| ⏸ **보류 / Deferred** | `scripts/*.py` | DIP | 진입점 스크립트의 직접 의존 — CLI 관례상 허용 범위 / Direct dependency in entry-point scripts — acceptable by CLI convention | 보류 (관례 허용) / Deferred (convention-permitted) |
-
-> **결론 / Conclusion**: 전면 리팩토링은 불필요하다. `evaluator.py`(SRP+ISP) → `optuna_tuner.py`(DIP) 순서로 집중 개선하고, OCP는 확장 시점에 자연스럽게 도입한다. 현재 코드는 이 순서를 제외하면 이 규모의 ML 파이프라인에서 실용적 SOLID 균형점을 달성하고 있다.
-> **Conclusion**: Full refactoring is not required. Focus improvements in order: `evaluator.py` (SRP+ISP) → `optuna_tuner.py` (DIP). Apply OCP improvements at extension time. Excluding these targets, the current code achieves a pragmatic SOLID balance for this ML pipeline scale.
 
 ---
 
@@ -442,21 +289,6 @@ All Python code in this project **must** follow the three principles below.
 | ❌ Phase 건너뛰기 / Skip phase | Phase 0 → Phase 2 순서 위반 금지 / Phase ordering must be respected |
 | ❌ 색상 공간 무시 / Ignore color space | BGR/RGB 불일치를 묵인하고 진행 금지 / Never silently accept BGR/RGB mismatch |
 
-### 7.5 현재 알려진 미해소 위반 / Known Open Violations
-
-| 위반 / Violation | 위치 / Location | 등급 / Level | 해결 방향 / Resolution |
-|---|---|---|---|
-| `optuna_tuner.py` → `run_baseline` 역방향 의존성 / Reverse dependency | `tuning/optuna_tuner.py` | Level 2 | tuning layer에서 scripts layer를 import하는 구조 위반 — 향후 리팩토링 / Layer violation: tuning→scripts; refactor planned |
-
-> ✅ **해소됨 / Resolved** (이전 위반들 / Previous violations):
-> - SSOT-CS01: `evaluator_inference.py` BGR→RGB 변환 제거 (2026-05-14)
-> - SSOT-NM01: `predictor_inference.py` ImageNet 정규화 적용 (2026-05-14)
-> - `validate_config()`: `False` 반환 → `ValueError` 발생으로 수정 (2026-05-14)
-> - `switch_to_phase2()`: backbone 키 0개 시 경고 → `RuntimeError` 발생으로 수정 (2026-05-14)
-> - `backbone_tag()` 이중 정의: `trainer.py` 로컬 정의 제거, `utils_model.py`에서 import (2026-05-14)
-> - `_IMAGENET_NORMALIZE` 이중 정의: `data/normalize.py` 단일 출처 생성, `dataset.py`·`predictor_inference.py` 양쪽 import (2026-05-14)
-> - `run_optuna()` best_params 이중 저장: 직접 `json.dump` 블록 제거, `save_best_params()` 단독 호출 (2026-05-14)
-
 ---
 
 ## 8. Hard / Soft SSOT 분류 / Classification
@@ -527,16 +359,6 @@ All Python code in this project **must** follow the three principles below.
 
 #### Core Interface / 핵심 인터페이스
 
-```python
-from inference.predictor import GrayspotPredictor
-
-# Orchestrator: DeviceMixin + ModelLoaderMixin + InferenceMixin
-predictor = GrayspotPredictor()
-predictor.load_model(channel="Y")                        # ModelLoaderMixin
-results      = predictor.predict(images, channel="Y")    # InferenceMixin — ImageNet norm 적용 / Applied
-batch_results = predictor.predict_batch(images_dict)     # InferenceMixin
-```
-
 ```
 inference/
 ├── predictor_device.py    — DeviceMixin      (장치 감지·설정 / Device detection)
@@ -556,16 +378,7 @@ inference/
 
 ### 11.3 Docker Deployment / Docker 배포
 
-```dockerfile
-# Multi-stage build for optimized deployment
-FROM python:3.11-slim as base
-# ... base setup ...
-
-FROM base as inference
-COPY models/ /app/models/
-COPY src/inference/ /app/src/inference/
-# ... inference container ...
-```
+멀티 스테이지 빌드를 사용하여 base 이미지 위에 inference 이미지를 구성한다. / Multi-stage build: inference image built on top of base image.
 
 ### 11.4 Performance Targets / 성능 목표
 

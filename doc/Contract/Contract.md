@@ -195,8 +195,8 @@ aug_image = augment_supervised(image: np.ndarray, aug_cfg: Optional[dict] = None
 | 변환 / Transform | 파라미터 / Parameter | 기본값 / Default |
 |---|---|---|
 | Random horizontal flip | `flip_prob` | 0.5 |
-| Brightness jitter | `brightness_prob`, `brightness_range` | 0.3, 20 |
-| Additive noise | `noise_prob`, `noise_range` | 0.2, 10 |
+| Brightness jitter | `brightness_prob`, `brightness_range` | 0.5, 30 |
+| Additive noise | `noise_prob`, `noise_range` | 0.5, 10 |
 
 ### 3.6 `augment_contrastive()` 계약
 
@@ -346,7 +346,7 @@ loss = loss_fn(z1, z2)
 # z1, z2: (B, projection_dim)  L2-normalized — 반드시 정규화 후 전달 / must be normalized before passing
 
 # Phase 2
-loss_fn = get_loss(cfg, phase=2, train_samples=train_ds.samples)
+loss_fn = get_loss(phase=2, cfg=cfg, train_samples=train_ds.samples)
 loss = loss_fn(logits, labels)
 # logits: (B, 6)  raw logits (Softmax 미적용 상태 / Softmax not applied)
 # labels: (B,)   int [0, 5]

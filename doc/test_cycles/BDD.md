@@ -287,7 +287,8 @@ Feature: Swing Feedback 루프 / Swing Feedback loop
 
     When  시스템이 determine_swing_feedback()를 실행한다
 
-    Then  피드백 결과는 "pass"이다
+    Then  피드백 결과 dict의 terminate 값이 True이다
+    And   피드백 결과 dict의 decisions 목록이 비어 있다
     And   Swing Architecture가 종료된다
     And   최종 모델 best_{channel}.pt가 배포 준비 상태이다
 ```
@@ -305,8 +306,8 @@ Feature: Swing Feedback 루프 / Swing Feedback loop
 
     When  시스템이 determine_swing_feedback()를 실행한다
 
-    Then  피드백 결과는 "retry_phase0"이다
-    And   "[Y] Accuracy < 0.80 → Phase 0 재학습" 메시지가 출력된다
+    Then  피드백 결과 dict의 terminate 값이 False이다
+    And   피드백 결과 dict의 decisions 목록에 "[Y] Accuracy … -> Phase 0 (retrain representation)" 항목이 포함된다
     And   운영자에게 Phase 0 재실행을 안내한다
 ```
 
@@ -323,8 +324,8 @@ Feature: Swing Feedback 루프 / Swing Feedback loop
 
     When  시스템이 determine_swing_feedback()를 실행한다
 
-    Then  피드백 결과는 "retry_phase2"이다
-    And   "Level 3 F1 < 0.70 → Phase 2 재학습" 메시지가 출력된다
+    Then  피드백 결과 dict의 terminate 값이 False이다
+    And   피드백 결과 dict의 decisions 목록에 "Level 3 F1 … -> Phase 2 (retrain classifier)" 항목이 포함된다
     And   Phase 0 backbone은 유지되고 Phase 2만 재실행된다
 ```
 

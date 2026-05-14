@@ -12,17 +12,6 @@ This document tracks the consumption status of every key in `config.json` and de
 
 ---
 
-## Table of Contents / 목차
-
-1. [Config 로딩 API / Config Loading Interface](#1-config-로딩-api--config-loading-interface)
-2. [목적 및 아이콘 / Purpose and Icons](#2-목적-및-아이콘--purpose-and-icons)
-3. [전체 요약 / Summary](#3-전체-요약--summary)
-4. [상세 대조표 / Detailed Cross-Reference](#4-상세-대조표--detailed-cross-reference)
-5. [Dead Config 요약 / Dead Config Summary](#5-dead-config-요약--dead-config-summary)
-6. [사용 규칙 / Usage Rules](#6-사용-규칙--usage-rules)
-
----
-
 ## 1. Config 로딩 API / Config Loading Interface
 
 > `src/config/config_manager.py` 및 `ConfigManager` 클래스는 **삭제됨**. / `src/config/config_manager.py` and the `ConfigManager` class have been **deleted**.
@@ -39,28 +28,6 @@ config 로딩은 `src/utils/utils_config.py` 의 함수들로 대체되었다. /
 | `get_nested(cfg, key, default=None)` | `Any` | `"phase2.learning_rate"` 형식의 dot-notation으로 optional 키 조회 / Optional key lookup via dot-notation (e.g., `"phase2.learning_rate"`) |
 
 모든 함수는 `from src.utils import ...` 또는 `from utils import ...` (shim 환경) 로 임포트한다. / All functions are imported via `from src.utils import ...` or `from utils import ...` (shim context).
-
-### 1.2 접근 패턴 / Access Pattern
-
-```python
-# ✅ 현재 패턴 / Current pattern
-from src.utils import load_config, validate_config, create_directories, get_nested
-
-cfg = load_config()               # returns dict directly
-validate_config(cfg)
-create_directories(cfg)
-
-cfg["phase2"]["learning_rate"]    # 필수 키 / Required key
-get_nested(cfg, "logging.level")  # 선택 키 (None-safe) / Optional key
-torch.device(cfg["system"]["device"])
-
-# ❌ 삭제된 패턴 / Deleted pattern (config_manager.py)
-# config = load_config()   → ConfigManager object
-# cfg = config.config
-# config.get("phase2.learning_rate")
-# config.validate()
-# config.create_necessary_directories()
-```
 
 ### 1.3 utils 모듈 구조 / utils Module Structure
 
@@ -264,8 +231,6 @@ src/utils/
 |---------|-----------|-----------|----------|
 | 🟢 LOW | `reporting.*` (html 설정 외 / excluding html settings) | 쉬움 / Easy | 리포트 포맷 유연성 / Report format flexibility |
 | 🟢 LOW | `inference.*` (confidence_thresholds 제외 / excluding confidence_thresholds) | 보통 / Medium | 추론 설정 유연성 / Inference config flexibility |
-
-> ✅ **해소됨 / Resolved**: `inference.confidence_thresholds.*` → `Evaluator.__init__(cfg)` 소비 완료.
 
 ---
 
