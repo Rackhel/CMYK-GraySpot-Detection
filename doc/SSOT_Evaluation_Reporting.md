@@ -343,9 +343,10 @@ SSOT validation codes triggered in the evaluation pipeline. See [SSOT_Validation
 
 | 코드 / Code | 위반 내용 / Violation | 등급 / Level | 해결 방법 / Fix |
 |---|---|---|---|
-| SSOT-CS01 | 평가 시 RGB로 읽으면 학습(BGR)과 불일치 / Reading as RGB during evaluation causes mismatch with training (BGR) | Level 1 | Evaluator 입력 전 BGR 검증 추가 / Add BGR validation before Evaluator input |
+| SSOT-CS01 | `evaluator_inference.py` `_EvalDataset.__getitem__()` 에서 `cv2.cvtColor(BGR→RGB)` 호출 → 학습(BGR)과 불일치 / `cv2.cvtColor(BGR→RGB)` call in `_EvalDataset.__getitem__()` caused mismatch with training (BGR) | Level 1 | ✅ **해소됨 / Resolved** — `evaluator_inference.py` line 59 제거 (BGR 유지 주석 추가) (2026-05-14) |
 | SSOT-NM01 | 평가 전처리에서도 ImageNet norm 미적용 → 학습과 일치는 되나 pretrained 기대치와 다름 / ImageNet norm not applied in eval preprocessing — consistent with training but differs from pretrained expectations | Level 2 | ✅ **해소됨 / Resolved** — `predictor_inference.py` `_preprocess_images()` 에서 ImageNet norm 적용 (2026-05-14) |
 
+> ✅ **해소됨 / Resolved**: SSOT-CS01 — `evaluator_inference.py` `_EvalDataset.__getitem__()` 의 `cv2.cvtColor(img, cv2.COLOR_BGR2RGB)` 제거. BGR 색상 공간 유지.
 > ✅ **해소됨 / Resolved**: `evaluation.swing_thresholds.*` → `determine_swing_feedback()` 소비 완료.
 > ✅ **해소됨 / Resolved**: config 키명 실제 config.json 구조(`evaluation.targets.*`)로 전면 정정.
 > ✅ **해소됨 / Resolved**: SSOT-NM01 — `predictor_inference.py` `_preprocess_images()` 에서 `_IMAGENET_NORMALIZE` 적용 완료. 학습(`dataset.py`)·추론(`predictor_inference.py`) 정규화 완전 일치.

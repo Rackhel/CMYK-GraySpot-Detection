@@ -442,6 +442,20 @@ All Python code in this project **must** follow the three principles below.
 | ❌ Phase 건너뛰기 / Skip phase | Phase 0 → Phase 2 순서 위반 금지 / Phase ordering must be respected |
 | ❌ 색상 공간 무시 / Ignore color space | BGR/RGB 불일치를 묵인하고 진행 금지 / Never silently accept BGR/RGB mismatch |
 
+### 7.5 현재 알려진 미해소 위반 / Known Open Violations
+
+| 위반 / Violation | 위치 / Location | 등급 / Level | 해결 방향 / Resolution |
+|---|---|---|---|
+| `backbone_tag()` 이중 정의 / Dual definition | `training/trainer.py:92`, `utils/utils_model.py:54` | Level 2 | `utils/utils_model.py` 를 단일 출처로, `trainer.py`에서 import / Import from `utils_model.py` as single source |
+| `_IMAGENET_NORMALIZE` 이중 정의 / Dual definition | `data/dataset.py`, `inference/predictor_inference.py` | Level 2 | `data/normalize.py` 신규 모듈로 통합 후 양쪽에서 import / Consolidate into new `data/normalize.py` and import from both |
+| `optuna_tuner.py` → `run_baseline` 역방향 의존성 / Reverse dependency | `tuning/optuna_tuner.py:138` | Level 2 | tuning layer에서 scripts layer를 import하는 구조 위반 — 향후 리팩토링 / Layer violation: tuning→scripts; refactor planned |
+
+> ✅ **해소됨 / Resolved** (이전 위반들 / Previous violations):
+> - SSOT-CS01: `evaluator_inference.py` BGR→RGB 변환 제거 (2026-05-14)
+> - SSOT-NM01: `predictor_inference.py` ImageNet 정규화 적용 (2026-05-14)
+> - `validate_config()`: `False` 반환 → `ValueError` 발생으로 수정 (2026-05-14)
+> - `switch_to_phase2()`: backbone 키 0개 시 경고 → `RuntimeError` 발생으로 수정 (2026-05-14)
+
 ---
 
 ## 8. Hard / Soft SSOT 분류 / Classification

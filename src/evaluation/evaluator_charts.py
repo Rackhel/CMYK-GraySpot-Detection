@@ -417,6 +417,9 @@ class ChartsMixin:
         """
         PRD 3.3.2 피드백 복귀 판단 텍스트를 생성한다.
         Generates PRD 3.3.2 feedback-loop decision text.
+
+        임계값은 cfg["evaluation"]["swing_thresholds"] 에서 읽는다 (하드코딩 금지).
+        Thresholds are read from cfg["evaluation"]["swing_thresholds"] — no hardcoding.
         """
         targets = check_targets(metrics, channels)
         decisions = []
@@ -424,26 +427,34 @@ class ChartsMixin:
         overall_acc = metrics["overall"]["accuracy"]
         overall_mf1 = metrics["overall"]["macro_f1"]
 
+        # cfg에서 swing 재시도 임계값을 읽는다 / Read swing retry thresholds from cfg
+        cfg_swing = getattr(self, "cfg", {}).get("evaluation", {}).get(
+            "swing_thresholds", {}
+        )
+        acc_retry = cfg_swing.get("swing_acc_retry", 0.80)
+        f1_retry = cfg_swing.get("swing_f1_retry", 0.70)
+        mae_retry = cfg_swing.get("swing_mae_retry", 0.80)
+
         for color in channels:
             if color not in metrics:
                 continue
             acc = metrics[color]["accuracy"]
-            if acc < 0.80:
+            if acc < acc_retry:
                 decisions.append(
-                    f"[{color}] Accuracy {acc:.3f} < 0.80"
+                    f"[{color}] Accuracy {acc:.3f} < {acc_retry}"
                     " -> Phase 0 (retrain representation / 표현 재학습)"
                 )
 
         for pc in metrics["overall"]["per_class"]:
-            if pc["f1"] < 0.70:
+            if pc["f1"] < f1_retry:
                 decisions.append(
-                    f"Level {pc['level']} F1={pc['f1']:.3f} < 0.70"
+                    f"Level {pc['level']} F1={pc['f1']:.3f} < {f1_retry}"
                     " -> Phase 1 (review level boundary / 레벨 경계 재검토)"
                 )
 
-        if overall_mae > 0.80:
+        if overall_mae > mae_retry:
             decisions.append(
-                f"Overall MAE {overall_mae:.3f} > 0.80"
+                f"Overall MAE {overall_mae:.3f} > {mae_retry}"
                 " -> Phase 0 (representation learning retry / 표현 학습 재시도)"
             )
 

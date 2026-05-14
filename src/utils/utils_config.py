@@ -146,13 +146,13 @@ def load_config(
     return cfg
 
 
-def validate_config(cfg: dict) -> bool:
+def validate_config(cfg: dict) -> None:
     """
-    필수 설정 항목을 검증한다.
-    Validates required configuration fields.
+    필수 설정 항목을 검증한다. 실패 시 즉시 ValueError 발생 (Fail-Fast, SSOT-CF01).
+    Validates required configuration fields. Raises ValueError on failure (Fail-Fast, SSOT-CF01).
 
-    Returns:
-        True if valid, False otherwise
+    Raises:
+        ValueError: 필수 섹션 또는 필드가 누락된 경우 / Required section or field is missing
     """
     required = [
         ("data", "channels"),
@@ -162,21 +162,22 @@ def validate_config(cfg: dict) -> bool:
     ]
     for section, field in required:
         if field not in cfg.get(section, {}):
-            print(f"[CONFIG ERROR] Missing required field: '{section}.{field}'")
-            return False
+            raise ValueError(
+                f"[CONFIG ERROR / SSOT-CF01] Missing required field: '{section}.{field}'"
+            )
 
     if cfg["data"]["num_levels"] < 2:
-        print("[CONFIG ERROR] data.num_levels must be >= 2")
-        return False
+        raise ValueError(
+            "[CONFIG ERROR / SSOT-CF01] data.num_levels must be >= 2"
+        )
 
     for phase in ("phase0", "phase2"):
         if phase in cfg:
             lr = cfg[phase].get("learning_rate", 0)
             if lr <= 0:
-                print(f"[CONFIG ERROR] {phase}.learning_rate must be > 0")
-                return False
-
-    return True
+                raise ValueError(
+                    f"[CONFIG ERROR / SSOT-CF01] {phase}.learning_rate must be > 0"
+                )
 
 
 def create_directories(cfg: dict) -> None:

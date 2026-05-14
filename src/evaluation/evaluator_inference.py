@@ -56,7 +56,7 @@ class _EvalDataset(Dataset):
             raise FileNotFoundError(f"Image not found / 이미지 없음: {img_path}")
 
         img = cv2.imread(str(img_path))
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # SSOT-CS01: BGR을 유지한다. RGB 변환 금지 / Keep BGR — no RGB conversion
         img = cv2.resize(img, (self.image_size, self.image_size))
         img = img.astype(np.float32) / 255.0
 

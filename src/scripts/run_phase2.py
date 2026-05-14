@@ -442,7 +442,7 @@ def main() -> None:
     ]
     if missing:
         logger.error(
-            f"[SSOT-PH01] Phase 0 backbone 없음 / Phase 0 backbone not found: {missing}\n"
+            f"[SSOT-FF01] Phase 0 backbone 없음 / Phase 0 backbone not found: {missing}\n"
             f"            Phase 0 완료 후 실행 / Run Phase 0 first: python -m src.scripts.run_phase0\n"
             f"            경로 확인 / Check path: {phase0_dir}"
         )
