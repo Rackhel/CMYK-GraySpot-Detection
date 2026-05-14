@@ -94,9 +94,21 @@ def test_get_nested_missing_key_returns_default():
     assert get_nested(cfg, "a.c", default=0) == 0
 
 def test_resolve_device_auto_returns_mps_on_mac():
-    # torch.backends.mps.is_available() 가 True인 환경 가정 / Assumes torch.backends.mps.is_available() is True
     result = _resolve_device("auto")
     assert result in ("mps", "cuda", "cpu")  # 환경 의존, 타입만 확인 / Environment-dependent, check type only
+
+def test_valid_config_returns_none(minimal_cfg):
+    assert validate_config(minimal_cfg) is None  # None 반환 (예외 없으면 정상) / Returns None (no exception = valid)
+
+def test_missing_data_channels_raises(minimal_cfg):
+    del minimal_cfg["data"]["channels"]
+    with pytest.raises(ValueError, match="SSOT-CF01"):
+        validate_config(minimal_cfg)
+
+def test_zero_learning_rate_raises(minimal_cfg):
+    minimal_cfg["phase2"]["learning_rate"] = 0
+    with pytest.raises(ValueError, match="SSOT-CF01"):
+        validate_config(minimal_cfg)
 ```
 
 ---

@@ -129,28 +129,33 @@ class TestLoadConfig:
 
 
 class TestValidateConfig:
-    def test_valid_config_returns_true(self, minimal_cfg):
-        assert validate_config(minimal_cfg) is True
+    def test_valid_config_returns_none(self, minimal_cfg):
+        assert validate_config(minimal_cfg) is None
 
-    def test_missing_data_channels_returns_false(self, minimal_cfg):
+    def test_missing_data_channels_raises(self, minimal_cfg):
         del minimal_cfg["data"]["channels"]
-        assert validate_config(minimal_cfg) is False
+        with pytest.raises(ValueError, match="SSOT-CF01"):
+            validate_config(minimal_cfg)
 
-    def test_missing_model_backbone_returns_false(self, minimal_cfg):
+    def test_missing_model_backbone_raises(self, minimal_cfg):
         del minimal_cfg["model"]["backbone"]
-        assert validate_config(minimal_cfg) is False
+        with pytest.raises(ValueError, match="SSOT-CF01"):
+            validate_config(minimal_cfg)
 
-    def test_num_levels_less_than_2_returns_false(self, minimal_cfg):
+    def test_num_levels_less_than_2_raises(self, minimal_cfg):
         minimal_cfg["data"]["num_levels"] = 1
-        assert validate_config(minimal_cfg) is False
+        with pytest.raises(ValueError, match="SSOT-CF01"):
+            validate_config(minimal_cfg)
 
-    def test_zero_learning_rate_returns_false(self, minimal_cfg):
+    def test_zero_learning_rate_raises(self, minimal_cfg):
         minimal_cfg["phase2"]["learning_rate"] = 0
-        assert validate_config(minimal_cfg) is False
+        with pytest.raises(ValueError, match="SSOT-CF01"):
+            validate_config(minimal_cfg)
 
-    def test_negative_learning_rate_returns_false(self, minimal_cfg):
+    def test_negative_learning_rate_raises(self, minimal_cfg):
         minimal_cfg["phase0"]["learning_rate"] = -1e-3
-        assert validate_config(minimal_cfg) is False
+        with pytest.raises(ValueError, match="SSOT-CF01"):
+            validate_config(minimal_cfg)
 
 
 # ── create_directories ──────────────────────────────────────────────────────
