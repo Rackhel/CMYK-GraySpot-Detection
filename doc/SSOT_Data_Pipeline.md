@@ -287,7 +287,7 @@ SSOT validation codes triggered within the data pipeline. See [SSOT_Validation_C
 |---|---|---|---|
 | SSOT-CS01 | `evaluator_inference.py` `_EvalDataset.__getitem__()` 에서 `cv2.cvtColor(BGR→RGB)` 적용 → 학습(BGR)과 불일치 / BGR→RGB conversion in `_EvalDataset` caused mismatch with training | Level 1 | ✅ **해소됨 / Resolved** — `evaluator_inference.py` line 59 제거 (2026-05-14) |
 | SSOT-NM01 | ImageNet 정규화 미적용 — pretrained backbone 성능 저하 가능 / ImageNet normalization not applied — may degrade pretrained backbone performance | Level 2 | ✅ **해소됨 / Resolved** (dataset.py 2026-05-08, predictor_inference.py 2026-05-14) |
-| `_IMAGENET_NORMALIZE` 이중 정의 | `dataset.py` 와 `predictor_inference.py` 각각 정의 — 단일 출처 원칙 위반 / Defined in both files — violates single-source principle | Level 2 | ⚠️ **미해소 / Unresolved** — 향후 `data/normalize.py` 모듈로 통합 예정 / Planned consolidation into `data/normalize.py` |
+| `_IMAGENET_NORMALIZE` 이중 정의 | `dataset.py` 와 `predictor_inference.py` 각각 정의 — 단일 출처 원칙 위반 / Defined in both files — violates single-source principle | Level 2 | ✅ **해소됨 / Resolved** — `data/normalize.py` 신규 모듈로 통합, 양쪽 import (2026-05-14) |
 
 > ✅ **해소됨 / Resolved**: SSOT-CS01 — `evaluator_inference.py` `_EvalDataset.__getitem__()` 의 `cv2.cvtColor(img, cv2.COLOR_BGR2RGB)` 제거. BGR 색상 공간 유지 (2026-05-14).
 > ✅ **해소됨 / Resolved**: `data.split_ratios` Dead Config → `dataset.py`에서 소비 완료.
