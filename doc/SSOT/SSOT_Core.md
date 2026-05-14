@@ -103,25 +103,6 @@ All Python code in this project uses SOLID principles as **design criteria**.
 
 **SRP 위반 판단 기준 / SRP violation test**: 함수/클래스 설명에 "그리고(and)"가 필요하면 책임이 두 개다. / If describing a function/class requires the word "and", it has more than one responsibility.
 
-**분해 구조 / Decomposition — `evaluator.py`**:
-
-| 분리 모듈 / Module | 책임 / Responsibility |
-|---|---|
-| `evaluator_inference.py` | 모델 추론, 배치 처리 / Model inference, batch processing |
-| `evaluator_metrics.py` | 지표 계산 (Acc, F1, MAE, Confusion Matrix) / Metric computation |
-| `evaluator_export.py` | CSV / JSON / HTML 저장 / CSV, JSON, HTML export |
-| `evaluator_charts.py` | 차트 7종 생성 / 7 chart builders |
-| `evaluator.py` (조율자 / Orchestrator) | 위 모듈 조합, 진입점 / Orchestrates submodules, entry point |
-
-**분해 구조 / Decomposition — `predictor.py`**:
-
-| 분리 모듈 / Module | 책임 / Responsibility |
-|---|---|
-| `predictor_device.py` | 장치 감지·설정 / Device detection & setup |
-| `predictor_loader.py` | 모델 로딩·캐시 관리 / Model loading & cache management |
-| `predictor_inference.py` | 단일·멀티 채널 추론 실행 / Single & multi-channel inference |
-| `predictor.py` (조율자 / Orchestrator) | 위 모듈 조합, 진입점 / Orchestrates submodules, entry point |
-
 ---
 
 ### 5.2 O — 개방-폐쇄 원칙 (OCP) / Open-Closed Principle
@@ -138,10 +119,6 @@ New functionality should be addable without modifying existing code. Conditional
 | Optuna 탐색 공간 / Optuna search space | `search_space.py` 내 `if backbone_name == "resnet50"` 분기 수정 / Must modify backbone branch | backbone별 독립 search_space 함수 등록 / Register per-backbone function |
 | Head 구조 추가 / Add head variant | `ClassifierHead.__init__` 내 `if mid_dim is not None` 분기 / `if mid_dim` branch inside | Head 클래스를 상속·확장 / Inherit and extend head class |
 
-**⚠️ OCP 미적용 지점 / Partial violation points**:
-- `build_backbone()`: if/elif 체인 — backbone 추가 시 기존 함수 수정 필요 / backbone 3개 이상 시 Registry 패턴 도입
-- `get_phase2_search_space()`: `if backbone_name == "resnet50"` 분기 — backbone-aware search space 분리 필요
-
 ---
 
 ### 5.3 L — 리스코프 치환 원칙 (LSP) / Liskov Substitution Principle
@@ -152,7 +129,7 @@ New functionality should be addable without modifying existing code. Conditional
 서브클래스가 베이스클래스의 계약(전제 조건, 후행 조건, 불변 조건)을 약화시키면 LSP 위반이다.
 A subclass violates LSP if it weakens the base class's contract (preconditions, postconditions, invariants).
 
-**현재 준수 규칙 / Rules for This Project**:
+**준수 규칙 / Rules**:
 
 | 규칙 / Rule | 설명 / Description |
 |---|---|
@@ -188,18 +165,7 @@ A subclass violates LSP if it weakens the base class's contract (preconditions, 
 
 구체 클래스(concrete class)가 아닌 추상화(프로토콜·인터페이스·base class)에 의존해야 외부에서 구현체를 교체할 수 있다. / Depending on abstractions rather than concrete classes allows substituting implementations externally.
 
-**현재 이 프로젝트에서의 적용 수준 / Current Application Level**:
-
-| 의존 방식 / Dependency | 현재 코드 / Current Code | DIP 준수 여부 / DIP Status |
-|---|---|---|
-| `GrayspotModel` → `nn.Module` | `self.backbone`, `self.head` 모두 `nn.Module` 타입 / Both typed as `nn.Module` | ✅ 추상화 의존 / Abstraction dependency |
-| `Phase2Trainer` → `model` | `nn.Module` 타입의 model 수령 — 구체 타입 미강제 / Receives `nn.Module` — concrete type not enforced | ✅ 추상화 의존 / Abstraction dependency |
-| `GrayspotModel` → `ClassifierHead` | `__init__` 내부에서 직접 `ClassifierHead(...)` 생성 / Directly instantiates `ClassifierHead(...)` in `__init__` | ⚠️ 구체 클래스 의존 / Concrete class dependency |
-| `GrayspotModel` → `build_backbone()` | 함수 호출로 backbone 생성 — factory 함수가 구체 타입 결정 / Factory function resolves concrete type | ⚠️ 경미한 의존 / Minor dependency |
-| config dict | 모든 모듈이 `dict`(추상화)를 수령 — 구체 Config 객체 아님 / All modules receive `dict` (abstraction) — not a concrete Config object | ✅ 추상화 의존 / Abstraction dependency |
-| **`optuna_tuner.py`** → `sys.modules` | `sys.modules` 직접 조작으로 호환 shim 주입 — 런타임 전역 상태 오염 / Injects compat shim via direct `sys.modules` manipulation — contaminates global interpreter state | ❌ 심각한 DIP 위반 / Severe DIP violation |
-
-**현재 준수 규칙 / Rules for This Project**:
+**준수 규칙 / Rules**:
 
 | 규칙 / Rule | 설명 / Description |
 |---|---|
