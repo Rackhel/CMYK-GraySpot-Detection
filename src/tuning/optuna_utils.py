@@ -49,9 +49,7 @@ def normalize_channel(channel: str) -> str:
     return ch.lower()
 
 
-def load_best_params(
-    channel: str, output_dir: str | Path = "outputs/optuna"
-) -> dict:
+def load_best_params(channel: str, output_dir: str | Path = "outputs/optuna") -> dict:
     """
     저장된 최적 Optuna 파라미터를 로드한다.
     Loads saved best Optuna parameters for a channel.
@@ -71,9 +69,7 @@ def load_best_params(
     path = Path(output_dir) / f"best_params_{suffix}.json"
 
     if not path.exists():
-        raise FileNotFoundError(
-            f"[SSOT-FF01] Best params file not found: {path}"
-        )
+        raise FileNotFoundError(f"[SSOT-FF01] Best params file not found: {path}")
 
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
