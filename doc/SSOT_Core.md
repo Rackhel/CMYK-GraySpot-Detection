@@ -446,15 +446,16 @@ All Python code in this project **must** follow the three principles below.
 
 | 위반 / Violation | 위치 / Location | 등급 / Level | 해결 방향 / Resolution |
 |---|---|---|---|
-| `backbone_tag()` 이중 정의 / Dual definition | `training/trainer.py:92`, `utils/utils_model.py:54` | Level 2 | `utils/utils_model.py` 를 단일 출처로, `trainer.py`에서 import / Import from `utils_model.py` as single source |
-| `_IMAGENET_NORMALIZE` 이중 정의 / Dual definition | `data/dataset.py`, `inference/predictor_inference.py` | Level 2 | `data/normalize.py` 신규 모듈로 통합 후 양쪽에서 import / Consolidate into new `data/normalize.py` and import from both |
-| `optuna_tuner.py` → `run_baseline` 역방향 의존성 / Reverse dependency | `tuning/optuna_tuner.py:138` | Level 2 | tuning layer에서 scripts layer를 import하는 구조 위반 — 향후 리팩토링 / Layer violation: tuning→scripts; refactor planned |
+| `optuna_tuner.py` → `run_baseline` 역방향 의존성 / Reverse dependency | `tuning/optuna_tuner.py` | Level 2 | tuning layer에서 scripts layer를 import하는 구조 위반 — 향후 리팩토링 / Layer violation: tuning→scripts; refactor planned |
 
 > ✅ **해소됨 / Resolved** (이전 위반들 / Previous violations):
 > - SSOT-CS01: `evaluator_inference.py` BGR→RGB 변환 제거 (2026-05-14)
 > - SSOT-NM01: `predictor_inference.py` ImageNet 정규화 적용 (2026-05-14)
 > - `validate_config()`: `False` 반환 → `ValueError` 발생으로 수정 (2026-05-14)
 > - `switch_to_phase2()`: backbone 키 0개 시 경고 → `RuntimeError` 발생으로 수정 (2026-05-14)
+> - `backbone_tag()` 이중 정의: `trainer.py` 로컬 정의 제거, `utils_model.py`에서 import (2026-05-14)
+> - `_IMAGENET_NORMALIZE` 이중 정의: `data/normalize.py` 단일 출처 생성, `dataset.py`·`predictor_inference.py` 양쪽 import (2026-05-14)
+> - `run_optuna()` best_params 이중 저장: 직접 `json.dump` 블록 제거, `save_best_params()` 단독 호출 (2026-05-14)
 
 ---
 
@@ -506,6 +507,8 @@ All Python code in this project **must** follow the three principles below.
 | 설정 파일 / Config file | `src/config/config.json` | 런타임 파라미터 SSOT / Runtime parameter SSOT |
 | Config 로딩 인터페이스 / Config loading interface | `src/utils/utils_config.py` | `load_config()` → `dict`, `validate_config()`, `create_directories()`, `get_nested()` |
 | 모델 유틸리티 / Model utilities | `src/utils/utils_model.py` | `set_seed()`, `backbone_tag()`, `build_model()` |
+| 튜닝 유틸리티 / Tuning utilities | `src/tuning/optuna_utils.py` | `normalize_channel()`, `load_best_params()`, `save_best_params()`, `save_trials_summary()`, `apply_phase2_params()` |
+| 탐색 공간 / Search space | `src/tuning/search_space.py` | `get_phase2_search_space(trial, cfg=None)` — backbone-aware HPO |
 | Markdown 가이드 / Markdown guide | `doc/Markdown_guide.md` | 문서 작성 스타일 가이드 / Document writing style guide |
 | CI 설정 / CI Setup | `doc/CI_Setup.md` | GitHub Actions workflow 및 파이프라인 규칙 / GitHub Actions workflow and pipeline rules — 파이프라인 트리거, 테스트 매트릭스, 형식 정책 / Pipeline triggers, test matrix, formatting policy |
 | 인터페이스 계약 / Interface Contract | `doc/Contract.md` | 모듈 간 공개 API 계약 — PRD → SSOT 아래, BDD 위 / Public API contracts between modules (sits below PRD→SSOT, above BDD) |

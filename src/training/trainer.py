@@ -22,8 +22,10 @@ from torch.utils.data import DataLoader
 
 try:
     from utils.logger import get_logger
+    from utils.utils_model import backbone_tag
 except ImportError:
     from src.utils.logger import get_logger
+    from src.utils.utils_model import backbone_tag
 
 from data.dataset import CMYKDataset, ContrastiveDataset  # noqa: F401 — re-export
 from models.grayspot_model import GrayspotModel
@@ -84,17 +86,6 @@ def _build_scheduler(optimizer, epochs: int, cfg: dict):
         return CosineAnnealingLR(
             optimizer, T_max=epochs, eta_min=cfg["train"]["eta_min"]
         )
-
-
-# ──────────────────────────────────────────────────────────────
-# Backbone 약어 / Backbone abbreviation helper
-# ──────────────────────────────────────────────────────────────
-def backbone_tag(backbone_name: str) -> str:
-    _MAP = {
-        "efficientnet_b0": "effb0",
-        "resnet50": "res50",
-    }
-    return _MAP.get(backbone_name, backbone_name.replace("_", "")[:8])
 
 
 # ──────────────────────────────────────────────────────────────
