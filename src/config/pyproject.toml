@@ -170,6 +170,11 @@ warn_redundant_casts = true
 
 # Pytest configuration / Pytest 설정
 [tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:.*dynamic_axes.*:UserWarning",
+    "ignore:.*from_dynamic_axes_to_dynamic_shapes.*:DeprecationWarning",
+    "ignore:.*isinstance\(treespec, LeafSpec\).*:FutureWarning"
+]
 testpaths = ["src/tests/unit", "src/tests/integration", "src/tests/smoke"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
