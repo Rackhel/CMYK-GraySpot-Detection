@@ -1,3 +1,15 @@
+---
+type: ssot
+domain: artifacts
+status: Active
+last_updated: 2026-05-17
+owner: CMYK WooSong Team
+related_docs:
+  - "SSOT_Core.md"
+  - "SSOT_Model_Architecture.md"
+  - "SSOT_Training_Pipeline.md"
+---
+
 # SSOT Artifacts — 산출물 의미 스키마 / Artifact Semantic Schema
 
 CMYK Grayspot Detection System 의 산출물 파일명 패턴, 경로, 내용 스키마에 관한 단일 진실 공급원.
@@ -239,3 +251,21 @@ metrics_summary_{name}.json + baseline_report_{ch}.html
 - `strict=False`: 버전 간 호환성 / Cross-version compatibility
 
 ---
+
+## 체크리스트 / Checklist
+
+- [ ] 새 산출물 추가 시 §3 카탈로그 업데이트 / Update §3 catalog when adding new artifact
+- [ ] Backbone 추가 시 `backbone_tag()` 매핑 업데이트 / Update `backbone_tag()` mapping when adding backbone
+- [ ] state_dict 스키마 변경 시 §6 동기화 / Sync §6 on state_dict schema change
+- [ ] 디렉토리 경로 변경 시 §4 갱신 / Update §4 when directory paths change
+
+---
+
+## See Also
+
+| 문서 / Document | 관계 / Relation |
+| --- | --- |
+| [SSOT_Core.md](SSOT_Core.md) | 최상위 원칙 / Top-level principles |
+| [SSOT_Model_Architecture.md](SSOT_Model_Architecture.md) | 모델 구조 정의 / Model architecture definition |
+| [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | 산출물 생산 흐름 / Artifact production flow |
+

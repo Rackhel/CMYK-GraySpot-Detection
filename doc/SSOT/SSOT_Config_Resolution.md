@@ -1,3 +1,14 @@
+---
+type: ssot
+domain: config_resolution
+status: Active
+last_updated: 2026-05-17
+owner: CMYK WooSong Team
+related_docs:
+  - "SSOT_Core.md"
+  - "SSOT_GlobalVariables.md"
+---
+
 # SSOT Config Resolution — 설정 해소 대조표 / Config Resolution Cross-Reference
 
 CMYK Grayspot Detection System 의 `config.json` 키별 소비 현황과 해석 규칙에 관한 단일 진실 공급원.
@@ -245,3 +256,20 @@ src/utils/
 > `SSOT-CF01`: If code references a key absent from config.json, **fail immediately**.
 
 ---
+
+## 체크리스트 / Checklist
+
+- [ ] 새 config 키 추가 → §4 대조표에 행 추가 / Add row to §4 cross-reference when adding new config key
+- [ ] config 키 제거 → §4에서 행 삭제 / Delete row from §4 when removing config key
+- [ ] 소비 지점 변경 → 소비 지점 컬럼 업데이트 / Update consumer column when consumption point changes
+- [ ] Dead Config 발견 → §5 Dead Config 요약 갱신 / Update §5 summary when Dead Config found
+
+---
+
+## See Also
+
+| 문서 / Document | 관계 / Relation |
+| --- | --- |
+| [SSOT_Core.md](SSOT_Core.md) | 우선순위 기준 / Priority criteria |
+| [SSOT_GlobalVariables.md](SSOT_GlobalVariables.md) | Hard/Soft 분류 / Hard/Soft classification |
+

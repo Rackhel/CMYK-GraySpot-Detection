@@ -1,3 +1,16 @@
+---
+type: ssot
+domain: core
+status: Active
+last_updated: 2026-05-17
+owner: CMYK WooSong Team
+related_docs:
+  - "SSOT_Artifacts.md"
+  - "SSOT_Config_Resolution.md"
+  - "SSOT_GlobalVariables.md"
+  - "SSOT_Validation_Codes.md"
+---
+
 # SSOT Core — 핵심 원칙 및 용어 정의 / Core Principles and Terminology
 
 CMYK Grayspot Detection System 의 SSOT 핵심 원칙, 용어, 문서 목록의 기준 문서.
@@ -264,6 +277,10 @@ All Python code in this project **must** follow the three principles below.
 | **Hard SSOT** | `num_levels=6`, `image_size=128`, `backbone`, Phase 순서, 색상 공간 | 하위 결과 전체 무효 / All downstream results invalidated | 재학습 필수 / Retrain required |
 | **Soft SSOT** | `batch_size`, `num_workers`, 로깅 레벨, 리포트 포맷 | 간접 영향 (성능·속도) / Indirect effect on performance or speed | 재학습 선택 / Retrain optional |
 
+> 📌 **판단 원칙 / Decision Principle**: "기존 체크포인트를 그대로 쓸 수 있는가?"
+> — 쓸 수 없으면 Hard, 쓸 수 있으면 Soft.
+> — If the existing checkpoint can no longer be used as-is, it's Hard. Otherwise it's Soft.
+
 ### 8.1 판단 기준 / Decision Criteria
 
 > **Hard SSOT 기준 / Hard SSOT when:**
@@ -294,6 +311,30 @@ All Python code in this project **must** follow the three principles below.
 | [SSOT_Artifacts.md](SSOT_Artifacts.md) | 산출물 파일명 패턴 및 스키마 / Artifact filename patterns and schemas | 모델 파일, 리포트 경로 / Model files, report paths |
 | [SSOT_Validation_Codes.md](SSOT_Validation_Codes.md) | 검증 에러 코드 정의 / Validation error code definitions | Fail-Fast 코드 목록 / Fail-Fast code list |
 | [SSOT_GlobalVariables.md](SSOT_GlobalVariables.md) | 전역 변수 / 하드코딩 정책 / Global variables and hardcoding policy | Hard/Soft 분류 전체 목록 / Full Hard/Soft classification list |
+
+### 9.1 문서 계층도 / Document Hierarchy
+
+```
+SSOT_Core.md                    ← 최상위 원칙 (본 문서) / Top-level principles (this document)
+├── SSOT_Config_Resolution.md   ← config 키 전체 대조표 / Full config key cross-reference
+├── SSOT_GlobalVariables.md     ← Hard/Soft 변수 목록 / Hard/Soft variable list
+├── SSOT_Validation_Codes.md    ← 에러 코드 정의 / Error code definitions
+├── SSOT_Model_Architecture.md  ← 모델 구조 / Model architecture
+├── SSOT_Data_Pipeline.md       ← 데이터 파이프라인 / Data pipeline
+├── SSOT_Training_Pipeline.md   ← 학습 파이프라인 / Training pipeline
+├── SSOT_Evaluation_Reporting.md← 평가 및 보고 / Evaluation and reporting
+└── SSOT_Artifacts.md           ← 산출물 스키마 / Artifact schema
+```
+
+---
+
+## 체크리스트 / Checklist
+
+- [ ] 새 config 키 추가 시 `SSOT_Config_Resolution.md` 업데이트 / Update when adding new config key
+- [ ] 새 에러 코드 추가 시 `SSOT_Validation_Codes.md` 업데이트 / Update when adding new error code
+- [ ] Hard SSOT 값 변경 시 모든 체크포인트 재학습 / Retrain all checkpoints when Hard SSOT value changes
+- [ ] 모델 구조 변경 시 `SSOT_Model_Architecture.md` 동기화 / Sync `SSOT_Model_Architecture.md` on model structure change
+- [ ] Dead Config 발견 시 제거 또는 연결 / Remove or connect Dead Config when found
 
 ---
 
@@ -356,3 +397,13 @@ inference/
 | ONNX 호환성 / ONNX compatibility | opset 11+ | Export and runtime validation |
 
 ---
+
+## See Also
+
+| 문서 / Document | 관계 / Relation |
+| --- | --- |
+| [SSOT_Config_Resolution.md](SSOT_Config_Resolution.md) | config 키 소비 상세 / Config key consumption detail |
+| [SSOT_GlobalVariables.md](SSOT_GlobalVariables.md) | Hard/Soft 분류 전체 / Full Hard/Soft classification |
+| [SSOT_Validation_Codes.md](SSOT_Validation_Codes.md) | 에러 코드 체계 / Error code system |
+| [Contract.md](../Contract/Contract.md) | 구현 세부 계약 / Implementation contracts |
+

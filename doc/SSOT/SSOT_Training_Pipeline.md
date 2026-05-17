@@ -1,3 +1,15 @@
+---
+type: ssot
+domain: training_pipeline
+status: Active
+last_updated: 2026-05-17
+owner: CMYK WooSong Team
+related_docs:
+  - "SSOT_Core.md"
+  - "SSOT_Model_Architecture.md"
+  - "SSOT_Data_Pipeline.md"
+---
+
 # SSOT Training Pipeline — 학습 파이프라인 / Training Pipeline
 
 CMYK Grayspot Detection System 의 학습 루프, optimizer, loss 함수에 관한 단일 진실 공급원.
@@ -194,6 +206,18 @@ Dynamically selected from config via `_build_optimizer()` / `_build_scheduler()`
 
 ---
 
+## 실행 명령 / Run Commands
+
+| 명령 / Command | 진입점 / Entry Point | 설명 / Description |
+| --- | --- | --- |
+| Phase 0 단독 | `python -m src.scripts.run_phase0 --channel Y` | SimCLR 학습 / SimCLR training |
+| Phase 2 단독 | `python -m src.scripts.run_phase2 --channel Y` | Supervised 학습 / Supervised training |
+| Baseline 전체 | `python -m src.scripts.run_baseline --channel all` | Phase 0 → Phase 2 순차 / Sequential Phase 0 → Phase 2 |
+| Optuna 튜닝 | `python -m src.scripts.run_optuna --channel Y` | HPO 탐색 / HPO search |
+| GUI 학습 | Streamlit UI → Train 페이지 | 동일 Trainer 호출 / Same Trainer invocation |
+
+---
+
 ## 6. 학습 파라미터 요약 / Parameter Summary
 
 ### 6.1 공통 학습 설정 / Common Train Settings
@@ -262,3 +286,22 @@ The 4 CMYK channels are trained **independently**. No model is shared — each c
 > Only the Phase 0 backbone of the **same** channel may be used for that channel's Phase 2 training.
 
 ---
+
+## 체크리스트 / Checklist
+
+- [ ] 새 Phase 추가 시 Swing Architecture 흐름도 갱신 / Update Swing Architecture diagram when adding new phase
+- [ ] Optimizer/Scheduler 추가 시 §5 팩토리 업데이트 / Update §5 factory when adding optimizer/scheduler
+- [ ] Best 기준 변경 시 PRD 정렬 확인 / Verify PRD alignment on best-save criterion change
+- [ ] Optuna 탐색 범위 변경 시 §7 동기화 / Sync §7 on Optuna search range change
+
+---
+
+## See Also
+
+| 문서 / Document | 관계 / Relation |
+| --- | --- |
+| [SSOT_Model_Architecture.md](SSOT_Model_Architecture.md) | 모델 구조 / Model architecture |
+| [SSOT_Data_Pipeline.md](SSOT_Data_Pipeline.md) | 데이터 입력 계약 / Data input contract |
+| [SSOT_Evaluation_Reporting.md](SSOT_Evaluation_Reporting.md) | 평가/피드백 / Evaluation/feedback |
+| [SSOT_Config_Resolution.md](SSOT_Config_Resolution.md) | config 키 매핑 / Config key mapping |
+

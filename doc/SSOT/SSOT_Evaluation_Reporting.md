@@ -1,3 +1,15 @@
+---
+type: ssot
+domain: evaluation_reporting
+status: Active
+last_updated: 2026-05-17
+owner: CMYK WooSong Team
+related_docs:
+  - "SSOT_Core.md"
+  - "SSOT_Training_Pipeline.md"
+  - "SSOT_Artifacts.md"
+---
+
 # SSOT Evaluation & Reporting — 평가 및 보고 / Evaluation and Reporting
 
 CMYK Grayspot Detection System 의 평가 지표, 목표값, 신뢰도 임계값, 리포트 생성에 관한 단일 진실 공급원.
@@ -279,3 +291,23 @@ SSOT validation codes triggered in the evaluation pipeline. See [SSOT_Validation
 | ImageNet 정규화 미적용 (pretrained) / Missing ImageNet norm | `SSOT-NM01` | Level 2 — Warning | 경고 출력 + 계속 / Warn and continue |
 
 ---
+
+## 체크리스트 / Checklist
+
+- [ ] 성능 목표 변경 시 §2 업데이트 / Update §2 on performance target change
+- [ ] Swing Feedback 임계값 변경 시 §6 동기화 / Sync §6 on Swing Feedback threshold change
+- [ ] 새 지표 추가 시 §4 목록 + §7.1 JSON 스키마 갱신 / Update §4 list + §7.1 JSON schema when adding new metric
+- [ ] Best 저장 기준 → macro_f1 전환 시 Training Pipeline 동기화 / Sync Training Pipeline on best-save criterion change to macro_f1
+- [ ] `_EvalDataset` ImageNet 정규화 적용 후 N-01 해소 / Resolve N-01 after applying ImageNet normalization in `_EvalDataset`
+
+---
+
+## See Also
+
+| 문서 / Document | 관계 / Relation |
+| --- | --- |
+| [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | 학습 흐름, Swing Architecture / Training flow, Swing Architecture |
+| [SSOT_Model_Architecture.md](SSOT_Model_Architecture.md) | 모델 구조 / Model architecture |
+| [SSOT_Artifacts.md](SSOT_Artifacts.md) | 산출물 파일명 패턴 / Artifact filename patterns |
+| [SSOT_Data_Pipeline.md](SSOT_Data_Pipeline.md) | 평가 데이터 전처리 / Evaluation data preprocessing |
+

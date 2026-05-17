@@ -1,3 +1,13 @@
+---
+type: ssot
+domain: validation_codes
+status: Active
+last_updated: 2026-05-17
+owner: CMYK WooSong Team
+related_docs:
+  - "SSOT_Core.md"
+---
+
 # SSOT Validation Codes — 검증 에러 코드 정의 / Validation Error Code Definitions
 
 CMYK Grayspot Detection System 의 모든 Fail-Fast 에러 코드와 처리 방법에 관한 단일 진실 공급원.
@@ -165,3 +175,20 @@ Dead Config 목록은 [SSOT_GlobalVariables.md §5](SSOT_GlobalVariables.md)에�
 Dead Config list is maintained in [SSOT_GlobalVariables.md §5](SSOT_GlobalVariables.md).
 
 ---
+
+## 체크리스트 / Checklist
+
+- [ ] 새 에러 코드 추가 시 §3 목록 + §4 상세 정의 작성 / Add to §3 list + §4 detailed definition when adding new error code
+- [ ] 에러 코드 해소 시 §3에 날짜 기록 / Record resolution date in §3 when error code is resolved
+- [ ] Level 1 코드 해소 시 관련 SSOT 문서 동기화 / Sync related SSOT documents when Level 1 code is resolved
+
+---
+
+## See Also
+
+| 문서 / Document | 관계 / Relation |
+| --- | --- |
+| [SSOT_Core.md](SSOT_Core.md) | Fail-Fast 정책 정의 / Fail-Fast policy definition |
+| [SSOT_Data_Pipeline.md](SSOT_Data_Pipeline.md) | CS01, NM01, SD01 발생 지점 / CS01, NM01, SD01 occurrence points |
+| [SSOT_Artifacts.md](SSOT_Artifacts.md) | FF01 검증 대상 / FF01 validation targets |
+

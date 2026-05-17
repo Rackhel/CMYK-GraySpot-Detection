@@ -1,3 +1,14 @@
+---
+type: ssot
+domain: global_variables
+status: Active
+last_updated: 2026-05-17
+owner: CMYK WooSong Team
+related_docs:
+  - "SSOT_Core.md"
+  - "SSOT_Config_Resolution.md"
+---
+
 # SSOT Global Variables — 전역 변수 및 하드코딩 정책 / Global Variables and Hardcoding Policy
 
 CMYK Grayspot Detection System 의 모든 전역 변수, 상수, 하드코딩 값의 Hard/Soft SSOT 분류에 관한 단일 진실 공급원.
@@ -214,3 +225,19 @@ momentum, betas, gamma, eta_min
 ```
 
 ---
+
+## 체크리스트 / Checklist
+
+- [ ] 새 변수 추가 시 Hard/Soft 분류 판정 / Classify as Hard/Soft when adding new variable
+- [ ] Hard 값 변경 시 모든 체크포인트 폐기 확인 / Verify all checkpoints are discarded on Hard value change
+- [ ] Dead Config 발견 시 소비 연결 또는 제거 / Connect or remove Dead Config when found
+
+---
+
+## See Also
+
+| 문서 / Document | 관계 / Relation |
+| --- | --- |
+| [SSOT_Core.md](SSOT_Core.md) | Hard/Soft 판단 기준 / Hard/Soft decision criteria |
+| [SSOT_Config_Resolution.md](SSOT_Config_Resolution.md) | config 키 소비 상세 / Config key consumption detail |
+
