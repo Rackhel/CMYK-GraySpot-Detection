@@ -80,10 +80,15 @@ class CMYKDataset(Dataset):
         for sample in all_samples:
             level_groups[sample[1]].append(sample)
 
+        # SSOT-SD01: 시드된 Random 인스턴스를 사용하여 재현성을 보장한다.
+        # Use a seeded Random instance to guarantee reproducibility (SSOT-SD01).
+        seed = cfg.get("train", {}).get("seed", 42)
+        _rng = random.Random(seed)
+
         ratios = cfg["data"]["split_ratios"]
         train_s, val_s, test_s = [], [], []
         for lv, items in level_groups.items():
-            random.shuffle(items)
+            _rng.shuffle(items)
             n = len(items)
             n_train = max(1, int(n * ratios["train"]))
             n_val = max(1, int(n * ratios["val"]))

@@ -21,6 +21,8 @@ import torch.nn.functional as F
 from sklearn.metrics import accuracy_score
 from torch.utils.data import DataLoader, Dataset
 
+from data.normalize import _IMAGENET_NORMALIZE  # SSOT-NM01: 단일 출처 사용
+
 # ---------------------------------------------------------------------------
 # Internal Dataset / 내부 Dataset
 # ---------------------------------------------------------------------------
@@ -61,6 +63,8 @@ class _EvalDataset(Dataset):
         img = img.astype(np.float32) / 255.0
 
         tensor = torch.tensor(img).permute(2, 0, 1).float()
+        # SSOT-NM01: ImageNet 정규화 적용 — 학습(CMYKDataset)과 동일한 변환 / Apply ImageNet normalization — same as training (CMYKDataset)
+        tensor = _IMAGENET_NORMALIZE(tensor)
         return tensor, level, fname
 
 
