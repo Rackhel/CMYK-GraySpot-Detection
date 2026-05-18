@@ -18,7 +18,7 @@ albumentations>=1.3.0 # only needed for advanced data augmentation
 optuna>=3.4.0
 
 # ── Configuration & Utilities / 설정 및 유틸리티 ─────────────────────────────
-PyYAML>=6.0
+PyYAML>=6.0.3
 python-dotenv>=1.0.0 # only needed if using .env files for configuration
 
 # ── Visualization & Reporting / 시각화 및 리포팅 ────────────────────────────
