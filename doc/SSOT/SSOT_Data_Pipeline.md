@@ -1,14 +1,3 @@
----
-type: ssot
-domain: data_pipeline
-status: Active
-last_updated: 2026-05-17
-owner: CMYK WooSong Team
-related_docs:
-  - "SSOT_Core.md"
-  - "SSOT_Config_Resolution.md"
----
-
 # SSOT Data Pipeline — 데이터 파이프라인 / Data Pipeline
 
 CMYK Grayspot Detection System 의 데이터 로딩·분할·전처리·증강에 관한 단일 진실 공급원.
@@ -216,21 +205,3 @@ SSOT validation codes triggered within the data pipeline. See [SSOT_Validation_C
 | 동일 seed에서 다른 데이터 분할 / Non-deterministic split | `SSOT-SD01` | Level 2 — Warning | 경고 출력 / Log warning |
 
 ---
-
-## 체크리스트 / Checklist
-
-- [ ] 색상 공간 변경 시 학습/평가/추론 전 경로 동기화 / Sync all train/eval/inference paths on color space change
-- [ ] 증강 파라미터 변경 시 학습 실험 기록 / Log training experiment on augmentation parameter change
-- [ ] 새 augmentation 추가 시 config 키 매핑 확인 / Verify config key mapping when adding new augmentation
-- [ ] `_EvalDataset` ImageNet 정규화 적용 확인 (N-01 해소) / Verify ImageNet normalization in `_EvalDataset` (resolve N-01)
-
----
-
-## See Also
-
-| 문서 / Document | 관계 / Relation |
-| --- | --- |
-| [SSOT_Core.md](SSOT_Core.md) | BGR/ImageNet 불변량 선언 / BGR/ImageNet invariant declarations |
-| [SSOT_Config_Resolution.md](SSOT_Config_Resolution.md) | data/augmentation 키 상세 / data/augmentation key details |
-| [SSOT_Validation_Codes.md](SSOT_Validation_Codes.md) | CS01, NM01, SD01 정의 / CS01, NM01, SD01 definitions |
-
