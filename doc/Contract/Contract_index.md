@@ -2,7 +2,7 @@
 type: contract
 domain: data_flow_overview
 status: Active
-last_updated: 2026-05-17
+last_updated: 2026-05-18
 owner: CMYK WooSong Team
 ---
 
@@ -30,6 +30,8 @@ owner: CMYK WooSong Team
 | 7 | [Inference Boundary](Contract_inference_boundary.md) | 추론 (GrayspotPredictor) | `doc/Contract/` |
 | 8 | [Tuning Boundary](Contract_tuning_boundary.md) | Optuna 튜닝 | `doc/Contract/` |
 | 9 | [Fail-Fast Enforcement](Contract_fail_fast.md) | Fail-Fast 집행 포인트 | `doc/Contract/` |
+| 10 | [GUI](Contract_gui.md) | PyQt6 6탭 GUI | `doc/Contract/` |
+| 11 | [ROI Pipeline](Contract_roi_pipeline.md) | ROI 추출 / 라벨 정제 | `doc/Contract/` |
 
 ---
 
@@ -46,6 +48,8 @@ owner: CMYK WooSong Team
 | [SSOT_Evaluation_Reporting.md](../SSOT/SSOT_Evaluation_Reporting.md) | [Contract_evaluation_reporting.md](Contract_evaluation_reporting.md) |
 | [SSOT_Validation_Codes.md](../SSOT/SSOT_Validation_Codes.md) | [Contract_fail_fast.md](Contract_fail_fast.md) |
 | [SSOT_GlobalVariables.md](../SSOT/SSOT_GlobalVariables.md) | (Cross-cutting — 각 Contract에서 Hard/Soft 참조) |
+| [SSOT_GUI.md](../SSOT/SSOT_GUI.md) | [Contract_gui.md](Contract_gui.md) |
+| [SSOT_ROI_Pipeline.md](../SSOT/SSOT_ROI_Pipeline.md) | [Contract_roi_pipeline.md](Contract_roi_pipeline.md) |
 
 ---
 

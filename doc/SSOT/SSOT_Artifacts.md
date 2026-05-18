@@ -252,6 +252,24 @@ metrics_summary_{name}.json + baseline_report_{ch}.html
 
 ---
 
+## ONNX 산출물
+
+| 파일명 | 위치 | 생성 시점 |
+| --- | --- | --- |
+| `model_{channel}_{backbone_tag}.onnx` | `outputs/onnx/` | S4 ONNX 변환 |
+| `model_{channel}_{backbone_tag}.tflite` | `outputs/onnx/` | S5 선택 사항 |
+
+### ONNX 모델 사양
+
+| 항목 | 값 |
+| --- | --- |
+| 입력 shape | `(1, 3, 128, 128)` float32 |
+| 출력 shape | `(1, 6)` float32 (logits) |
+| opset | 17 |
+| 소스 | Phase 2 `best_{channel}.pt` |
+
+---
+
 ## 체크리스트 / Checklist
 
 - [ ] 새 산출물 추가 시 §3 카탈로그 업데이트 / Update §3 catalog when adding new artifact

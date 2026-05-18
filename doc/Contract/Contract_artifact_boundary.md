@@ -2,7 +2,7 @@
 type: contract
 domain: artifact_boundary
 status: Active
-last_updated: 2026-05-17
+last_updated: 2026-05-18
 owner: CMYK WooSong Team
 ---
 
@@ -123,7 +123,32 @@ model.load_state_dict(checkpoint, strict=False)
 
 ---
 
-## 9. 체크리스트
+## 9. ONNX 산출물 계약
+
+### export_to_onnx()
+
+```python
+from inference.onnx_export import export_to_onnx
+
+output_path = export_to_onnx(
+    checkpoint_path="outputs/models/best_Y.pt",
+    output_path="outputs/onnx/model_Y_effb0.onnx",
+    cfg=cfg,
+    opset_version=17,
+)
+```
+
+| 항목 | 값 |
+| --- | --- |
+| 입력 shape | `(1, 3, 128, 128)` float32 |
+| 출력 shape | `(1, 6)` float32 |
+| 파일명 패턴 | `model_{channel}_{backbone_tag}.onnx` |
+| 저장 위치 | `outputs/onnx/` |
+| 검증 | `onnx.checker.check_model()` 내부 실행 |
+
+---
+
+## 10. 체크리스트
 
 - [x] `weights_only=True` 로드 확인
 - [x] `strict=False` 로드 확인

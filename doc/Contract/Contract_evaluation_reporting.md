@@ -2,7 +2,7 @@
 type: contract
 domain: evaluation_reporting
 status: Active
-last_updated: 2026-05-17
+last_updated: 2026-05-18
 owner: CMYK WooSong Team
 ---
 
@@ -249,6 +249,46 @@ path = generate_baseline_report(
 | 반환 | 생성된 HTML 파일의 절대 경로 |
 | 산출물 | 단일 독립 HTML (Plotly CDN 내장) |
 | 필수 입력 | `summary` (EvaluationSummary), `results` (run() 반환값) |
+
+---
+
+## 13. Swing Efficiency 계약
+
+### compute_swing_efficiency()
+
+```python
+from evaluation.swing_efficiency import compute_swing_efficiency, SwingEfficiencyReport
+
+report: SwingEfficiencyReport = compute_swing_efficiency(
+    baseline_acc=0.72,
+    cycle_acc=0.81,
+    n_labels_changed=45,
+    cycle=1,
+    cfg=cfg,
+)
+# report.swing_decision: "pass" | "retry_phase2" | "retry_phase0"
+# report.efficiency_ratio: delta_acc / n_labels_changed
+```
+
+### should_early_stop()
+
+```python
+from evaluation.swing_efficiency import should_early_stop
+
+stop = should_early_stop(current_report, previous_report)
+# True → Cycle 2 조기 종료, Cycle 1 결과 채택
+```
+
+---
+
+## 체크리스트
+
+- [ ] `Evaluator.run()` 반환 dict에 `y_true`, `y_pred`, `confidences` 키 포함 확인
+- [ ] `build_evaluation_summary()` 호출 시 `cfg["evaluation"]["swing_thresholds"]` 주입 확인
+- [ ] `determine_swing_feedback()` 반환 `terminate` 플래그 기반 Swing 종료 로직 확인
+- [ ] `save_report()` 후 `outputs/reports/` 하위 파일 생성 확인
+- [ ] `compute_swing_efficiency()` 반환 `swing_decision` 값이 `"pass"` | `"retry_phase2"` | `"retry_phase0"` 중 하나인지 확인
+- [ ] `should_early_stop()` 조기 종료 조건 (`efficiency_ratio < previous * 0.5`) 단위 테스트 확인
 
 ---
 

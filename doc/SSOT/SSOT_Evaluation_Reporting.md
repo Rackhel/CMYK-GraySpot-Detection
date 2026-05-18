@@ -292,6 +292,24 @@ SSOT validation codes triggered in the evaluation pipeline. See [SSOT_Validation
 
 ---
 
+## Swing Efficiency 지표
+
+| 지표 | 수식 | 설명 |
+| --- | --- | --- |
+| ΔAcc | `Acc_CycleN - Acc_Baseline` | Swing 누적 정확도 향상 |
+| n_labels_changed | count | 해당 Cycle에서 수정된 라벨 수 |
+| efficiency_ratio | `ΔAcc / n_labels_changed` | 라벨 1개 수정 당 정확도 향상 |
+| swing_decision | `pass` / `retry_phase2` / `retry_phase0` | 피드백 판정 결과 |
+
+### 조기 종료 기준
+- Cycle 2의 `efficiency_ratio` < Cycle 1의 50% → Cycle 2 조기 종료, Cycle 1 결과 채택
+
+### swing_efficiency.py 위치
+- 클래스/함수: `src/evaluation/swing_efficiency.py::compute_swing_efficiency()`
+- 반환: `SwingEfficiencyReport` (dataclass)
+
+---
+
 ## 체크리스트 / Checklist
 
 - [ ] 성능 목표 변경 시 §2 업데이트 / Update §2 on performance target change

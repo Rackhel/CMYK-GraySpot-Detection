@@ -215,6 +215,7 @@ Dynamically selected from config via `_build_optimizer()` / `_build_scheduler()`
 | Baseline 전체 | `python -m src.scripts.run_baseline --channel all` | Phase 0 → Phase 2 순차 / Sequential Phase 0 → Phase 2 |
 | Optuna 튜닝 | `python -m src.scripts.run_optuna --channel Y` | HPO 탐색 / HPO search |
 | GUI 학습 | Streamlit UI → Train 페이지 | 동일 Trainer 호출 / Same Trainer invocation |
+| 평가 단독 | `python -m src.scripts.evaluate --channel Y` | 체크포인트 평가 + 리포트 생성 |
 
 ---
 

@@ -9,6 +9,8 @@ related_docs:
   - "SSOT_Config_Resolution.md"
   - "SSOT_GlobalVariables.md"
   - "SSOT_Validation_Codes.md"
+  - "SSOT_GUI.md"
+  - "SSOT_ROI_Pipeline.md"
 ---
 
 # SSOT Core — 핵심 원칙 및 용어 정의 / Core Principles and Terminology
@@ -321,9 +323,11 @@ SSOT_Core.md                    ← 최상위 원칙 (본 문서) / Top-level pr
 ├── SSOT_Validation_Codes.md    ← 에러 코드 정의 / Error code definitions
 ├── SSOT_Model_Architecture.md  ← 모델 구조 / Model architecture
 ├── SSOT_Data_Pipeline.md       ← 데이터 파이프라인 / Data pipeline
+│   └── SSOT_ROI_Pipeline.md    ← ROI 추출 및 라벨 정제 / ROI extraction and label refinement
 ├── SSOT_Training_Pipeline.md   ← 학습 파이프라인 / Training pipeline
 ├── SSOT_Evaluation_Reporting.md← 평가 및 보고 / Evaluation and reporting
-└── SSOT_Artifacts.md           ← 산출물 스키마 / Artifact schema
+├── SSOT_Artifacts.md           ← 산출물 스키마 / Artifact schema
+└── SSOT_GUI.md                 ← PyQt6 애플리케이션 구조 / PyQt6 application structure
 ```
 
 ---
