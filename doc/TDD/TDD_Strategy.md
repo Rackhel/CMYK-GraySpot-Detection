@@ -1,11 +1,11 @@
 ---
 title: TDD 전략 / Test-Driven Development Strategy
 version: 0.2.0
-last_updated: 2026-05-12
+last_updated: 2026-05-18
 scope: CMYK Grayspot Detection System — 전체 모듈 / All modules
 ---
 
-# TDD 전략 / Test-Driven Development Strategy
+# [TDD] 전략 / Test-Driven Development Strategy
 
 ## 목차 / Table of Contents
 
@@ -57,9 +57,9 @@ Due to the nature of ML projects, **not everything can be covered by TDD.** The 
          /E2E\          ← 현재 tests/ 의 test_training_phase*.py
         /──────\           실제 학습 + 저장 + 성능 확인 (Smoke)
        /  통합   \       ← tests/integration/ (DataLoader ↔ Trainer 등)
-      /────────────\
-     /   단위 테스트  \   ← tests/unit/ (순수 함수, 텐서 변환)  ← TDD 적용 대상
-    /────────────────────\
+     /────────────\
+    /   단위 테스트   \   ← tests/unit/ (순수 함수, 텐서 변환)  ← TDD 적용 대상
+   /─────────────────\
 ```
 
 ### 계층별 역할 / Per-Layer Roles
@@ -348,6 +348,31 @@ def test_generate_baseline_report_creates_html(tmp_path, mock_summary, mock_resu
 
 ---
 
+### 3.9 신규 모듈 / New Modules (Phase 3 — Execution Plan)
+
+Phase 3 실행 계획에 따라 추가된 모듈들이다. 각 모듈에 대한 상세 TDD 명세는 개별 파일에 정의되어 있다.
+The following modules were added per the Phase 3 Execution Plan. Detailed TDD specifications for each module are defined in separate files.
+
+| 모듈 / Module | 테스트 파일 / Test File | TDD 명세 / TDD Spec |
+|---|---|---|
+| `data/roi_extractor.py` — `ROIExtractor`, `split_cmyk()` | `test_roi_extractor.py` | [TDD_ROI_Pipeline.md](TDD_ROI_Pipeline.md) |
+| `data/label_refiner.py` — `LabelRefiner`, `compute_priority_score()` | `test_label_refiner.py` | [TDD_LabelRefiner.md](TDD_LabelRefiner.md) |
+| `scripts/evaluate.py` — CLI 평가 스크립트 / CLI evaluation script | `test_evaluate_script.py` | [TDD_Evaluate_Script.md](TDD_Evaluate_Script.md) |
+| `evaluation/swing_efficiency.py` — `compute_swing_efficiency()`, `should_early_stop()` | `test_swing_efficiency.py` | [TDD_SwingEfficiency.md](TDD_SwingEfficiency.md) |
+| `inference/onnx_export.py` — `export_to_onnx()` | `test_onnx_export.py` | [TDD_ONNX_Export.md](TDD_ONNX_Export.md) |
+| `gui/` — PyQt6 Workers + 6 Tabs / PyQt6 Workers + 6 Tabs | `test_gui_workers.py`, `test_gui_tabs.py` | [TDD_GUI.md](TDD_GUI.md) |
+
+#### 신규 모듈 핵심 원칙 / Core Principles for New Modules
+
+- `ROIExtractor.split_cmyk()` — C=1-R, M=1-G, Y=1-B, K=min(C,M,Y) 공식 적용 / Apply formula C=1-R, M=1-G, Y=1-B, K=min(C,M,Y)
+- `LabelRefiner.compute_priority_score()` — Priority = 0.5×uncertainty + 0.3×cluster_distance + 0.2×label_noise / Weighted priority score
+- `compute_swing_efficiency()` — `efficiency_ratio = delta_acc / n_labels_changed`, 0/0 → 0.0 처리 (예외 아님) / 0/0 → 0.0, not an exception
+- `should_early_stop()` — `current.efficiency_ratio < previous.efficiency_ratio * 0.5` / Early stop criterion
+- `export_to_onnx()` — opset_version=17, 입력 `(1,3,128,128)`, 출력 `(1,6)` / input `(1,3,128,128)`, output `(1,6)`
+- GUI Workers — UI 직접 접근 금지 (`QWidget`, `setText()` 등 신호로만 전달) / No direct UI access; communicate through signals only
+
+---
+
 ## 4. 파일 구조 및 네이밍 / File Structure & Naming
 
 ```
@@ -365,7 +390,14 @@ src/
     │   ├── test_confusion.py
     │   ├── test_predictor.py          ← §3.6 Inference Mixin 단위 테스트
     │   ├── test_search_space.py       ← §3.7 Tuning search space
-    │   └── test_reporting.py          ← §3.8 HTML report generation
+    │   ├── test_reporting.py          ← §3.8 HTML report generation
+    │   ├── test_roi_extractor.py      ← §3.9 ROIExtractor CMYK 분리
+    │   ├── test_evaluate_script.py    ← §3.9 evaluate.py CLI
+    │   ├── test_swing_efficiency.py   ← §3.9 Swing Efficiency
+    │   ├── test_label_refiner.py      ← §3.9 LabelRefiner
+    │   ├── test_onnx_export.py        ← §3.9 ONNX Export
+    │   ├── test_gui_workers.py        ← §3.9 PyQt6 GUI
+    │   └── test_gui_tabs.py           ← §3.9 PyQt6 GUI
     ├── integration/                   ← 모듈 간 연결 검증 / Cross-module connection validation
     │   ├── conftest.py
     │   ├── test_data_pipeline.py      ← preprocess → dataset → dataloader
@@ -569,3 +601,9 @@ The following items are not subject to TDD unit testing:
 | [Contract.md](Contract.md) | 각 모듈 경계 계약 — 테스트 입출력 spec 참조 / Module boundary contracts — reference for test I/O specs |
 | [SSOT_Validation_Codes.md](SSOT_Validation_Codes.md) | 예외 코드 — 예외 테스트 작성 시 참조 / Exception codes — reference when writing exception tests |
 | [SSOT_Evaluation_Reporting.md](SSOT_Evaluation_Reporting.md) | 평가 지표 정의 — metrics 테스트 기준값 / Evaluation metric definitions — reference values for metrics tests |
+| [TDD_ROI_Pipeline.md](TDD_ROI_Pipeline.md) | §3.9 ROIExtractor — CMYK 분리 상세 TDD 명세 / Detailed TDD spec for ROIExtractor CMYK splitting |
+| [TDD_LabelRefiner.md](TDD_LabelRefiner.md) | §3.9 LabelRefiner — 우선순위 점수 상세 TDD 명세 / Detailed TDD spec for LabelRefiner priority scoring |
+| [TDD_Evaluate_Script.md](TDD_Evaluate_Script.md) | §3.9 evaluate.py — CLI 평가 스크립트 상세 TDD 명세 / Detailed TDD spec for evaluate.py CLI script |
+| [TDD_SwingEfficiency.md](TDD_SwingEfficiency.md) | §3.9 swing_efficiency — 효율성 지표 상세 TDD 명세 / Detailed TDD spec for swing efficiency metrics |
+| [TDD_ONNX_Export.md](TDD_ONNX_Export.md) | §3.9 onnx_export — ONNX 내보내기 상세 TDD 명세 / Detailed TDD spec for ONNX export |
+| [TDD_GUI.md](TDD_GUI.md) | §3.9 GUI — PyQt6 Workers 및 Tabs 상세 TDD 명세 / Detailed TDD spec for PyQt6 Workers and Tabs |
