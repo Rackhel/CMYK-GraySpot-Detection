@@ -164,7 +164,9 @@ def _run_channel_evaluation(
 
     # JSON 리포트 직접 저장 (Contract §10 — 리포트 파일 생성 보장)
     # Save JSON report directly (ensures report file is always created per Contract §10)
-    report_path = output_dir / f"report_{channel}.json"
+    # SSOT_Artifacts.md §3.5 — 파일명 패턴: metrics_summary_{name}.json
+    # SSOT_Artifacts.md §3.5 — filename pattern: metrics_summary_{name}.json
+    report_path = output_dir / f"metrics_summary_{channel}.json"
     _write_json_summary(report_path, channel, metrics)
 
     # HTML 대시보드 저장
@@ -237,11 +239,10 @@ def _write_json_summary(
         metrics : compute()의 반환값 또는 MagicMock / Return value of compute() or MagicMock
     """
     try:
-        # MetricsMixin.compute() → "global" 키 사용
-        # compute_all_channels() → "overall" 키 사용
-        # 두 형식 모두 처리 / Handle both formats
+        # Contract_evaluation_reporting.md §8 — compute() 반환 키는 "overall"
+        # Contract §8: compute() return key is "overall"
         if isinstance(metrics, dict):
-            overall = metrics.get("overall") or metrics.get("global") or {}
+            overall = metrics.get("overall") or {}
         else:
             overall = {}
         summary: dict = {
@@ -279,7 +280,7 @@ def _write_json_summary(
 # ── 메인 진입점 / Main entry point ───────────────────────────────────────────
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: Optional[List[str]] = None) -> None:
     """
     평가 스크립트 메인 함수.
     Main function for the evaluation script.
@@ -290,9 +291,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     Args:
         argv: CLI 인수 목록. None 이면 sys.argv[1:] 사용.
               CLI argument list. None uses sys.argv[1:].
-
-    Returns:
-        int — 종료 코드 (0: 성공, 1: 실패) / Exit code (0: success, 1: failure)
 
     Side effects:
         - 종료 코드 1로 sys.exit() 호출: 체크포인트 파일 누락 시 (SSOT-FF01)
@@ -330,8 +328,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             cfg=cfg,
             checkpoint=args.checkpoint,
         )
-
-    return 0
 
 
 # ── CLI 진입점 / CLI entry point ─────────────────────────────────────────────

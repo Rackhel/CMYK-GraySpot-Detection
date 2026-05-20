@@ -187,9 +187,11 @@ def _determine_swing_decision(
     Returns:
         "pass" | "retry_phase2" | "retry_phase0"
     """
+    # SSOT_Evaluation_Reporting.md §2 — overall_accuracy 는 targets 아래에 위치
+    # SSOT §2: overall_accuracy lives under evaluation.targets, not swing_thresholds
     overall_target: float = (
         cfg.get("evaluation", {})
-        .get("swing_thresholds", {})
+        .get("targets", {})
         .get("overall_accuracy", 0.90)
     )
 
