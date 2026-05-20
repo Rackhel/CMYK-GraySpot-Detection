@@ -26,6 +26,7 @@ S2 W7~W8 R3 deliverable — Baseline evaluation report generation script.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import sys
 from datetime import datetime
@@ -58,6 +59,21 @@ from src.utils import (
     setup_logging,
     validate_config,
 )
+
+
+def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
+    """체크포인트 weight shape에서 hidden_dim을 역산해 cfg 복사본을 패치한다."""
+    state = torch.load(str(ckpt), map_location="cpu", weights_only=True)
+    if isinstance(state, dict) and "model_state_dict" in state:
+        state = state["model_state_dict"]
+    w = state.get("head.net.0.weight")
+    if w is None:
+        return cfg
+    hidden_dim = int(w.shape[0])
+    patched = copy.deepcopy(cfg)
+    backbone = patched.get("model", {}).get("backbone", "efficientnet_b0")
+    patched["phase2"]["heads"][backbone]["hidden_dim"] = hidden_dim
+    return patched
 
 
 def load_baseline_summary(baseline_dir: Path) -> dict:
@@ -195,7 +211,7 @@ def build_baseline_html(report_data: dict, output_path: Path) -> None:
 <head>
 <meta charset="UTF-8">
 <title>Grayspot Baseline Report — {meta['experiment']}</title>
-<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-3.5.0.min.js"></script>
 <style>
 :root{{--bg:#0b1220;--sf:#111927;--sf2:#172032;--bd:rgba(255,255,255,0.08);
 --fg:#e6eef8;--fm:#9fb4c8;--c1:#66d9ff;--c2:#50e3c2;
@@ -377,8 +393,10 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = load_config()
-    if not validate_config(cfg):
-        print("[ERROR] Configuration validation failed.")
+    try:
+        validate_config(cfg)
+    except ValueError as e:
+        print(f"[ERROR] Configuration validation failed: {e}")
         sys.exit(1)
 
     create_directories(cfg)
@@ -436,7 +454,7 @@ def main() -> None:
             logger.warning(f"[{ch}] Checkpoint not found: {ckpt} — skipping")
             continue
 
-        model = build_model(cfg, ckpt, device)
+        model = build_model(_cfg_for_ckpt(cfg, ckpt), ckpt, device)
         ev = Evaluator(
             model=model,
             labeled_dir=labeled_dir,
@@ -461,7 +479,7 @@ def main() -> None:
     # ── 4. 차트 생성 ──────────────────────────────────────────────────────
     logger.info("Building charts...")
     ev_report = Evaluator(
-        model=build_model(cfg, baseline_dir / f"best_{available[0]}.pt", device),
+        model=build_model(_cfg_for_ckpt(cfg, baseline_dir / f"best_{available[0]}.pt"), baseline_dir / f"best_{available[0]}.pt", device),
         labeled_dir=labeled_dir,
         labels_csv=labels_csv,
         output_dir=output_dir,
