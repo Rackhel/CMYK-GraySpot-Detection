@@ -1,5 +1,6 @@
 """ROI extraction utilities (stub)."""
 
+
 class ROIExtractor:
     def __init__(self, cfg):
         self.cfg = cfg

@@ -1,5 +1,6 @@
 """LabelRefiner class (stub)."""
 
+
 class LabelRefiner:
     def __init__(self, cfg):
         self.cfg = cfg
