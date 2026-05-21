@@ -198,10 +198,13 @@ ev = Evaluator(
 
 ### 즉시 가능 / Immediately Actionable
 
-| 우선순위 / Priority | 조치 / Action | 효과 / Effect |
-|---|---|---|
-| 🔴 **1** | `labels_v0.csv` + `labels_cmyk.csv` 병합 → `labels_merged.csv` 생성 후 Evaluator에 적용 | 평가 커버리지 341장 → 787장으로 확대 (K 채널) |
-| 🔴 **2** | K Level 5 추가 스캔 (4장 이상) | PRD 목표 달성 |
+| 우선순위 / Priority | 조치 / Action | 효과 / Effect | 상태 / Status |
+|---|---|---|---|
+| 🔴 **1** | `labels_v0.csv` + `labels_cmyk.csv` 병합 → `labels_master.csv` 생성 후 Evaluator에 적용 | 평가 커버리지 341장 → 787장으로 확대 (K 채널) | ✅ **완료** — `data_set/labels_master.csv` 생성됨 |
+| 🔴 **2** | K Level 5 추가 스캔 (4장 이상) | PRD 목표 달성 | ⏳ 미완료 |
+
+> **2026-05-21 업데이트**: 조치 #1 완료. `labels_v0.csv` + `labels_cmyk.csv` 가 `data_set/labels_master.csv` (long-format: filepath, channel, level) 로 통합되었다. `Evaluator` 는 `labels_master.csv` 를 기본 라벨 파일로 사용하도록 업데이트되었다.
+> **2026-05-21 Update**: Action #1 complete. `labels_v0.csv` + `labels_cmyk.csv` unified into `data_set/labels_master.csv` (long-format: filepath, channel, level). `Evaluator` updated to use `labels_master.csv` as the default label file.
 
 ### 추가 수집 필요 / Requires Additional Data Collection
 

@@ -34,8 +34,11 @@ Defines input/output types, return structures, and generated file lists for the 
 > ✅ **리팩토링 완료 (2026-05-12) / Refactoring Complete**: `evaluator.py`(~950줄)를 4 Mixin + Orchestrator 패턴으로 분해하여 SRP·ISP 위반 해결. / Decomposed `evaluator.py` (~950 lines) into 4 Mixin + Orchestrator pattern to resolve SRP·ISP violations.
 
 ```
+data/
+└── dataset.py              — _EvalDataset                  (평가 전용 Dataset — 데이터 계층 / Eval-only Dataset — data layer)
+
 evaluation/
-├── evaluator_inference.py  — _EvalDataset, InferenceMixin  (추론 전담 / inference only)
+├── evaluator_inference.py  — InferenceMixin                (추론 전담; _EvalDataset 은 data/dataset.py 에서 import / inference only; _EvalDataset imported from data/dataset.py)
 ├── evaluator_metrics.py    — MetricsMixin                  (지표 계산 전담 / metrics computation only)
 ├── evaluator_export.py     — ExportMixin                   (CSV/JSON 저장 전담 / CSV/JSON export only)
 ├── evaluator_charts.py     — ChartsMixin                   (차트 7종 + Phase 3 판단 / 7 charts + Phase 3 decision)
@@ -53,12 +56,15 @@ evaluation/
 evaluator = Evaluator(
     model       = model,            # nn.Module, model.eval() 상태 / model.eval() state
     labeled_dir = Path("data_set/labeled"),
-    labels_csv  = Path("data_set/labels_v0.csv"),
+    labels_csv  = Path("data_set/labels_master.csv"),   # ← Canonical (long-format)
     output_dir  = Path("outputs/reports"),
     device      = device,
     cfg         = cfg,              # swing_thresholds + confidence_thresholds 주입 / injected
 )
 ```
+
+> **CSV 형식 자동 감지 / CSV format auto-detection**: `labels_csv` 에는 `labels_master.csv` (long-format: `filepath`, `channel`, `level`) 또는 레거시 wide-format (`filename`, `C`, `M`, `Y`, `K`) 을 모두 전달할 수 있다. `InferenceMixin.load_labels()` 가 형식을 자동 감지한다.
+> Both `labels_master.csv` (long-format) and legacy wide-format CSV files are accepted; `InferenceMixin.load_labels()` auto-detects the format.
 
 | 입력 / Input | 타입 / Type | 제약 / Constraint |
 | --- | --- | --- |

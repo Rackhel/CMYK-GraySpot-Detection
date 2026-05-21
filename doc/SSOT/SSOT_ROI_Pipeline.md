@@ -2,7 +2,7 @@
 type: ssot
 domain: roi_pipeline
 status: Active
-last_updated: 2026-05-18
+last_updated: 2026-05-21
 owner: CMYK WooSong Team
 related_docs:
   - "SSOT_Core.md"
@@ -40,6 +40,8 @@ related_docs:
 | K (Key/Black) | `min(C, M, Y)` |
 
 > 분리 후 각 채널은 독립 그레이스케일 이미지로 저장된다. 단, 모델 입력은 3채널(BGR)이므로 단채널을 3채널로 복제한다. / After splitting, each channel is saved as an independent grayscale image. However, since the model input requires 3 channels (BGR), the single channel is replicated to 3 channels.
+
+> **⚠️ 채널별 독립 라벨링 / Per-Channel Independent Labeling**: CMYK 분리 후 각 채널 이미지를 **개별적으로** 육안 검사하여 레벨을 부여해야 한다. 스캔 파일명의 레벨(`lvlX_`)을 4개 채널에 동일하게 복사해서는 안 된다. / After CMYK splitting, each channel image must be **individually** inspected and labeled. Do NOT copy the scan filename level (`lvlX_`) uniformly to all 4 channels.
 
 ---
 
@@ -84,21 +86,25 @@ related_docs:
 
 ## 5. 라벨 버전 관리 / Label Version Management
 
-| 버전 / Version | 파일명 / Filename | 생성 시점 / Creation Point |
-| --- | --- | --- |
-| v0 | `data/labels/labels_v0.csv` | S1 초기 라벨링 / S1 initial labeling |
-| v1 | `data/labels/labels_v1.csv` | S3 Phase 1 정제 / S3 Phase 1 refinement |
-| v2 | `data/labels/labels_v2.csv` | S4 Phase 1 재정제 / S4 Phase 1 re-refinement |
+| 버전 / Version | 파일명 / Filename | 위치 / Location | 형식 / Format | 생성 시점 / Creation Point | 상태 / Status |
+| --- | --- | --- | --- | --- | --- |
+| v0 | `labels_v0.csv` | `data_set/` | wide-format | S1 초기 라벨링 / S1 initial labeling | ⚠️ Legacy |
+| v0b | `labels_cmyk.csv` | `data_set/` | wide-format | S2 2차 라벨링 / S2 second batch | ⚠️ Legacy |
+| master | `labels_master.csv` | `data_set/` | long-format | S4 통합 정규화 / S4 unified normalization | ✅ **현행 Canonical** |
 
-### 5.1 labels_vN.csv 스키마 / labels_vN.csv Schema
+> `labels_master.csv` (내부 명칭 labels_v2) 는 long-format `(filepath, channel, level)` 정규 라벨 파일이다. 이 파일이 현행 학습 및 평가의 단일 라벨 소스다.
+> `labels_master.csv` (internally labels_v2) is the canonical label file in long-format `(filepath, channel, level)`. It is the single label source for all training and evaluation.
+
+> **Dataset status (2026-05-21)**: OLD labeled 데이터 삭제 후 초기화됨 (0 rows). 채널별 독립 재라벨링 진행 중.
+> Old labeled data cleared; 0 rows. Per-channel independent re-labeling in progress.
+
+### 5.1 labels_master.csv 스키마 / labels_master.csv Schema
 
 | 컬럼 / Column | 타입 / Type | 설명 / Description |
 | --- | --- | --- |
-| `path` | str | 패치 파일 경로 / Patch file path |
+| `filepath` | str | 프로젝트 루트 기준 상대 경로 / Relative path from project root |
 | `channel` | str | C / M / Y / K |
-| `level` | int | 0–5 (0-based) |
-| `version` | int | 라벨 버전 번호 / Label version number |
-| `reviewer` | str | 검토자 또는 `auto` / Reviewer or `auto` |
+| `level` | int | 0–5 (Grayspot 결함 수준) / Defect level |
 
 ---
 
@@ -117,6 +123,9 @@ related_docs:
 - [ ] ROI 좌표 변경 시 config.yaml `roi.fixed_coords` 업데이트 / Update config.yaml `roi.fixed_coords` when ROI coordinates change
 - [ ] CMYK 분리 수식 변경 시 §2 동기화 / Sync §2 when CMYK splitting formula changes
 - [ ] 라벨 버전 추가 시 §5 테이블 업데이트 / Update §5 table when a new label version is added
+- [x] labels_master.csv (v2) 생성 완료 — §5 반영 / labels_master.csv (v2) created — reflected in §5
+- [x] 채널별 독립 라벨링 정책 확정 (2026-05-21) — §2 경고 반영 / Per-channel independent labeling policy confirmed — reflected in §2 warning
+- [ ] 신규 ROI (288장/채널) 채널별 재라벨링 완료 후 §5 상태 업데이트 / Update §5 status after per-channel re-labeling of new ROI images
 - [ ] Priority Score 가중치 변경 시 §4.1 동기화 / Sync §4.1 when Priority Score weights change
 
 ---

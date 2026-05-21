@@ -1,7 +1,7 @@
 # 재라벨링 전략 / Re-Labeling Strategy
 
 > **문서 유형 / Document Type**: 데이터 수집·라벨링 전략 / Data Collection & Labeling Strategy
-> **관련 문서 / See also**: [Data_Audit.md](Data_Audit.md), [SSOT_Data_Pipeline.md](SSOT_Data_Pipeline.md)
+> **관련 문서 / See also**: [Data_Audit.md](../Errors/Data_Audit.md), [SSOT_Data_Pipeline.md](../SSOT/SSOT_Data_Pipeline.md), [augmentation_policy.md](augmentation_policy.md)
 > **근거 / Basis**: Data_Audit.md 채널별 현황 분석 기준
 
 ---
@@ -34,205 +34,184 @@ labeled 단계 (불균형) / labeled stage (imbalanced):
   (×4.1)     (×39.1 ⚠️)   (×8.5)       (×4.2)
 ```
 
-**PRD Section 6.3 목표 달성 현황 / PRD target achievement:**
+**PRD Section 6.3 v2 목표 (채널당 1,520장) / PRD v2 targets (1,520 per channel):**
 
-| 채널 | 합계 | PRD 미달 레벨 | 증강 배율 | 종합 평가 |
-|---|---|---|---|---|
-| Y | 771장 | Level 1 (-24장) | ×4.1 | ⚠️ 1개 레벨 미달 |
-| M | 7,394장 | 없음 | ×39.1 | ⚠️ 배율 근거 없음 |
-| C | 1,604장 | **없음** | ×8.5 | ✅ **기준 채널** |
-| K | 787장 | Level 1/2/5 (-28장) | ×4.2 | ❌ 3개 레벨 미달 |
+| Level | 목표 / Target | 비율 근거 |
+|---|---|---|
+| 0 | 330 | ×3.3 (v1:100) |
+| 1 | 330 | ×3.3 (v1:100) |
+| 2 | 330 | ×3.3 (v1:100) |
+| 3 | 265 | ×3.3 (v1:80) |
+| 4 | 165 | ×3.3 (v1:50) |
+| 5 | 100 | ×3.3 (v1:30) |
+| **합계** | **1,520** | |
+
+> ✅ **2026-05-21**: labeled/ OLD 데이터 삭제 완료. 새 데이터로 재구성 예정.
+> ✅ **2026-05-21**: labeled/ old data cleared. Reconstruction with new data in progress.
 
 ---
 
-## 2. C 채널 기준 채택 근거 / Rationale for C Channel Baseline
+## 2. PRD v2 기준 채택 근거 / Rationale for PRD v2 Targets
 
-C 채널을 재라벨링 기준으로 삼는 이유:
+PRD v2 목표는 채널당 총 1,400~1,600장을 달성하기 위해 v1 레벨 비율을 ×3.3 스케일한 결과다.
 
-| 기준 / Criterion | C 채널 평가 / C Channel Assessment |
+PRD v2 targets are derived by scaling the v1 level ratios ×3.3 to achieve 1,400–1,600 total samples per channel.
+
+| 기준 / Criterion | 평가 / Assessment |
 |---|---|
-| PRD 전 레벨 달성 | ✅ Level 0~5 모두 목표 초과 |
-| 증강 배율 적정성 | ✅ ×8.5 — 과도하지 않고 문서화 가능한 수준 |
-| 배율 근거 존재 | ✅ PRD 목표 달성 결과로 역추적 가능 |
-| 팀 기준 통일성 | ✅ 4개 채널에 동일 기준 적용 가능 |
+| 채널별 총 목표 달성 | ✅ 1,520장 (1,400~1,600 범위 내) |
+| v1 레벨 비율 유지 | ✅ 100:100:100:80:50:30 비율 그대로 |
+| 채널 간 균형 | ✅ 4개 채널 동일 목표 적용 |
+| 채널 독립 라벨링 | ✅ C/M/Y/K 각각 독립 레벨 부여 필수 |
 
-> **결론**: C 채널의 ×8.5 증강 배율을 **모든 채널의 기본 기준**으로 삼는다.
-> **Conclusion**: C channel's ×8.5 augmentation multiplier serves as the **default baseline for all channels**.
+> **결론**: 모든 채널(C/M/Y/K)에 동일한 PRD v2 목표를 적용한다. 같은 스캔의 채널이라도 레벨은 독립적으로 부여한다.
+> **Conclusion**: PRD v2 targets apply uniformly to all channels. Channels from the same scan must be labeled independently.
 
 ---
 
-## 3. 배율만으로 충분하지 않은 이유 / Why ×8.5 Alone Is Not Enough
+## 3. 채널별 독립 라벨링이 필요한 이유 / Why Per-Channel Independent Labeling Is Required
 
-×8.5 배율이 C 채널에서 성공한 건 **ROI 189장 내 각 레벨의 분포가 충분했기 때문**이다.
+스캔 파일명에 포함된 레벨(`lvlX_...`)은 **인쇄 스캔 전체**의 레벨이다. 그러나 CMYK 각 채널은 서로 다른 결함 심각도를 가질 수 있다.
 
-The ×8.5 multiplier succeeded for C because **the 189 ROI images had sufficient per-level distribution**.
-
-### 문제 시나리오 / Problem Scenario
+The level encoded in the scan filename (`lvlX_...`) represents the **overall scan level**. Each CMYK channel can have a different defect severity.
 
 ```
-가정: K 채널 ROI 189장 중 Level 5가 3장뿐인 경우
-Assumption: Only 3 Level 5 images in K channel's 189 ROI images
-
-  3장 × 8.5 = 25.5장 → 반올림 25장
-  PRD 목표: 30장 이상
-  → ❌ ×8.5 적용해도 여전히 PRD 미달
+예시 / Example:
+  lvl3_Scanned Documents (116)_4_1.jpeg → ROI 분리 후:
+    Y 채널: 결함 없음  → Level 0
+    M 채널: 경미한 결함 → Level 2
+    C 채널: 중간 결함   → Level 3   ← 파일명 기준 레벨
+    K 채널: 결함 없음  → Level 0
 ```
 
-따라서 **배율 설계 전에 ROI 단계의 레벨별 분포를 먼저 파악하는 것이 필수**다.
+파일명 레벨을 4개 채널 전체에 복사하면 레벨 분포가 채널별로 동일해지는 오류가 발생한다.
 
-Therefore, **understanding the per-level distribution in the ROI stage must precede multiplier design**.
+Copying the filename level to all 4 channels produces identical level distributions across channels — which is incorrect.
 
 ### 핵심 원칙 / Core Principle
 
 ```
-PRD 목표 (레벨별) ÷ ROI 레벨별 장수 = 해당 레벨에 필요한 최소 배율
-PRD target (per level) ÷ ROI count (per level) = minimum multiplier needed for that level
+각 ROI 이미지(채널)를 개별적으로 육안 검사하여 레벨을 부여해야 한다.
+Each ROI image (per channel) must be visually inspected and labeled individually.
 ```
 
 ---
 
 ## 4. 권장 재라벨링 프로세스 / Recommended Re-Labeling Process
 
-### Step 1 — ROI 레벨별 분포 파악 (선행 필수)
+### Step 1 — 채널별 ROI 이미지 개별 육안 검사
 
-ROI 189장을 레벨별로 몇 장 보유하는지 채널별로 집계한다.
+새 ROI 파일(`data_set/roi/lvlX_..._CH.png`)을 채널별로 열어 각 채널의 실제 결함 레벨을 독립적으로 판정한다.
+
+Open new ROI files (`data_set/roi/lvlX_..._CH.png`) and assign each channel's defect level independently.
 
 ```
-조사 항목:
-  각 채널(Y/M/C/K)의 ROI 189장 중
-  Level 0: ?장
-  Level 1: ?장
-  Level 2: ?장
-  Level 3: ?장
-  Level 4: ?장
-  Level 5: ?장
+현재 신규 ROI 파일 수 / Current new ROI files:
+  Y: 288장   M: 288장   C: 288장   K: 288장
+  (lvlX_..._Y.png / _M.png / _C.png / _K.png)
 ```
 
-> 이 숫자가 확정되어야 Step 2~3 설계가 가능하다.
-> Steps 2~3 cannot be designed without this data.
+### Step 2 — 패치 추출 후 labeled/ 배치
 
-### Step 2 — 레벨별 필요 배율 역산
+라벨링 완료 후 ROI 이미지에서 패치를 추출하여 `data_set/labeled/{channel}/{level}/`에 배치한다.
+
+After labeling, extract patches from ROI images and place under `data_set/labeled/{channel}/{level}/`.
+
+### Step 3 — 레벨별 필요 증강량 역산
 
 ```python
-# 역산 공식 / Back-calculation formula
-PRD_targets = {0: 100, 1: 100, 2: 100, 3: 80, 4: 50, 5: 30}
+# PRD v2 목표 / PRD v2 targets
+PRD_targets = {0: 330, 1: 330, 2: 330, 3: 265, 4: 165, 5: 100}
 
 for level in range(6):
-    roi_count = roi_distribution[channel][level]
-    required_multiplier = math.ceil(PRD_targets[level] / roi_count)
-    effective_multiplier = max(required_multiplier, 8.5)  # C 기준 최솟값
+    labeled_count = labeled_distribution[channel][level]
+    shortage = max(0, PRD_targets[level] - labeled_count)
+    # augment_dataset.py 가 자동 계산하여 증강 수행
 ```
 
-- 모든 레벨에서 **최소 ×8.5** 적용 (C 기준)
-- PRD 달성에 ×8.5 이상이 필요한 레벨은 **해당 레벨만 높은 배율** 적용
-- 채널 전체에 균일한 단일 배율을 강제하지 않음
+### Step 4 — augment_dataset.py 실행
 
-### Step 3 — 증강 파라미터 통일
-
-C 채널에 적용된 것과 **동일한 증강 파이프라인**을 사용한다.
-
-```python
-# cfg["phase2"]["augmentation"] 기준 / Based on cfg["phase2"]["augmentation"]
-aug_cfg = {
-    "flip_prob":        0.5,
-    "brightness_prob":  0.3,
-    "brightness_range": 20,
-    "noise_prob":       0.2,
-    "noise_range":      10,
-}
+```bash
+python -m src.scripts.augment_dataset
 ```
 
-> 증강 종류와 강도까지 C와 동일하게 맞춰야 데이터 품질 일관성이 유지된다.
-> Augmentation type and intensity must match C to maintain data quality consistency.
+PRD v2 목표 미달 (channel, level) 쌍에 대해 자동 증강 후 `labels_master.csv` 갱신.
 
 ### Step 4 — 라벨 CSV 통합
 
 재라벨링 완료 후 단일 CSV 파일로 통합한다.
 
 ```
-현재 / Current:  labels_v0.csv  +  labels_cmyk.csv  (K 채널 이중 배치 문제)
-목표 / Target:   labels_merged.csv  (전 채널 통합 단일 파일)
+이전 / Previous:  labels_v0.csv  +  labels_cmyk.csv  (K 채널 이중 배치 문제)
+현재 완료 / Done: labels_master.csv  (전 채널 통합 단일 파일, long-format)
 ```
 
-> 이 조치는 현재 K 채널의 학습(787장) vs 평가(341 or 446장) 커버리지 불일치도 함께 해소한다.
-> This also resolves the current K channel training (787) vs evaluation (341 or 446) coverage mismatch.
+> ✅ **2026-05-21 완료**: `data_set/labels_master.csv` 가 생성되어 현재 K 채널의 학습(787장) vs 평가 커버리지 불일치 문제가 해소되었다.
+> ✅ **2026-05-21 Complete**: `data_set/labels_master.csv` has been created, resolving the K channel training (787) vs evaluation coverage mismatch.
+
+재라벨링으로 새 이미지가 추가될 경우 `data_set/labeled/{channel}/{level}/` 에 파일을 추가한 뒤 `src/scripts/augment_dataset.py` 를 실행해 부족 레벨을 보충하고 `labels_master.csv` 를 갱신한다.
+When new images are added via re-labeling, place them under `data_set/labeled/{channel}/{level}/`, then run `src/scripts/augment_dataset.py` to fill any shortage levels and update `labels_master.csv`.
 
 ---
 
 ## 5. 채널별 조치 방향 / Per-Channel Action Plan
 
-| 채널 | 현황 | 기본 방향 | 특이사항 |
-|---|---|---|---|
-| **C** | ✅ 기준 채널 | 변경 없음 — 기준으로 삼음 | — |
-| **Y** | ⚠️ Level 1 부족 | ×8.5 기본 + Level 1 ROI 분포 확인 후 조정 | Level 1: ROI 분포에 따라 추가 수집 필요할 수 있음 |
-| **M** | ⚠️ 배율 과다 | ×8.5로 재조정 권장 | 총 장수 7,394 → 약 1,600 수준으로 감소 예상 — 팀 결정 필요 |
-| **K** | ❌ 3개 레벨 미달 | ×8.5 기본 + 미달 레벨 집중 증강 | Level 5 ROI가 적으면 추가 스캔 필수 |
-
----
-
-## 6. M 채널 특이사항 / M Channel Special Case
-
-M 채널은 별도 결정이 필요하다.
-
-M channel requires a separate team decision.
-
-| 옵션 / Option | 설명 / Description | 결과 / Outcome |
+| 채널 | 현황 (2026-05-21) | 조치 방향 |
 |---|---|---|
-| **A. ×8.5로 재조정** | C 기준에 맞춰 통일 | 7,394 → ~1,600장. 채널 간 균형 확보. 재라벨링 작업 발생 |
-| **B. 현행 유지** | ×39 그대로 유지 | 장수 유지. 단, 과도 증강 근거를 문서화해야 함 |
-| **C. 절충 (×15 내외)** | PRD 목표 3~4배 수준으로 타협 | 균형과 실용성 사이 타협 |
+| **Y** | ROI 288장 (재라벨링 필요) | 개별 육안 라벨링 → 패치 추출 → augment_dataset.py |
+| **M** | ROI 288장 (재라벨링 필요) | 개별 육안 라벨링 → 패치 추출 → augment_dataset.py |
+| **C** | ROI 288장 (재라벨링 필요) | 개별 육안 라벨링 → 패치 추출 → augment_dataset.py |
+| **K** | ROI 288장 (재라벨링 필요) | 개별 육안 라벨링 → 패치 추출 → augment_dataset.py |
 
-> **권장 / Recommended**: 옵션 A (×8.5 재조정) — 채널 간 데이터 불균형이 모델 학습 시 편향을 유발할 수 있음.
-> 단, M 채널의 기존 라벨링 작업이 많으므로 팀 합의 후 결정.
->
-> **Recommended**: Option A (reset to ×8.5) — inter-channel imbalance can introduce training bias.
-> However, team agreement is required given the existing M channel labeling effort.
+> OLD labeled 데이터(8,969장) 삭제 완료 (2026-05-21). 4개 채널 모두 재구성 필요.
+> Old labeled data (8,969 images) cleared on 2026-05-21. All 4 channels require reconstruction.
 
 ---
 
-## 7. PRD 목표 역산표 / PRD Target Back-Calculation
+## 6. 신규 ROI 현황 / Current New ROI Status
 
-ROI 레벨별 분포 조사 후 아래 표를 채워 넣으면 채널별 필요 배율이 확정된다.
+신규 RAW 스캔 288장 → CMYK 분리 → ROI 1,152장 (채널당 288장)
 
-Fill in the table below after surveying ROI per-level distribution to finalize required multipliers per channel.
+New raw scans: 288 → CMYK split → 1,152 ROI files (288 per channel)
 
-### Y 채널
+현재 ROI 레벨 분포 (파일명 기준, 채널 미분리) / Current ROI level distribution (filename-based, not channel-differentiated):
 
-| Level | PRD 목표 | ROI 장수 (조사 필요) | 필요 최소 배율 | 채택 배율 |
-|---|---|---|---|---|
-| 0 | 100+ | ? | ? | max(?, 8.5) |
-| 1 | 100+ | ? | ? | max(?, 8.5) |
-| 2 | 100+ | ? | ? | max(?, 8.5) |
-| 3 | 80+ | ? | ? | max(?, 8.5) |
-| 4 | 50+ | ? | ? | max(?, 8.5) |
-| 5 | 30+ | ? | ? | max(?, 8.5) |
+| Level | 현재 ROI 수 (채널당) | PRD v2 목표 | 부족 (증강 전) |
+|---|---|---|---|
+| 0 | 8 | 330 | **−322** |
+| 1 | 55 | 330 | **−275** |
+| 2 | 54 | 330 | **−276** |
+| 3 | 63 | 265 | **−202** |
+| 4 | 54 | 165 | **−111** |
+| 5 | 54 | 100 | **−46** |
 
-### K 채널
+> ⚠️ 위 분포는 채널별 독립 라벨링 전 수치다. 실제 분포는 라벨링 후 달라진다.
+> The above distribution is pre-labeling. Actual per-channel distribution will differ after independent labeling.
 
-| Level | PRD 목표 | ROI 장수 (조사 필요) | 필요 최소 배율 | 채택 배율 |
-|---|---|---|---|---|
-| 0 | 100+ | ? | ? | max(?, 8.5) |
-| 1 | 100+ | ? | ? | max(?, 8.5) |
-| 2 | 100+ | ? | ? | max(?, 8.5) |
-| 3 | 80+ | ? | ? | max(?, 8.5) |
-| 4 | 50+ | ? | ? | max(?, 8.5) |
-| 5 | 30+ | ? | ? | max(?, 8.5) |
+---
 
-> ROI 레벨별 장수가 확인되면 이 표를 완성하고 `SSOT_Data_Pipeline.md` 에 반영한다.
-> Once ROI per-level counts are confirmed, complete this table and update `SSOT_Data_Pipeline.md`.
+## 7. PRD v2 목표표 / PRD v2 Target Table
+
+| Level | PRD v2 목표 (채널당) | v1 목표 | 배율 |
+|---|---|---|---|
+| 0 | 330 | 100 | ×3.3 |
+| 1 | 330 | 100 | ×3.3 |
+| 2 | 330 | 100 | ×3.3 |
+| 3 | 265 | 80 | ×3.3 |
+| 4 | 165 | 50 | ×3.3 |
+| 5 | 100 | 30 | ×3.3 |
+| **합계** | **1,520** | 460 | |
 
 ---
 
 ## 8. 완료 기준 / Definition of Done
 
-재라벨링 작업이 완료된 것으로 판단하는 기준:
-
 | 항목 / Item | 기준 / Criterion |
 |---|---|
-| PRD 목표 달성 | Y / M / C / K 전 채널, Level 0~5 모두 PRD Section 6.3 목표 충족 |
-| 증강 배율 문서화 | 채널별·레벨별 적용 배율이 이 문서에 기록됨 |
-| CSV 통합 | `labels_merged.csv` 생성 완료 — 전 채널 단일 파일 |
-| 학습-평가 일치 | `CMYKDataset` (학습) 과 `Evaluator` (평가) 가 동일 파일 세트를 참조 |
-| 채널 간 균형 | 가장 적은 채널과 가장 많은 채널의 총 장수 비율이 ×5 이내 |
+| PRD v2 목표 달성 | Y / M / C / K 전 채널, Level 0~5 모두 PRD v2 목표 충족 (채널당 1,520장) |
+| 채널 독립 라벨링 | 각 ROI 이미지가 채널별로 개별 라벨링됨 |
+| CSV 통합 | `labels_master.csv` — 전 채널 단일 파일 (long-format: filepath/channel/level) |
+| 학습-평가 일치 | `CMYKDataset` (학습) 과 `Evaluator` (평가) 가 동일 `labels_master.csv` 참조 |
+| 채널 간 균형 | 4개 채널 모두 1,400~1,600장 범위 내 |
 
 ---

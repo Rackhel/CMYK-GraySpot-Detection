@@ -10,6 +10,33 @@ This document is the authoritative reference for data loading, splitting, prepro
 
 ---
 
+## 0. 데이터 생산 파이프라인 흐름 / Data Production Pipeline Flow
+
+원본 스캔 이미지에서 학습 가능한 데이터셋까지의 전체 흐름.
+End-to-end flow from raw scan images to trainable dataset.
+
+```
+RAW PDF/JPEG (원본 스캔)
+    ↓ ROI 추출 / ROI Extraction     → data_set/roi/  (CMYK 채널 분리 포함)
+    ↓ 채널별 독립 라벨링 / Per-Channel Independent Labeling
+    │   └─ Y, M, C, K 채널 각각 별도 레벨 부여 (같은 스캔이라도 채널마다 다를 수 있음)
+    ↓ 패치 추출 / Patch Extraction
+    ↓ 스마트 패치 필터링 / Smart Patch Filtering (저분산 제거)
+    ↓                               → data_set/labeled/{ch}/{lv}/*.png
+    ↓ CSV 통합 / CSV Unification     → data_set/labels_master.csv
+    ↓ 제어된 증강 / Controlled Aug   (PRD v2 미달 레벨만 / PRD v2 shortage levels only)
+    │   └─ augment_dataset.py  (목표: 채널당 1,520장 / Target: 1,520 per channel)
+    ↓ ML 학습 / Training             → CMYKDataset / ContrastiveDataset
+```
+
+> 스마트 패치 필터링: 저분산·공백·비인쇄 영역 패치를 제거한다. 자세한 ROI/패치 추출 계약은 [SSOT_ROI_Pipeline.md](SSOT_ROI_Pipeline.md) 참조.
+> Smart patch filtering removes low-variance, blank, and non-print patches. See [SSOT_ROI_Pipeline.md](SSOT_ROI_Pipeline.md) for ROI/patch extraction contracts.
+
+> **⚠️ 채널 독립 라벨링 필수 / Per-Channel Independent Labeling Required**: 동일 스캔의 Y/M/C/K 채널은 각자 다른 결함 레벨을 가질 수 있다. 스캔 파일명의 레벨을 4채널에 동일하게 복사해서는 안 된다.
+> Y/M/C/K channels from the same scan can have different defect levels. Do NOT copy the filename level uniformly to all channels.
+
+---
+
 ## 1. 디렉토리 구조 / Directory Structure
 
 ```
@@ -39,7 +66,22 @@ data_set/labeled/{channel}/{level}/*.png
 | `{channel}` | `Y`, `M`, `C`, `K` | CMYK 색상 채널 / Color channel |
 | `{level}` | `0`, `1`, `2`, `3`, `4`, `5` | Grayspot 결함 수준 / Defect level |
 
-### 1.2 config.json 키 / Config Keys
+### 1.2 라벨 파일 / Label File
+
+| 파일 / File | 형식 / Format | 컬럼 / Columns | 상태 / Status |
+|---|---|---|---|
+| `data_set/labels_master.csv` | long-format | `filepath`, `channel`, `level` | ✅ **Canonical (현행 / Current)** |
+| `data_set/labels_v0.csv` | wide-format | `filename`, `C`, `M`, `Y`, `K` | ⚠️ Legacy — 하위 호환만 / Legacy, backward-compat only |
+
+`labels_master.csv` 는 이전 `labels_v0.csv` + `labels_cmyk.csv` 를 통합한 단일 정규 라벨 파일이다.
+`labels_master.csv` is the unified canonical label file replacing the former `labels_v0.csv` and `labels_cmyk.csv`.
+
+관리 스크립트 / Management script: `src/scripts/augment_dataset.py` (PRD v2 미달 레벨 증강 + CSV 갱신)
+
+> **Dataset status (2026-05-21)**: `labels_master.csv` 헤더만 유지 (0 rows). OLD labeled 데이터 삭제 후 재구성 중.
+> `labels_master.csv` headers only (0 rows). Old labeled data cleared; reconstruction in progress.
+
+### 1.4 config.json 키 / Config Keys
 
 - `storage.labeled_dir` 🟢 — `dataset.py`에서 소비 / consumed in `dataset.py`
 - `data.channels` 🟢 — `run_baseline.py`, `run_phase0.py`에서 소비 / consumed in `run_baseline.py`, `run_phase0.py`
@@ -69,6 +111,21 @@ data_set/labeled/{channel}/{level}/*.png
 | 출력 / Output | `(view1, view2)` Tensor pair | augmented positive pair |
 | 레이블 / Label | ❌ 없음 / None | unsupervised |
 | 증강 설정 / Aug config | `phase0.augmentation` 🟢 | `aug_cfg`로 전달 / passed as `aug_cfg` |
+
+### 2.3 _EvalDataset — 평가 전용 / Evaluation-Only
+
+`src/data/dataset.py` 에서 관리되며 `Evaluator` 내부에서만 사용된다.
+Managed in `src/data/dataset.py`; used exclusively inside `Evaluator`.
+
+| 속성 / Attribute | 값 / Value | 비고 / Note |
+|---|---|---|
+| 입력 소스 / Input | `labeled_dir` + `labels_master.csv` (long-format) | 또는 wide-format CSV 자동 감지 / or auto-detect wide-format CSV |
+| 출력 / Output | `(Tensor, int, str)` | 이미지, 레벨, 파일명 / image, level, filename |
+| 색상 공간 / Color Space | BGR (SSOT-CS01) | 학습과 동일 / Same as training |
+| 정규화 / Normalization | ImageNet mean/std (SSOT-NM01) | `data/normalize.py` 사용 / Uses `data/normalize.py` |
+
+> `InferenceMixin.load_labels()` 는 long-format (`filepath`, `channel`, `level`) 과 wide-format (`filename`, `C`, `M`, `Y`, `K`) 을 자동 감지해 long-format으로 변환한다.
+> `InferenceMixin.load_labels()` auto-detects long-format (`filepath`, `channel`, `level`) or wide-format (`filename`, `C`, `M`, `Y`, `K`) and converts to long-format.
 
 ---
 
@@ -101,6 +158,27 @@ data_set/labeled/{channel}/{level}/*.png
 ---
 
 ## 4. 증강 정책 / Augmentation Policy
+
+### 4.0 데이터셋 증강 목표 / Dataset Augmentation Targets (PRD Section 6.3 v2)
+
+`augment_dataset.py` 가 사용하는 채널당 레벨별 목표 수량.
+
+Per-channel, per-level target counts used by `augment_dataset.py`.
+
+| Level | Target / 목표 (per channel) | v1 |
+|---|---|---|
+| 0 | 330 | 100 |
+| 1 | 330 | 100 |
+| 2 | 330 | 100 |
+| 3 | 265 | 80 |
+| 4 | 165 | 50 |
+| 5 | 100 | 30 |
+| **합계** | **1,520** | 460 |
+
+> 채널당 총 목표 1,400~1,600장. 4개 채널(C/M/Y/K) 모두 동일 목표 적용.
+> Total target 1,400–1,600 per channel. Same targets for all 4 channels.
+
+---
 
 ### 4.1 Supervised 증강 / Supervised Augmentation
 

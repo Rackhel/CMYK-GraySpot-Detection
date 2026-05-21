@@ -9,7 +9,7 @@ owner: CMYK WooSong Team
 # [Graph] 전체 프로젝트 파일 의존성 보고서
 
 > **목적**: CMYK Grayspot 프로젝트의 Python 소스 파일 및 문서 간 의존성 구조를 기록한다.
-> **원천**: `doc/Graph/graph.json` (노드 63개, 엣지 81개)
+> **원천**: `doc/Graph/graph.json` (노드 67개, 엣지 85개) — 새 스크립트 4개 추가 반영 / Updated to reflect 4 new data management scripts
 
 ---
 
@@ -25,7 +25,7 @@ owner: CMYK WooSong Team
 | `src/inference/` | 4 | 추론 (GrayspotPredictor 3-Mixin) |
 | `src/reporting/` | 1 | HTML 리포트 생성 |
 | `src/tuning/` | 3 | Optuna HPO (optuna_tuner, search_space, optuna_utils) |
-| `src/scripts/` | 7 | 진입점 (run_phase0/2/baseline/optuna, generate_report, train, tsne) |
+| `src/scripts/` | 8 | 진입점 (run_phase0/2/baseline/optuna, generate_report, train, evaluate) + 데이터 관리 (augment_dataset) |
 | `src/tests/unit/` | 8 | 단위 테스트 |
 | `src/tests/integration/` | 3 | 통합 테스트 |
 | `src/tests/smoke/` | 3 | 스모크 테스트 |
@@ -84,7 +84,8 @@ Layer 3 — 진입점 / 통합
 ├── scripts/run_optuna.py             → tuning/optuna_tuner
 ├── scripts/generate_baseline_report.py → evaluation/confusion, evaluator,
 │                                          metrics, utils
-└── scripts/train.py                  → utils
+├── scripts/train.py                  → utils
+└── scripts/augment_dataset.py        → utils/utils_config  (PRD 미달 레벨 증강 + CSV 갱신)
 ```
 
 ---
