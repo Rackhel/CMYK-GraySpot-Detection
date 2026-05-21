@@ -51,6 +51,7 @@ MANUAL_REVIEW_THRESHOLD: float = 0.3  # 수동 검토 상한 / Upper bound for m
 
 # ── 테스트용 최소 구체 클래스 / Minimal concrete class for testing ──────────
 
+
 class _ConcreteInferenceMixin(InferenceMixin):
     """
     InferenceMixin을 단독으로 인스턴스화하기 위한 최소 구체 클래스.
@@ -61,6 +62,7 @@ class _ConcreteInferenceMixin(InferenceMixin):
         # LoggerMixin.logger는 @property — _logger로 직접 주입한다
         # LoggerMixin.logger is a @property — inject via _logger directly
         import logging
+
         self._logger = logging.getLogger(self.__class__.__name__)
         self.cfg = cfg
         self.device = device
@@ -72,6 +74,7 @@ class _ConcreteInferenceMixin(InferenceMixin):
 
 
 # ── 신뢰도 임계값 분류 헬퍼 / Confidence threshold classifier helper ─────
+
 
 def _classify_confidence(conf: float, thresholds: dict) -> str:
     """
@@ -232,9 +235,9 @@ class TestConfidenceManualReviewFlag:
             0.0: "MANUAL_REVIEW",
         }
         for conf, expected_flag in samples.items():
-            assert _classify_confidence(conf, confidence_thresholds) == expected_flag, (
-                f"conf={conf} expected {expected_flag}"
-            )
+            assert (
+                _classify_confidence(conf, confidence_thresholds) == expected_flag
+            ), f"conf={conf} expected {expected_flag}"
 
 
 # ── BDD 시나리오 8.3 / BDD Scenario 8.3 — SSOT-NM01 ─────────────────────
@@ -280,9 +283,9 @@ class TestPreprocessImagesImagenetNormalized:
         # 각 채널의 평균값이 expected에 수렴해야 한다
         for c in range(3):
             actual_mean = result[0, c].mean().item()
-            assert actual_mean == pytest.approx(expected[c].item(), abs=1e-4), (
-                f"Channel {c}: expected {expected[c].item():.4f}, got {actual_mean:.4f}"
-            )
+            assert actual_mean == pytest.approx(
+                expected[c].item(), abs=1e-4
+            ), f"Channel {c}: expected {expected[c].item():.4f}, got {actual_mean:.4f}"
 
     def test_imagenet_std_applied(self, mixin):
         """
@@ -299,9 +302,9 @@ class TestPreprocessImagesImagenetNormalized:
 
         for c in range(3):
             actual_mean = result[0, c].mean().item()
-            assert actual_mean == pytest.approx(expected[c].item(), abs=1e-4), (
-                f"Channel {c}: expected {expected[c].item():.4f}, got {actual_mean:.4f}"
-            )
+            assert actual_mean == pytest.approx(
+                expected[c].item(), abs=1e-4
+            ), f"Channel {c}: expected {expected[c].item():.4f}, got {actual_mean:.4f}"
 
     def test_uint8_input_scaled_to_0_1(self, mixin, dummy_image_np):
         """
@@ -336,6 +339,7 @@ class TestPreprocessImagesImagenetNormalized:
         SSOT-NM01: _IMAGENET_NORMALIZE must be imported from data.normalize.
         """
         from data.normalize import _IMAGENET_NORMALIZE as norm_ref
+
         assert _IMAGENET_NORMALIZE is norm_ref
 
 
@@ -491,12 +495,15 @@ class TestLoadModelFileNotFoundError:
         with patch("inference.predictor.load_config", return_value=cfg):
             predictor = GrayspotPredictor.__new__(GrayspotPredictor)
             import logging
+
             predictor._logger = logging.getLogger("TestPredictor")
             predictor.cfg = cfg
             predictor.device = torch.device("cpu")
             predictor.models = {}
             predictor.model_paths = {}
-            predictor.channels = cfg.get("data", {}).get("channels", ["Y", "M", "C", "K"])
+            predictor.channels = cfg.get("data", {}).get(
+                "channels", ["Y", "M", "C", "K"]
+            )
             predictor.image_size = cfg.get("data", {}).get("image_size", 128)
             predictor.num_levels = cfg.get("data", {}).get("num_levels", 6)
         return predictor
@@ -513,7 +520,9 @@ class TestLoadModelFileNotFoundError:
         """FileNotFoundError 메시지에 파일 경로 관련 정보가 포함된다."""
         predictor = self._make_predictor(cfg)
         missing_path = tmp_path / "missing.pt"
-        with pytest.raises(FileNotFoundError, match=r"best_Y\.pt|missing\.pt|artifact|not found"):
+        with pytest.raises(
+            FileNotFoundError, match=r"best_Y\.pt|missing\.pt|artifact|not found"
+        ):
             predictor.load_model("Y", model_path=str(missing_path))
 
     def test_unsupported_channel_raises_value_error(self, cfg):
@@ -536,6 +545,7 @@ class TestDeviceSetup:
         class _ConcreteDevice(DeviceMixin):
             def __init__(self, cfg):
                 import logging
+
                 self._logger = logging.getLogger(self.__class__.__name__)
                 self.cfg = cfg
 

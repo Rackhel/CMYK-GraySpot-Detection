@@ -479,7 +479,11 @@ def main() -> None:
     # ── 4. 차트 생성 ──────────────────────────────────────────────────────
     logger.info("Building charts...")
     ev_report = Evaluator(
-        model=build_model(_cfg_for_ckpt(cfg, baseline_dir / f"best_{available[0]}.pt"), baseline_dir / f"best_{available[0]}.pt", device),
+        model=build_model(
+            _cfg_for_ckpt(cfg, baseline_dir / f"best_{available[0]}.pt"),
+            baseline_dir / f"best_{available[0]}.pt",
+            device,
+        ),
         labeled_dir=labeled_dir,
         labels_csv=labels_csv,
         output_dir=output_dir,

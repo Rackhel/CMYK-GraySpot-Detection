@@ -84,13 +84,9 @@ def get_float(
             f"Config '{key}' = {raw!r} cannot be converted to float"
         ) from exc
     if min_val is not None and value < min_val:
-        raise ValueError(
-            f"Config '{key}' = {value} is below minimum {min_val}"
-        )
+        raise ValueError(f"Config '{key}' = {value} is below minimum {min_val}")
     if max_val is not None and value > max_val:
-        raise ValueError(
-            f"Config '{key}' = {value} exceeds maximum {max_val}"
-        )
+        raise ValueError(f"Config '{key}' = {value} exceeds maximum {max_val}")
     return value
 
 
@@ -118,17 +114,11 @@ def get_int(
     try:
         value = int(raw)
     except (TypeError, ValueError) as exc:
-        raise TypeError(
-            f"Config '{key}' = {raw!r} cannot be converted to int"
-        ) from exc
+        raise TypeError(f"Config '{key}' = {raw!r} cannot be converted to int") from exc
     if min_val is not None and value < min_val:
-        raise ValueError(
-            f"Config '{key}' = {value} is below minimum {min_val}"
-        )
+        raise ValueError(f"Config '{key}' = {value} is below minimum {min_val}")
     if max_val is not None and value > max_val:
-        raise ValueError(
-            f"Config '{key}' = {value} exceeds maximum {max_val}"
-        )
+        raise ValueError(f"Config '{key}' = {value} exceeds maximum {max_val}")
     return value
 
 
@@ -153,9 +143,7 @@ def get_str(
     raw = get_nested(cfg, key, None)
     value = str(raw) if raw is not None else default
     if allowed is not None and value not in allowed:
-        raise ValueError(
-            f"Config '{key}' = '{value}' must be one of {allowed}"
-        )
+        raise ValueError(f"Config '{key}' = '{value}' must be one of {allowed}")
     return value
 
 
@@ -264,9 +252,9 @@ def load_config(
 
 # 필수 필드 목록: (section, field) / Required fields: (section, field)
 _REQUIRED_FIELDS: Tuple[Tuple[str, str], ...] = (
-    ("data",   "channels"),
-    ("data",   "num_levels"),
-    ("model",  "backbone"),
+    ("data", "channels"),
+    ("data", "num_levels"),
+    ("model", "backbone"),
     ("phase2", "epochs"),
 )
 
@@ -274,9 +262,9 @@ _REQUIRED_FIELDS: Tuple[Tuple[str, str], ...] = (
 # Value range rules: (section, field, predicate, error_suffix)
 #   필드가 존재할 때만 검증 / Validated only when the field is present
 _VALUE_RULES: Tuple[Tuple[str, str, Callable[[Any], bool], str], ...] = (
-    ("data",   "num_levels",    lambda v: v >= 2, "data.num_levels must be >= 2"),
-    ("phase0", "learning_rate", lambda v: v > 0,  "phase0.learning_rate must be > 0"),
-    ("phase2", "learning_rate", lambda v: v > 0,  "phase2.learning_rate must be > 0"),
+    ("data", "num_levels", lambda v: v >= 2, "data.num_levels must be >= 2"),
+    ("phase0", "learning_rate", lambda v: v > 0, "phase0.learning_rate must be > 0"),
+    ("phase2", "learning_rate", lambda v: v > 0, "phase2.learning_rate must be > 0"),
 )
 
 

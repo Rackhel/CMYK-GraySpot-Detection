@@ -75,8 +75,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         choices=[*_VALID_CHANNELS, "all"],
         metavar="{Y,M,C,K,all}",
         help=(
-            "평가할 CMYK 채널 또는 전체('all') / "
-            "CMYK channel to evaluate or 'all'"
+            "평가할 CMYK 채널 또는 전체('all') / " "CMYK channel to evaluate or 'all'"
         ),
     )
     parser.add_argument(
@@ -92,10 +91,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         "--checkpoint",
         type=Path,
         default=None,
-        help=(
-            "모델 체크포인트 .pt 파일 경로 / "
-            "Path to model checkpoint .pt file"
-        ),
+        help=("모델 체크포인트 .pt 파일 경로 / " "Path to model checkpoint .pt file"),
     )
 
     return parser.parse_args(argv)
@@ -199,16 +195,16 @@ def _build_model(
 
         device_str = cfg.get("system", {}).get("device", "cpu")
         models_dir = Path(storage.get("models_dir", "outputs/models"))
-        model_path = checkpoint if checkpoint is not None else (
-            models_dir / f"best_{channel}.pt"
+        model_path = (
+            checkpoint
+            if checkpoint is not None
+            else (models_dir / f"best_{channel}.pt")
         )
 
         model = GrayspotModel(cfg, phase=2)
 
         if Path(model_path).exists():
-            ckpt = torch.load(
-                str(model_path), map_location="cpu", weights_only=True
-            )
+            ckpt = torch.load(str(model_path), map_location="cpu", weights_only=True)
             if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
                 ckpt = ckpt["model_state_dict"]
             model.load_state_dict(ckpt, strict=False)
@@ -258,14 +254,10 @@ def _write_json_summary(
                 else 0.0
             ),
             "mae": (
-                float(overall.get("mae", 0.0))
-                if isinstance(overall, dict)
-                else 0.0
+                float(overall.get("mae", 0.0)) if isinstance(overall, dict) else 0.0
             ),
             "n_samples": (
-                int(overall.get("n_samples", 0))
-                if isinstance(overall, dict)
-                else 0
+                int(overall.get("n_samples", 0)) if isinstance(overall, dict) else 0
             ),
         }
     except Exception:
@@ -311,8 +303,10 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     # 출력 디렉토리 해소 — str → Path 변환 (argparse는 str로 수신)
     # Resolve output directory — str → Path conversion (argparse receives str)
-    output_dir: Path = Path(args.output_dir) if args.output_dir is not None else Path(
-        cfg.get("storage", {}).get("reports_dir", "outputs/reports")
+    output_dir: Path = (
+        Path(args.output_dir)
+        if args.output_dir is not None
+        else Path(cfg.get("storage", {}).get("reports_dir", "outputs/reports"))
     )
     output_dir.mkdir(parents=True, exist_ok=True)
 

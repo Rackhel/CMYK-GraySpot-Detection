@@ -190,9 +190,7 @@ def _determine_swing_decision(
     # SSOT_Evaluation_Reporting.md §2 — overall_accuracy 는 targets 아래에 위치
     # SSOT §2: overall_accuracy lives under evaluation.targets, not swing_thresholds
     overall_target: float = (
-        cfg.get("evaluation", {})
-        .get("targets", {})
-        .get("overall_accuracy", 0.90)
+        cfg.get("evaluation", {}).get("targets", {}).get("overall_accuracy", 0.90)
     )
 
     if cycle_acc >= overall_target:

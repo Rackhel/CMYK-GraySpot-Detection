@@ -46,7 +46,6 @@ from evaluation.metrics import (
 )
 from reporting.html_report import generate_baseline_report
 
-
 # ── 로컬 Fixture 헬퍼 / Local fixture helpers ────────────────────────────────
 
 
@@ -213,7 +212,9 @@ class TestGenerateBaselineReport:
         path = generate_baseline_report(mock_summary, mock_results, output_path=out)
         assert path.exists()
 
-    def test_creates_parent_dir_if_not_exists(self, tmp_path, mock_summary, mock_results):
+    def test_creates_parent_dir_if_not_exists(
+        self, tmp_path, mock_summary, mock_results
+    ):
         """중간 디렉토리가 없어도 자동 생성된다. / Intermediate directories are created automatically."""
         out = tmp_path / "nested" / "deep" / "report.html"
         path = generate_baseline_report(mock_summary, mock_results, output_path=out)
@@ -239,7 +240,9 @@ class TestGenerateBaselineReport:
         # CDN URL 또는 plotly 스크립트 태그 확인 / Check for CDN URL or plotly script tag
         assert "plotly" in content.lower()
 
-    def test_html_contains_all_channel_labels(self, tmp_path, mock_summary, mock_results):
+    def test_html_contains_all_channel_labels(
+        self, tmp_path, mock_summary, mock_results
+    ):
         """채널 레이블(Y, M, C, K)이 HTML에 포함된다 (BDD 4.1 — 색상별 막대 차트 확인)."""
         out = tmp_path / "baseline.html"
         path = generate_baseline_report(mock_summary, mock_results, output_path=out)
@@ -261,7 +264,9 @@ class TestGenerateBaselineReport:
         content = path.read_text(encoding="utf-8")
         assert "Feedback" in content or "feedback" in content
 
-    def test_html_contains_confusion_section(self, tmp_path, mock_summary, mock_results):
+    def test_html_contains_confusion_section(
+        self, tmp_path, mock_summary, mock_results
+    ):
         """혼동 행렬 탭이 HTML에 포함된다 (BDD 4.2 — Confusion Matrix 탭)."""
         out = tmp_path / "baseline.html"
         path = generate_baseline_report(mock_summary, mock_results, output_path=out)
@@ -308,9 +313,7 @@ class TestGenerateBaselineReport:
     ):
         """목표치 미달 summary 에서도 HTML이 정상 생성된다. / HTML is generated even when targets are not met."""
         out = tmp_path / "fail_report.html"
-        path = generate_baseline_report(
-            failing_summary, mock_results, output_path=out
-        )
+        path = generate_baseline_report(failing_summary, mock_results, output_path=out)
         assert path.exists()
         content = path.read_text(encoding="utf-8")
         assert "<!DOCTYPE html>" in content

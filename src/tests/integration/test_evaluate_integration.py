@@ -40,8 +40,12 @@ SRC_DIR = ROOT_DIR / "src"
 sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
-from scripts.evaluate import _run_channel_evaluation, _write_json_summary, main, parse_args
-
+from scripts.evaluate import (
+    _run_channel_evaluation,
+    _write_json_summary,
+    main,
+    parse_args,
+)
 
 # ── 통합 테스트용 픽스처 / Integration test fixtures ─────────────────────────
 
@@ -167,7 +171,9 @@ def minimal_labeled_dir(tmp_path, eval_cfg) -> Path:
             cv2.imwrite(str(level_dir / filename), img)
             # CSV에 filename과 CMYK 레벨 기록
             # Record filename and CMYK levels in CSV
-            rows.append({"filename": filename, "Y": level, "M": level, "C": level, "K": level})
+            rows.append(
+                {"filename": filename, "Y": level, "M": level, "C": level, "K": level}
+            )
 
     # labels_v0.csv 생성 — data_root(tmp_path) 에 위치 (evaluate.py 경로 규칙과 일치)
     # Create labels_v0.csv — placed at data_root (tmp_path) to match evaluate.py path logic
@@ -221,9 +227,12 @@ class TestEvaluateIntegration:
         with patch("scripts.evaluate.load_config", return_value=eval_cfg):
             main(
                 [
-                    "--channel", "Y",
-                    "--output-dir", str(output_dir),
-                    "--checkpoint", str(mock_checkpoint),
+                    "--channel",
+                    "Y",
+                    "--output-dir",
+                    str(output_dir),
+                    "--checkpoint",
+                    str(mock_checkpoint),
                 ]
             )
 
@@ -244,9 +253,12 @@ class TestEvaluateIntegration:
         with patch("scripts.evaluate.load_config", return_value=eval_cfg):
             main(
                 [
-                    "--channel", "Y",
-                    "--output-dir", str(output_dir),
-                    "--checkpoint", str(mock_checkpoint),
+                    "--channel",
+                    "Y",
+                    "--output-dir",
+                    str(output_dir),
+                    "--checkpoint",
+                    str(mock_checkpoint),
                 ]
             )
 
@@ -255,12 +267,12 @@ class TestEvaluateIntegration:
 
         data = json.loads(report_file.read_text(encoding="utf-8"))
         assert "accuracy" in data, "JSON에 'accuracy' 키가 없습니다 / No 'accuracy' key"
-        assert isinstance(data["accuracy"], float), (
-            f"accuracy 타입={type(data['accuracy'])}, float 기대 / float expected"
-        )
-        assert 0.0 <= data["accuracy"] <= 1.0, (
-            f"accuracy={data['accuracy']} — [0, 1] 범위 벗어남 / out of [0,1] range"
-        )
+        assert isinstance(
+            data["accuracy"], float
+        ), f"accuracy 타입={type(data['accuracy'])}, float 기대 / float expected"
+        assert (
+            0.0 <= data["accuracy"] <= 1.0
+        ), f"accuracy={data['accuracy']} — [0, 1] 범위 벗어남 / out of [0,1] range"
 
     def test_json_report_contains_channel_key(
         self, tmp_path, eval_cfg, minimal_labeled_dir, mock_checkpoint
@@ -272,9 +284,12 @@ class TestEvaluateIntegration:
         with patch("scripts.evaluate.load_config", return_value=eval_cfg):
             main(
                 [
-                    "--channel", "Y",
-                    "--output-dir", str(output_dir),
-                    "--checkpoint", str(mock_checkpoint),
+                    "--channel",
+                    "Y",
+                    "--output-dir",
+                    str(output_dir),
+                    "--checkpoint",
+                    str(mock_checkpoint),
                 ]
             )
 
@@ -282,22 +297,22 @@ class TestEvaluateIntegration:
         assert report_file.exists(), "report_Y.json 없음"
 
         data = json.loads(report_file.read_text(encoding="utf-8"))
-        assert data.get("channel") == "Y", (
-            f"channel='{data.get('channel')}', 'Y' 기대"
-        )
+        assert data.get("channel") == "Y", f"channel='{data.get('channel')}', 'Y' 기대"
 
     def test_exit_code_1_when_checkpoint_missing(self, tmp_path):
         """T-EVAL-INT-01d: SSOT-FF01 — 체크포인트 누락 시 exit code 1"""
         with pytest.raises(SystemExit) as exc_info:
             main(
                 [
-                    "--channel", "Y",
-                    "--checkpoint", str(tmp_path / "nonexistent.pt"),
+                    "--channel",
+                    "Y",
+                    "--checkpoint",
+                    str(tmp_path / "nonexistent.pt"),
                 ]
             )
-        assert exc_info.value.code == 1, (
-            f"종료 코드={exc_info.value.code}, 1 기대 (SSOT-FF01)"
-        )
+        assert (
+            exc_info.value.code == 1
+        ), f"종료 코드={exc_info.value.code}, 1 기대 (SSOT-FF01)"
 
 
 # ── T-EVAL-INT-02 / Integration Scenario 2 ───────────────────────────────────
@@ -334,9 +349,12 @@ class TestEvaluateAllChannels:
                 main(["--channel", "all", "--output-dir", str(output_dir)])
 
         # Then: 4채널 모두 평가됨
-        assert set(channels_evaluated) == {"Y", "M", "C", "K"}, (
-            f"평가된 채널={set(channels_evaluated)}, 4채널 기대"
-        )
+        assert set(channels_evaluated) == {
+            "Y",
+            "M",
+            "C",
+            "K",
+        }, f"평가된 채널={set(channels_evaluated)}, 4채널 기대"
 
     def test_all_channels_json_files_exist(self, tmp_path, eval_cfg):
         """T-EVAL-INT-02b: --channel all → 4개 JSON 파일 존재"""
@@ -358,9 +376,9 @@ class TestEvaluateAllChannels:
                 main(["--channel", "all", "--output-dir", str(output_dir)])
 
         json_files = list(output_dir.glob("report_*.json"))
-        assert len(json_files) == 4, (
-            f"JSON 파일 수={len(json_files)}, 4개 기대 (Y/M/C/K)"
-        )
+        assert (
+            len(json_files) == 4
+        ), f"JSON 파일 수={len(json_files)}, 4개 기대 (Y/M/C/K)"
 
     def test_single_channel_produces_one_json(self, tmp_path, eval_cfg):
         """T-EVAL-INT-02c: 단일 채널 → JSON 1개만 생성."""
@@ -382,9 +400,7 @@ class TestEvaluateAllChannels:
                 main(["--channel", "M", "--output-dir", str(output_dir)])
 
         json_files = list(output_dir.glob("report_*.json"))
-        assert len(json_files) == 1, (
-            f"JSON 파일 수={len(json_files)}, 1개 기대"
-        )
+        assert len(json_files) == 1, f"JSON 파일 수={len(json_files)}, 1개 기대"
         data = json.loads(json_files[0].read_text(encoding="utf-8"))
         assert data["channel"] == "M"
 
@@ -398,7 +414,12 @@ class TestWriteJsonSummary:
     def test_creates_valid_json_file(self, tmp_path):
         """실제 dict metrics로 유효한 JSON 파일을 생성한다."""
         metrics = {
-            "overall": {"accuracy": 0.87, "macro_f1": 0.82, "mae": 0.35, "n_samples": 120}
+            "overall": {
+                "accuracy": 0.87,
+                "macro_f1": 0.82,
+                "mae": 0.35,
+                "n_samples": 120,
+            }
         }
         path = tmp_path / "report_Y.json"
         _write_json_summary(path, "Y", metrics)
@@ -424,7 +445,14 @@ class TestWriteJsonSummary:
 
     def test_utf8_encoding(self, tmp_path):
         """JSON 파일이 UTF-8 인코딩으로 저장된다."""
-        metrics = {"overall": {"accuracy": 0.90, "macro_f1": 0.85, "mae": 0.30, "n_samples": 50}}
+        metrics = {
+            "overall": {
+                "accuracy": 0.90,
+                "macro_f1": 0.85,
+                "mae": 0.30,
+                "n_samples": 50,
+            }
+        }
         path = tmp_path / "report_K.json"
         _write_json_summary(path, "K", metrics)
 

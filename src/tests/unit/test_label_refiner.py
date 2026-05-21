@@ -5,16 +5,17 @@ Status: FAILING — LabelRefiner not yet implemented.
 Ref: doc/TDD/TDD_LabelRefiner.md
 """
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
-from pathlib import Path
 
 # Will raise ImportError until implemented
 from data.label_refiner import LabelRefiner
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def refiner():
@@ -39,18 +40,22 @@ def sample_paths():
 
 @pytest.fixture
 def sample_priority_df(refiner, sample_embeddings, sample_labels, sample_paths):
-    return refiner.compute_priority_score(sample_embeddings, sample_labels, sample_paths)
+    return refiner.compute_priority_score(
+        sample_embeddings, sample_labels, sample_paths
+    )
 
 
 @pytest.fixture
 def labels_v0_csv(tmp_path):
-    df = pd.DataFrame({
-        "path": ["a.png", "b.png", "c.png", "d.png"],
-        "channel": ["Y", "Y", "Y", "Y"],
-        "level": [1, 2, 3, 4],
-        "version": [0, 0, 0, 0],
-        "reviewer": ["auto", "auto", "auto", "auto"],
-    })
+    df = pd.DataFrame(
+        {
+            "path": ["a.png", "b.png", "c.png", "d.png"],
+            "channel": ["Y", "Y", "Y", "Y"],
+            "level": [1, 2, 3, 4],
+            "version": [0, 0, 0, 0],
+            "reviewer": ["auto", "auto", "auto", "auto"],
+        }
+    )
     csv_path = tmp_path / "labels_v0.csv"
     df.to_csv(csv_path, index=False)
     return csv_path
@@ -58,17 +63,26 @@ def labels_v0_csv(tmp_path):
 
 # ── compute_priority_score() ──────────────────────────────────────────────────
 
+
 class TestComputePriorityScore:
     """T-LR-01 ~ T-LR-05"""
 
-    def test_returns_correct_row_count(self, refiner, sample_embeddings, sample_labels, sample_paths):
+    def test_returns_correct_row_count(
+        self, refiner, sample_embeddings, sample_labels, sample_paths
+    ):
         """T-LR-01: 100개 입력 → 100행 DataFrame"""
-        df = refiner.compute_priority_score(sample_embeddings, sample_labels, sample_paths)
+        df = refiner.compute_priority_score(
+            sample_embeddings, sample_labels, sample_paths
+        )
         assert len(df) == 100
 
-    def test_has_required_columns(self, refiner, sample_embeddings, sample_labels, sample_paths):
+    def test_has_required_columns(
+        self, refiner, sample_embeddings, sample_labels, sample_paths
+    ):
         """T-LR-02: 필수 컬럼 존재"""
-        df = refiner.compute_priority_score(sample_embeddings, sample_labels, sample_paths)
+        df = refiner.compute_priority_score(
+            sample_embeddings, sample_labels, sample_paths
+        )
         required = {"path", "true_label", "priority_score", "cluster_label"}
         assert required.issubset(set(df.columns))
 
@@ -95,6 +109,7 @@ class TestComputePriorityScore:
 
 
 # ── compute_clustering_quality() ─────────────────────────────────────────────
+
 
 class TestComputeClusteringQuality:
     """T-LR-10 ~ T-LR-13"""
@@ -129,6 +144,7 @@ class TestComputeClusteringQuality:
 
 # ── get_review_queue() ────────────────────────────────────────────────────────
 
+
 class TestGetReviewQueue:
     """T-LR-20 ~ T-LR-23"""
 
@@ -156,6 +172,7 @@ class TestGetReviewQueue:
 
 
 # ── save_labels() ─────────────────────────────────────────────────────────────
+
 
 class TestSaveLabels:
     """T-LR-30 ~ T-LR-33"""
