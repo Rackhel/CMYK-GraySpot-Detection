@@ -38,6 +38,7 @@ from typing import Any, Dict, Optional
 
 import torch
 
+from inference.onnx_export import export_model_to_onnx
 from inference.predictor_device import DeviceMixin
 from inference.predictor_inference import InferenceMixin
 from inference.predictor_loader import ModelLoaderMixin
@@ -110,7 +111,7 @@ class GrayspotPredictor(DeviceMixin, ModelLoaderMixin, InferenceMixin):
         channel: str,
         output_path: str | Path,
         sample_input: Optional[torch.Tensor] = None,
-    ) -> None:
+    ) -> Path:
         """
         Contract.md §10: 지정된 채널의 활성화된 모델을 ONNX 형식으로 내보낸다.
         Contract.md §10: Exports the active model of the specified channel to ONNX format.
@@ -119,6 +120,9 @@ class GrayspotPredictor(DeviceMixin, ModelLoaderMixin, InferenceMixin):
             channel: 대상 채널 식별자 (예: "Y", "M", "C", "K") / Target channel ID
             output_path: 내보낼 .onnx 파일 저장 경로 / Path to save the exported .onnx file
             sample_input: 추적용 옵션 입력 텐서 / Optional input tensor for tracing
+
+        Returns:
+            Path: 내보낸 ONNX 파일 경로 / Path to the exported ONNX file
 
         Raises:
             ValueError: 채널에 해당하는 모델이 로드되지 않은 경우 — Fail-Fast
@@ -132,28 +136,10 @@ class GrayspotPredictor(DeviceMixin, ModelLoaderMixin, InferenceMixin):
 
         # 2. 샘플 입력 누락 시 dynamic default tensor 빌드 (GrayspotModel forward expects 3 channels)
         if sample_input is None:
-            sample_input = torch.randn(1, 3, self.image_size, self.image_size)
+            sample_input = torch.randn(
+                1, 3, self.image_size, self.image_size, dtype=torch.float32
+            )
+        elif sample_input.ndim != 4:
+            raise ValueError("sample_input must be a 4D tensor of shape (B, C, H, W)")
 
-        # 3. 모델 평가 모드 변경 및 장치 동기화
-        model.eval()
-        sample_input = sample_input.to(self.device)
-
-        # 4. 저장 폴더 준비
-        out_path = Path(output_path)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # 5. ONNX Tracing Export 실행
-        torch.onnx.export(
-            model,
-            sample_input,
-            str(out_path),
-            export_params=True,
-            opset_version=11,
-            do_constant_folding=True,
-            input_names=["input"],
-            output_names=["output"],
-            dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
-        )
-        self.logger.info(
-            f"[PASS] Channel '{channel}' model exported to ONNX -> {out_path}"
-        )
+        return export_model_to_onnx(model, output_path, sample_input)

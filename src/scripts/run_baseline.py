@@ -207,8 +207,10 @@ def main():
     target_channels = CHANNELS if args.channel == "all" else [args.channel.upper()]
 
     cfg = load_config()
-    if not validate_config(cfg):
-        logger.error("Configuration validation failed. Fix config.json and retry.")
+    try:
+        validate_config(cfg)
+    except ValueError as exc:
+        logger.error(f"Configuration validation failed (SSOT-CF01): {exc}")
         raise SystemExit(1)
 
     create_directories(cfg)

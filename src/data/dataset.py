@@ -1,24 +1,34 @@
 """
 data/dataset.py
 
-Grayspot 학습용 PyTorch Dataset 클래스.
-PyTorch Dataset classes for Grayspot training.
+Grayspot 학습·평가용 PyTorch Dataset 클래스.
+PyTorch Dataset classes for Grayspot training and evaluation.
 
-두 가지 Dataset / Two Dataset classes:
+세 가지 Dataset / Three Dataset classes:
     - CMYKDataset       : Supervised 학습(Phase 2)용 — 폴더 구조 기반 라벨 로드
     - ContrastiveDataset: Contrastive Learning(Phase 0)용 — 라벨 없이 Positive Pair 반환
+    - _EvalDataset      : 평가 전용 — long-format DataFrame 기반, Evaluator 내부 전용
 
 폴더 구조 / Folder structure:
     data_set/labeled/{channel}/{level}/*.png
 """
 
+from __future__ import annotations
+
 import random
 from collections import Counter, defaultdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import cv2
+import numpy as np
 import torch
 from torch.utils.data import Dataset
+
+# pandas는 평가 시에만 필요 — 학습 경로에서 불필요한 pyarrow 의존을 피한다.
+# pandas is only needed for evaluation — TYPE_CHECKING avoids importing it on the training path.
+if TYPE_CHECKING:
+    import pandas as pd
 
 from data.augmentation import augment_contrastive, augment_supervised
 from data.normalize import _IMAGENET_NORMALIZE  # SSOT-NM01: 단일 출처 사용
@@ -80,10 +90,15 @@ class CMYKDataset(Dataset):
         for sample in all_samples:
             level_groups[sample[1]].append(sample)
 
+        # SSOT-SD01: 시드된 Random 인스턴스를 사용하여 재현성을 보장한다.
+        # Use a seeded Random instance to guarantee reproducibility (SSOT-SD01).
+        seed = cfg.get("train", {}).get("seed", 42)
+        _rng = random.Random(seed)
+
         ratios = cfg["data"]["split_ratios"]
         train_s, val_s, test_s = [], [], []
         for lv, items in level_groups.items():
-            random.shuffle(items)
+            _rng.shuffle(items)
             n = len(items)
             n_train = max(1, int(n * ratios["train"]))
             n_val = max(1, int(n * ratios["val"]))
@@ -191,3 +206,63 @@ class ContrastiveDataset(Dataset):
             _IMAGENET_NORMALIZE(torch.tensor(view1).permute(2, 0, 1).float()),
             _IMAGENET_NORMALIZE(torch.tensor(view2).permute(2, 0, 1).float()),
         )
+
+
+# ──────────────────────────────────────────────────────────────
+# Evaluation Dataset / 평가 전용 Dataset (Evaluator 내부 전용)
+# ──────────────────────────────────────────────────────────────
+
+
+class _EvalDataset(Dataset):
+    """
+    평가 전용 Dataset. Evaluator(evaluation/evaluator_inference.py) 내부에서만 사용한다.
+    Evaluation-only Dataset. Used internally by Evaluator (evaluator_inference.py) only.
+
+    CMYKDataset과의 차이 / Difference from CMYKDataset:
+        CMYKDataset  : cfg 기반, 폴더 스캔, Stratified Split + Oversampling 포함
+        _EvalDataset : long-format DataFrame 기반, 계층적 경로(labeled/{color}/{level}/) 직접 참조,
+                       분할·오버샘플링 없음 — 전체 라벨 집합을 그대로 평가
+
+    Args:
+        df         : load_labels()가 반환한 long-format DataFrame
+                     Long-format DataFrame returned by InferenceMixin.load_labels()
+                     columns: ["filename", "color", "level"]
+        patch_dir  : data_set/labeled/ 루트 경로 / Root path of data_set/labeled/
+        image_size : 리사이즈 목표 크기 (정수) / Target resize size (int)
+    """
+
+    def __init__(self, df: pd.DataFrame, patch_dir: Path, image_size: int):
+        self.df = df.reset_index(drop=True)
+        self.patch_dir = Path(patch_dir)
+        self.image_size = image_size
+
+    def __len__(self) -> int:
+        return len(self.df)
+
+    def __getitem__(self, idx: int):
+        """
+        Returns:
+            tensor : (3, H, W) float32 — ImageNet 정규화 완료 / ImageNet-normalized
+            level  : int — 정답 레벨 / Ground-truth level
+            fname  : str — 파일명 / Filename
+        """
+        row = self.df.iloc[idx]
+        color = row["color"]
+        fname = row["filename"]
+        level = int(row["level"])
+
+        img_path = self.patch_dir / color / str(level) / fname
+
+        if not img_path.exists():
+            raise FileNotFoundError(f"Image not found / 이미지 없음: {img_path}")
+
+        img = cv2.imread(str(img_path))
+        # SSOT-CS01: BGR 유지 — RGB 변환 금지 / Keep BGR — no RGB conversion
+        img = cv2.resize(img, (self.image_size, self.image_size))
+        img = img.astype(np.float32) / 255.0
+
+        tensor = torch.tensor(img).permute(2, 0, 1).float()
+        # SSOT-NM01: ImageNet 정규화 적용 — 학습(CMYKDataset)과 동일한 변환
+        # Apply ImageNet normalization — identical to training transform (CMYKDataset)
+        tensor = _IMAGENET_NORMALIZE(tensor)
+        return tensor, level, fname
