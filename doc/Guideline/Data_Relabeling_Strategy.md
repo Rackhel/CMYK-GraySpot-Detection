@@ -111,13 +111,34 @@ Open new ROI files (`data_set/roi/lvlX_..._CH.png`) and assign each channel's de
   (lvlX_..._Y.png / _M.png / _C.png / _K.png)
 ```
 
-### Step 2 — 패치 추출 후 labeled/ 배치
+### Step 2 — roi_labels.csv 기록 (선택적 / Optional)
 
-라벨링 완료 후 ROI 이미지에서 패치를 추출하여 `data_set/labeled/{channel}/{level}/`에 배치한다.
+파일명의 `lvlX_` 는 스캔 단위 레벨이다. 채널별 독립 라벨링 결과를 반영하려면 `data_set/roi_labels.csv`에 기록한다.
 
-After labeling, extract patches from ROI images and place under `data_set/labeled/{channel}/{level}/`.
+The `lvlX_` in filenames is the scan-level label. To apply per-channel independent labels, record them in `data_set/roi_labels.csv`.
 
-### Step 3 — 레벨별 필요 증강량 역산
+```csv
+roi_filename,level
+lvl3_Scanned Documents (113)_3_1_C,3
+lvl3_Scanned Documents (113)_3_1_M,1
+lvl3_Scanned Documents (113)_3_1_Y,0
+lvl3_Scanned Documents (113)_3_1_K,0
+```
+
+파일이 없으면 `prepare_dataset.py`가 파일명 레벨을 fallback으로 사용한다.
+If absent, `prepare_dataset.py` falls back to the filename-based level.
+
+### Step 3 — prepare_dataset.py 실행 (패치 추출 + 증강 자동화)
+
+```bash
+python -m src.scripts.prepare_dataset
+```
+
+`roi_labels.csv`(존재 시)를 읽어 채널별 레벨로 패치를 `data_set/labeled/{channel}/{level}/`에 배치하고, 이어서 `augment_dataset.py`를 자동 호출하여 PRD v2 목표를 달성한다.
+
+Reads `roi_labels.csv` (if present) for per-channel levels, places patches under `data_set/labeled/{channel}/{level}/`, then automatically calls `augment_dataset.py` to meet PRD v2 targets.
+
+### Step 4 — 레벨별 부족분 확인 (참고용)
 
 ```python
 # PRD v2 목표 / PRD v2 targets
@@ -129,28 +150,17 @@ for level in range(6):
     # augment_dataset.py 가 자동 계산하여 증강 수행
 ```
 
-### Step 4 — augment_dataset.py 실행
-
-```bash
-python -m src.scripts.augment_dataset
-```
-
-PRD v2 목표 미달 (channel, level) 쌍에 대해 자동 증강 후 `labels_master.csv` 갱신.
-
-### Step 4 — 라벨 CSV 통합
-
-재라벨링 완료 후 단일 CSV 파일로 통합한다.
+### Step 5 — 라벨 CSV 확인
 
 ```
-이전 / Previous:  labels_v0.csv  +  labels_cmyk.csv  (K 채널 이중 배치 문제)
-현재 완료 / Done: labels_master.csv  (전 채널 통합 단일 파일, long-format)
+현재 완료 / Done: labels_master.csv  (전 채널 통합 단일 파일, long-format, 6,080행)
 ```
 
-> ✅ **2026-05-21 완료**: `data_set/labels_master.csv` 가 생성되어 현재 K 채널의 학습(787장) vs 평가 커버리지 불일치 문제가 해소되었다.
-> ✅ **2026-05-21 Complete**: `data_set/labels_master.csv` has been created, resolving the K channel training (787) vs evaluation coverage mismatch.
+> ✅ **2026-05-21 완료**: `data_set/labels_master.csv` 6,080행. PRD v2 목표 달성 (채널당 1,520장).
+> ✅ **2026-05-21 Complete**: `data_set/labels_master.csv` has 6,080 rows. PRD v2 targets met (1,520 per channel).
 
-재라벨링으로 새 이미지가 추가될 경우 `data_set/labeled/{channel}/{level}/` 에 파일을 추가한 뒤 `src/scripts/augment_dataset.py` 를 실행해 부족 레벨을 보충하고 `labels_master.csv` 를 갱신한다.
-When new images are added via re-labeling, place them under `data_set/labeled/{channel}/{level}/`, then run `src/scripts/augment_dataset.py` to fill any shortage levels and update `labels_master.csv`.
+재라벨링으로 새 이미지가 추가될 경우 `roi_labels.csv`를 갱신한 뒤 `src/scripts/prepare_dataset.py` 를 재실행하면 패치 추출과 증강이 자동 처리된다.
+When new images are added via re-labeling, update `roi_labels.csv` and re-run `src/scripts/prepare_dataset.py` — patch extraction and augmentation are handled automatically.
 
 ---
 

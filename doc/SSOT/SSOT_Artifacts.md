@@ -144,14 +144,15 @@ This document is the authoritative reference for artifact filename patterns, dir
 > `labels_master.csv` 는 long-format `(filepath, channel, level)` 정규 라벨 파일이다. 각 채널(C/M/Y/K)이 독립적으로 레벨을 가지며, 학습·평가 모두 이 파일을 기준으로 한다.
 > `labels_master.csv` is the canonical label file in long-format. Each channel (C/M/Y/K) has an independently assigned level; both training and evaluation reference this file.
 
-> **Dataset status (2026-05-21)**: 초기화됨 (0 rows). OLD labeled 데이터 삭제 후 채널별 독립 재라벨링 진행 중. PRD v2 목표: 채널당 1,520장 (L0:330 L1:330 L2:330 L3:265 L4:165 L5:100).
-> Cleared (0 rows). Old labeled data deleted. Per-channel independent re-labeling in progress. PRD v2 target: 1,520 per channel.
+> **Dataset status (2026-05-21)**: ✅ 재구성 완료. 6,080행. 채널당 1,520장 (L0:330 L1:330 L2:330 L3:265 L4:165 L5:100). PRD v2 목표 달성.
+> ✅ Reconstruction complete. 6,080 rows. 1,520 per channel (L0:330 L1:330 L2:330 L3:265 L4:165 L5:100). PRD v2 targets met.
 
-**관리 스크립트 / Management script**:
+**관리 스크립트 / Management scripts**:
 
-| 스크립트 / Script | 역할 / Role |
-|---|---|
-| `src/scripts/augment_dataset.py` | PRD v2 미달 레벨 증강 후 CSV 갱신 / Augment below PRD v2 targets and update CSV |
+| 스크립트 / Script | 명령 / Command | 역할 / Role |
+|---|---|---|
+| `src/scripts/prepare_dataset.py` | `python -m src.scripts.prepare_dataset` | ROI 패치 추출 → augment 자동 호출 (전체 파이프라인 단일 진입점) |
+| `src/scripts/augment_dataset.py` | `python -m src.scripts.augment_dataset` | PRD v2 미달 레벨 증강 후 CSV 갱신 (단독 실행 가능) |
 
 ### 3.6 Optuna 산출물 / Optuna Artifacts
 

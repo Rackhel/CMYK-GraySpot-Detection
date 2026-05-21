@@ -76,10 +76,15 @@ data_set/labeled/{channel}/{level}/*.png
 `labels_master.csv` 는 이전 `labels_v0.csv` + `labels_cmyk.csv` 를 통합한 단일 정규 라벨 파일이다.
 `labels_master.csv` is the unified canonical label file replacing the former `labels_v0.csv` and `labels_cmyk.csv`.
 
-관리 스크립트 / Management script: `src/scripts/augment_dataset.py` (PRD v2 미달 레벨 증강 + CSV 갱신)
+관리 스크립트 / Management scripts:
 
-> **Dataset status (2026-05-21)**: `labels_master.csv` 헤더만 유지 (0 rows). OLD labeled 데이터 삭제 후 재구성 중.
-> `labels_master.csv` headers only (0 rows). Old labeled data cleared; reconstruction in progress.
+| 스크립트 / Script | 명령 / Command | 역할 / Role |
+|---|---|---|
+| `src/scripts/prepare_dataset.py` | `python -m src.scripts.prepare_dataset` | ROI 패치 추출 + augment_dataset.py 자동 호출 (전체 파이프라인) |
+| `src/scripts/augment_dataset.py` | `python -m src.scripts.augment_dataset` | PRD v2 미달 레벨 증강 + CSV 갱신 (단독 실행 가능) |
+
+> **Dataset status (2026-05-21)**: ✅ 재구성 완료. `labels_master.csv` 6,080행. 채널당 1,520장 (L0:330 L1:330 L2:330 L3:265 L4:165 L5:100).
+> ✅ Reconstruction complete. `labels_master.csv` has 6,080 rows. 1,520 per channel (L0:330 L1:330 L2:330 L3:265 L4:165 L5:100).
 
 ### 1.4 config.json 키 / Config Keys
 

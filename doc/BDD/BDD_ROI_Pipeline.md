@@ -2,7 +2,7 @@
 type: bdd
 domain: roi_pipeline
 status: Active
-last_updated: 2026-05-18
+last_updated: 2026-05-21
 owner: CMYK WooSong Team
 related_docs:
   - "SSOT_ROI_Pipeline.md"
@@ -39,14 +39,18 @@ Feature: ROI 추출 / ROI extraction
   Scenario: ROI patches are extracted from a valid image path
 
     Given 유효한 PNG 이미지 파일(H×W×3)이 존재한다
-    And   ROIExtractor가 patch_size=128, stride=64로 초기화된다
+    And   ROIExtractor가 patch_size=128, stride=128, min_std=5.0으로 초기화된다
 
-    When  extract_patches(image_path)가 호출된다
+    When  extract_patches_from_roi(image_path)가 호출된다
 
     Then  반환 리스트의 각 원소 shape이 (128, 128, 3)이다
     And   반환 리스트가 비어 있지 않다
-    And   dtype이 float32이다
+    And   dtype이 uint8이다
+    And   각 패치의 표준편차가 min_std(5.0) 이상이다 (저분산 패치 제거)
 ```
+
+> **구현 주의사항**: 패치는 `cv2.resize` 가 아닌 **중앙 크롭 + stride=patch_size 슬라이딩 윈도우** 방식으로 추출된다.
+> **Implementation note**: Patches are extracted via **center-crop width normalization + stride=patch_size sliding window**, NOT `cv2.resize`.
 
 ---
 
@@ -157,17 +161,69 @@ Feature: 라벨 정제 / Label refinement
 
 ---
 
+## 추가 시나리오 / Additional Scenarios (2026-05-21)
+
+### Scenario P.1 — prepare_dataset.py 채널별 독립 라벨링
+
+```gherkin
+Feature: prepare_dataset 파이프라인 자동화
+
+  Scenario: roi_labels.csv 가 있으면 채널별 독립 레벨이 적용된다
+  Scenario: Per-channel independent levels apply when roi_labels.csv exists
+
+    Given data_set/roi/ 에 lvl3_scan_001_M.png 가 존재한다
+    And   data_set/roi_labels.csv 에 "lvl3_scan_001_M,1" 항목이 있다
+
+    When  prepare_dataset.py 를 실행하면
+
+    Then  패치가 data_set/labeled/M/1/ 에 배치된다 (파일명 lvl3 이 아닌 레벨 1)
+    And   labels_master.csv 의 해당 행에서 level=1 이다
+```
+
+### Scenario P.2 — roi_labels.csv 없을 때 fallback
+
+```gherkin
+  Scenario: roi_labels.csv 없으면 파일명 레벨을 사용한다
+
+    Given data_set/roi/lvl3_scan_001_M.png 가 존재한다
+    And   data_set/roi_labels.csv 가 없다
+
+    When  prepare_dataset.py 를 실행하면
+
+    Then  패치가 data_set/labeled/M/3/ 에 배치된다 (파일명 기준 레벨 3)
+```
+
+### Scenario P.3 — EXTRACT_CAP 상한선
+
+```gherkin
+  Scenario: (channel, level) 상한선 도달 시 추출을 중단한다
+
+    Given (M, level=1) 이 이미 330장(EXTRACT_CAP[1])에 도달했다
+
+    When  prepare_dataset.py 를 실행하면
+
+    Then  (M, level=1) 에 대해 추가 패치를 추출하지 않는다
+```
+
+---
+
 ## 추적 매트릭스 / Traceability Matrix
 
-| 시나리오 / Scenario | TDD 파일 / TDD File | 테스트 함수 / Test Function | 계층 / Layer |
-|---|---|---|---|
-| R.1 — ROI 패치 형상 / shape | `test_roi_extractor.py` | `test_extract_patches_output_shape` | Unit |
-| R.2 — FileNotFoundError | `test_roi_extractor.py` | `test_extract_patches_missing_file` | Unit |
-| R.3 — 흰색 픽셀 분판 / white split | `test_roi_extractor.py` | `test_split_cmyk_white_pixel` | Unit |
-| R.4 — 단채널 변환 / grayscale convert | `test_roi_extractor.py` | `test_extract_patches_grayscale_equal_3ch` | Unit |
-| R.5 — 우선순위 정렬 / priority sort | `test_label_refiner.py` | `test_priority_score_in_range` | Unit |
-| R.6 — 검토 큐 20% / queue 20% | `test_label_refiner.py` | `test_review_queue_returns_top_ratio` | Unit |
-| R.7 — 라벨 버전 / label version | `test_label_refiner.py` | `test_save_labels_increments_version` | Unit |
+| 시나리오 / Scenario | TDD 파일 / TDD File | 테스트 함수 / Test Function | 계층 / Layer | 상태 |
+|---|---|---|---|---|
+| R.1 — ROI 패치 형상 / shape | `test_roi_extractor.py` | `test_returns_correct_shape` | Unit | ✅ |
+| R.2 — FileNotFoundError | `test_roi_extractor.py` | `test_invalid_path_raises_file_not_found` | Unit | ✅ |
+| R.3 — 흰색 픽셀 분판 / white split | `test_roi_extractor.py` | `test_white_image_cmyk_all_zero` | Unit | ✅ |
+| R.4 — 단채널 변환 / grayscale convert | `test_roi_extractor.py` | `test_three_channel_values_equal_for_gray_channel` | Unit | ✅ |
+| R.1 INT — 파일 저장 확인 | `test_roi_pipeline.py` | `test_patches_saved_as_png` | Integration | ✅ |
+| R.1 INT — ContrastiveDataset 로드 | `test_roi_pipeline.py` | `test_tensor_shape_is_3_128_128` | Integration | ✅ |
+| R.1 INT — Model forward | `test_roi_pipeline.py` | `test_phase2_forward_output_shape` | Integration | ✅ |
+| P.1 — roi_labels.csv 오버라이드 | `test_prepare_dataset.py` | `test_roi_labels_overrides_filename_level` | Unit | ✅ |
+| P.2 — roi_labels.csv fallback | `test_prepare_dataset.py` | `test_filename_level_used_when_not_in_roi_labels` | Unit | ✅ |
+| P.3 — EXTRACT_CAP 검증 | `test_prepare_dataset.py` | `test_extract_cap_matches_prd_v2_targets` | Unit | ✅ |
+| R.5 — 우선순위 정렬 / priority sort | `test_label_refiner.py` | `test_priority_score_in_range` | Unit | — |
+| R.6 — 검토 큐 20% / queue 20% | `test_label_refiner.py` | `test_review_queue_returns_top_ratio` | Unit | — |
+| R.7 — 라벨 버전 / label version | `test_label_refiner.py` | `test_save_labels_increments_version` | Unit | — |
 
 ---
 

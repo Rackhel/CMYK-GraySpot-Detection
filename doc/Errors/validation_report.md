@@ -1,10 +1,10 @@
 # CMYK Grayspot Detection System
 # Dataset Validation Report — 데이터셋 검증 보고서
 
-Version: 3.0.0
+Version: 3.1.0
 Date: 2026-05-21
 Label Source: `data_set/labels_master.csv`
-Status: **Dataset Reset — Reconstruction In Progress / 데이터셋 초기화 — 재구성 중**
+Status: **✅ PRD v2 Complete — 6,080 rows / PRD v2 완료 — 6,080행**
 
 ---
 
@@ -54,20 +54,40 @@ PRD Section 6.3 v2: 채널당 총 1,400~1,600장, 레벨 비율 유지 (×3.3)
 |---|---|---|
 | Raw scans (new) / 새 스캔 | 288 jpeg (lvlX_...) | ✅ 수집 완료 |
 | Raw scans (old) / 이전 스캔 | 190 jpeg (scan_XXX_) | ⚠️ 재사용 여부 미결정 |
-| ROI files (new) / 새 ROI | 1,152 png (288 × 4ch) | ✅ CMYK 분리 완료 |
-| Labeled patches / 라벨 패치 | **0** | ❌ 채널별 재라벨링 필요 |
-| labels_master.csv rows / 라벨 행 수 | 0 (headers only) | ❌ 재구성 필요 |
+| ROI files / ROI 파일 | 1,152 png (288 × 4ch) | ✅ CMYK 분리 완료 |
+| Labeled patches (original) / 원본 패치 | **5,300** | ✅ 완료 |
+| Labeled patches (augmented) / 증강 패치 | **780** | ✅ 완료 |
+| **Labeled patches (total) / 전체** | **6,080** | ✅ PRD v2 달성 |
+| labels_master.csv rows / 라벨 행 수 | **6,080** | ✅ 완료 |
+
+**채널×레벨 분포 / Channel × Level distribution:**
+
+| Ch | L0 | L1 | L2 | L3 | L4 | L5 | 합계 |
+|---|---|---|---|---|---|---|---|
+| C | 330 | 330 | 330 | 265 | 165 | 100 | 1,520 |
+| M | 330 | 330 | 330 | 265 | 165 | 100 | 1,520 |
+| Y | 330 | 330 | 330 | 265 | 165 | 100 | 1,520 |
+| K | 330 | 330 | 330 | 265 | 165 | 100 | 1,520 |
+
+> ⚠️ 현재 라벨링은 파일명 기반(스캔 단위). 채널별 독립 시각 검사 후 `data_set/roi_labels.csv`로 오버라이드 가능.
+> Current labeling is filename-based (scan-level). Per-channel visual inspection results can override via `data_set/roi_labels.csv`.
 
 ---
 
-# 5. Pending Actions — 대기 중인 작업
+# 5. Completed Actions — 완료된 작업
 
-| # | Action / 작업 | Owner | Status |
-|---|---|---|---|
-| 1 | Per-channel independent labeling of 288 new ROI images (×4 channels) / 신규 ROI 1,152장 채널별 독립 라벨링 | 팀 | ❌ 미완료 |
-| 2 | Patch extraction from labeled ROI → `data_set/labeled/{ch}/{lv}/` / 라벨링 완료 ROI에서 패치 추출 | 팀 | ❌ 미완료 |
-| 3 | Run `augment_dataset.py` to reach PRD v2 targets / 증강 실행하여 PRD v2 목표 달성 | 팀 | ❌ 미완료 |
-| 4 | Validate final `labels_master.csv` / 최종 labels_master.csv 검증 | 팀 | ❌ 미완료 |
+| # | Action / 작업 | Status |
+|---|---|---|
+| 1 | OLD labeled data (8,969장) 삭제 및 labels_master.csv 초기화 | ✅ 완료 |
+| 2 | ROI 파일에서 패치 추출 (`prepare_dataset.py`) | ✅ 완료 |
+| 3 | PRD v2 목표 달성 (`augment_dataset.py` 자동 호출) | ✅ 완료 |
+| 4 | ROIExtractor 클래스 구현 및 TDD 테스트 10개 통과 | ✅ 완료 |
+| 5 | roi_labels.csv 채널별 독립 라벨링 오버라이드 지원 추가 | ✅ 완료 |
+
+**전체 파이프라인 단일 명령 / Full pipeline single command:**
+```bash
+python -m src.scripts.prepare_dataset
+```
 
 ---
 

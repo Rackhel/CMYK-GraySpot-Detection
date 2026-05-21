@@ -187,11 +187,15 @@ After augmentation, dataset validation must confirm:
 
 ---
 
-# 10. Data Pipeline Script — 데이터 파이프라인 스크립트
+# 10. Data Pipeline Scripts — 데이터 파이프라인 스크립트
 
 | Script / 스크립트 | Command / 명령 | Role / 역할 |
 |---|---|---|
-| `augment_dataset.py` | `python -m src.scripts.augment_dataset` | PRD 미달 레벨 증강 + CSV 갱신 |
+| `prepare_dataset.py` | `python -m src.scripts.prepare_dataset` | ROI 패치 추출 + augment_dataset.py 자동 호출 (전체 파이프라인 단일 진입점) |
+| `augment_dataset.py` | `python -m src.scripts.augment_dataset` | PRD 미달 레벨 증강 + CSV 갱신 (단독 실행 가능) |
+
+> `prepare_dataset.py` 실행 시 패치 추출 후 자동으로 `augment_dataset.py` 를 호출하여 PRD v2 목표를 달성한다.
+> Running `prepare_dataset.py` automatically calls `augment_dataset.py` after patch extraction to meet PRD v2 targets.
 
 ---
 
