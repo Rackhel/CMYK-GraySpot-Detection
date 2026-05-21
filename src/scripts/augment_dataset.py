@@ -124,14 +124,20 @@ def main() -> None:
             target_count = PRD_TARGETS.get(level, 0)
 
             if current_count >= target_count:
-                print(f"  [{channel}] Level {level}: {current_count:4d} >= {target_count} → skip")
+                print(
+                    f"  [{channel}] Level {level}: {current_count:4d} >= {target_count} → skip"
+                )
                 continue
 
             shortage = target_count - current_count
-            print(f"  [{channel}] Level {level}: {current_count:4d} < {target_count} → augment {shortage}")
+            print(
+                f"  [{channel}] Level {level}: {current_count:4d} < {target_count} → augment {shortage}"
+            )
 
             if not group:
-                print(f"    [WARN] No source images for [{channel}] Level {level} — skipping")
+                print(
+                    f"    [WARN] No source images for [{channel}] Level {level} — skipping"
+                )
                 continue
 
             dst_dir = labeled_dir / channel / str(level)
@@ -162,11 +168,13 @@ def main() -> None:
                     except ValueError:
                         rel_path = str(dst_path)
 
-                    new_rows.append({
-                        "filepath": rel_path,
-                        "channel": channel,
-                        "level": level,
-                    })
+                    new_rows.append(
+                        {
+                            "filepath": rel_path,
+                            "channel": channel,
+                            "level": level,
+                        }
+                    )
 
                 except Exception as exc:
                     print(f"    [ERROR] {src_path}: {exc}")

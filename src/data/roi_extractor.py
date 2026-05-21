@@ -109,7 +109,9 @@ class ROIExtractor:
         if not image_path.exists():
             raise FileNotFoundError(f"Image not found: {image_path}")
         if channel not in _CHANNELS:
-            raise ValueError(f"Unknown channel '{channel}'. Must be one of {_CHANNELS}.")
+            raise ValueError(
+                f"Unknown channel '{channel}'. Must be one of {_CHANNELS}."
+            )
 
         img = cv2.imread(str(image_path))
         if img is None:

@@ -34,7 +34,6 @@ sys.path.insert(0, str(SRC_DIR))
 
 from scripts.augment_dataset import PRD_TARGETS, _augment_image, _read_csv, _write_csv
 
-
 # ── PRD_TARGETS 상수 검증 / PRD v2 constant checks ──────────────────────────
 # T-AUG-01 ~ T-AUG-02
 
@@ -111,8 +110,16 @@ class TestCsvRoundtrip:
         """T-AUG-21: 쓰기 후 읽기 — 동일 데이터 복원."""
         csv_path = tmp_path / "test.csv"
         rows = [
-            {"filepath": "data_set/labeled/Y/0/img_0001.png", "channel": "Y", "level": 0},
-            {"filepath": "data_set/labeled/M/3/img_0002.png", "channel": "M", "level": 3},
+            {
+                "filepath": "data_set/labeled/Y/0/img_0001.png",
+                "channel": "Y",
+                "level": 0,
+            },
+            {
+                "filepath": "data_set/labeled/M/3/img_0002.png",
+                "channel": "M",
+                "level": 3,
+            },
         ]
         _write_csv(csv_path, rows)
         loaded = _read_csv(csv_path)
@@ -164,6 +171,7 @@ class TestAugmentationTrigger:
             img_path = img_dir / fname
             # 실제 파일 생성 (augment_dataset.py 가 파일을 열기 때문)
             from PIL import Image as PILImage
+
             PILImage.fromarray(
                 np.random.randint(0, 256, (128, 128, 3), dtype=np.uint8)
             ).save(str(img_path))
@@ -175,6 +183,7 @@ class TestAugmentationTrigger:
 
         # augment_dataset.main() 의 핵심 로직만 직접 검증
         from collections import defaultdict
+
         groups: dict = defaultdict(list)
         for row in rows:
             key = (row["channel"], int(row["level"]))

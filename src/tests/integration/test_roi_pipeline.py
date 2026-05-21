@@ -37,7 +37,6 @@ sys.path.insert(0, str(SRC_DIR))
 from data.dataset import ContrastiveDataset
 from data.roi_extractor import ROIExtractor
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -106,7 +105,9 @@ class TestROIExtractorToFile:
             # 마지막 _XXXX 가 4자리 숫자인지 확인
             parts = name.rsplit("_", 1)
             assert len(parts) == 2, f"파일명 규칙 불일치: {name}"
-            assert parts[1].isdigit() and len(parts[1]) == 4, f"idx 형식 불일치: {parts[1]}"
+            assert (
+                parts[1].isdigit() and len(parts[1]) == 4
+            ), f"idx 형식 불일치: {parts[1]}"
 
 
 # ── T-ROI-INT-02 ──────────────────────────────────────────────────────────────

@@ -100,11 +100,13 @@ class InferenceMixin:
                 continue
 
             filename = Path(filepath).name
-            records.append({
-                "filename": filename,
-                "color": color,
-                "level": level,
-            })
+            records.append(
+                {
+                    "filename": filename,
+                    "color": color,
+                    "level": level,
+                }
+            )
 
         long_df = pd.DataFrame(records)
         self.logger.info(
@@ -133,11 +135,13 @@ class InferenceMixin:
             if col is None or col not in df.columns:
                 skipped += 1
                 continue
-            records.append({
-                "filename": row["filename"],
-                "color": color,
-                "level": int(row[col]),
-            })
+            records.append(
+                {
+                    "filename": row["filename"],
+                    "color": color,
+                    "level": int(row[col]),
+                }
+            )
 
         long_df = pd.DataFrame(records)
         self.logger.info(
