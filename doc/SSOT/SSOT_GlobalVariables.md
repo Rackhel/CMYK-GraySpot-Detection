@@ -1,3 +1,14 @@
+---
+type: ssot
+domain: global_variables
+status: Active
+last_updated: 2026-05-17
+owner: CMYK WooSong Team
+related_docs:
+  - "SSOT_Core.md"
+  - "SSOT_Config_Resolution.md"
+---
+
 # SSOT Global Variables — 전역 변수 및 하드코딩 정책 / Global Variables and Hardcoding Policy
 
 CMYK Grayspot Detection System 의 모든 전역 변수, 상수, 하드코딩 값의 Hard/Soft SSOT 분류에 관한 단일 진실 공급원.
@@ -7,17 +18,6 @@ This document catalogs every global variable, constant, and hardcoded value and 
 > **목적 / Purpose**: 전역 변수/상수의 의미와 Hard/Soft 분류 정의
 > **역할 / Role**: "What" — 변경 시 재학습 필요 여부 판단의 기준
 > **관련 문서 / See also**: [SSOT_Core.md](SSOT_Core.md), [SSOT_Config_Resolution.md](SSOT_Config_Resolution.md)
-
----
-
-## Table of Contents / 목차
-
-1. [분류 기준 / Classification Criteria](#1-분류-기준--classification-criteria)
-2. [Hard SSOT 변수 / Hard SSOT Variables](#2-hard-ssot-변수--hard-ssot-variables)
-3. [Soft SSOT 변수 / Soft SSOT Variables](#3-soft-ssot-변수--soft-ssot-variables)
-4. [하드코딩 값 / Hardcoded Values](#4-하드코딩-값--hardcoded-values)
-5. [Dead Config 전체 목록 / Complete Dead Config List](#5-dead-config-전체-목록--complete-dead-config-list)
-6. [변경 영향 요약 / Change Impact Summary](#6-변경-영향-요약--change-impact-summary)
 
 ---
 
@@ -224,36 +224,20 @@ optimizer (adamw | sgd), scheduler (cosine | step)
 momentum, betas, gamma, eta_min
 ```
 
-### 6.3 해결 완료 Dead Config / Resolved Dead Config
+---
 
-```
-✅ DONE  data.split_ratios              → dataset.py 소비 완료
-✅ DONE  cuda.deterministic             → set_seed() 소비 완료
-✅ DONE  cuda.benchmark                 → set_seed() 소비 완료
-✅ DONE  phase2.early_stopping.*        → Phase2Trainer 소비 완료
-✅ DONE  train.gradient_clip            → Phase0/2Trainer 소비 완료
-✅ DONE  model.frozen_backbone          → GrayspotModel 소비 완료
-✅ DONE  phase0.weight_decay            → Phase0Trainer AdamW 소비 완료
-✅ DONE  phase0.augmentation.color_jitter → augment_contrastive() aug_cfg 소비 완료
-✅ DONE  phase0.augmentation.blur_prob  → augment_contrastive() aug_cfg 소비 완료
-✅ DONE  evaluation.swing_thresholds.*  → determine_swing_feedback() 소비 완료
-✅ DONE  phase0.hidden_dim              → GrayspotModel ProjectionHead hidden_dim 버그 수정
-✅ DONE  train.optimizer                → _build_optimizer() factory 구현
-✅ DONE  train.scheduler                → _build_scheduler() factory 구현
-✅ DONE  train.momentum / betas / gamma → factory 함수 내 소비
-✅ DONE  optuna.direction               → run_optuna() cfg 소비
-✅ DONE  optuna.sampler                 → run_optuna() sampler factory 구현
-✅ DONE  optuna.search_space.*          → get_phase2_search_space(trial, cfg) 소비
+## 체크리스트 / Checklist
 
-🗑️ REMOVED  system.project_name / version / mixed_precision
-🗑️ REMOVED  storage.raw_dir / outputs_dir / model_checkpoint / model_last / history_file
-🗑️ REMOVED  model.weights
-🗑️ REMOVED  phase0.enabled / warmup_epochs / augmentation.normalize
-🗑️ REMOVED  phase2.warmup_epochs / class_weights / loss_type / focal_alpha / focal_gamma
-🗑️ REMOVED  train.grad_accumulation_steps
-🗑️ REMOVED  evaluation.metrics
-🗑️ REMOVED  cuda.visible_devices
-🗑️ REMOVED  logging.log_interval / val_log_interval / log_file
-```
+- [ ] 새 변수 추가 시 Hard/Soft 분류 판정 / Classify as Hard/Soft when adding new variable
+- [ ] Hard 값 변경 시 모든 체크포인트 폐기 확인 / Verify all checkpoints are discarded on Hard value change
+- [ ] Dead Config 발견 시 소비 연결 또는 제거 / Connect or remove Dead Config when found
 
 ---
+
+## See Also
+
+| 문서 / Document | 관계 / Relation |
+| --- | --- |
+| [SSOT_Core.md](SSOT_Core.md) | Hard/Soft 판단 기준 / Hard/Soft decision criteria |
+| [SSOT_Config_Resolution.md](SSOT_Config_Resolution.md) | config 키 소비 상세 / Config key consumption detail |
+

@@ -1,11 +1,14 @@
 """
 evaluation/evaluator_inference.py
 
-책임 / Responsibility: 내부 Dataset 정의 + 모델 추론 (run)
-Responsibility: Internal Dataset definition + model inference (run)
+책임 / Responsibility: 라벨 로딩 + 모델 추론 (run)
+Responsibility: Label loading + model inference (run)
 
 SRP 준수: 이 모듈은 "데이터 로딩과 모델 추론"만 담당한다.
 SRP compliant: this module handles only "data loading and model inference".
+
+_EvalDataset은 data/dataset.py 에서 관리된다 (데이터 계층 단일 책임).
+_EvalDataset is managed in data/dataset.py (single responsibility for the data layer).
 """
 
 from __future__ import annotations
@@ -13,56 +16,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-import cv2
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
 from sklearn.metrics import accuracy_score
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
-# ---------------------------------------------------------------------------
-# Internal Dataset / 내부 Dataset
-# ---------------------------------------------------------------------------
-
-
-class _EvalDataset(Dataset):
-    """
-    평가 전용 Dataset. InferenceMixin 내부에서만 사용한다.
-    Evaluation-only Dataset. Used internally by InferenceMixin only.
-
-    R1 의 CMYKDataset 과의 차이 / Difference from R1's CMYKDataset:
-        CMYKDataset  : wide-format CSV + single image_dir
-        _EvalDataset : long-format DataFrame + labeled/{color}/{level}/ (hierarchical)
-    """
-
-    def __init__(self, df: pd.DataFrame, patch_dir: Path, image_size: int):
-        self.df = df.reset_index(drop=True)
-        self.patch_dir = Path(patch_dir)
-        self.image_size = image_size
-
-    def __len__(self) -> int:
-        return len(self.df)
-
-    def __getitem__(self, idx: int):
-        row = self.df.iloc[idx]
-        color = row["color"]
-        fname = row["filename"]
-        level = int(row["level"])
-
-        img_path = self.patch_dir / color / str(level) / fname
-
-        if not img_path.exists():
-            raise FileNotFoundError(f"Image not found / 이미지 없음: {img_path}")
-
-        img = cv2.imread(str(img_path))
-        # SSOT-CS01: BGR을 유지한다. RGB 변환 금지 / Keep BGR — no RGB conversion
-        img = cv2.resize(img, (self.image_size, self.image_size))
-        img = img.astype(np.float32) / 255.0
-
-        tensor = torch.tensor(img).permute(2, 0, 1).float()
-        return tensor, level, fname
-
+from data.dataset import _EvalDataset  # 평가 전용 Dataset — 데이터 계층에서 관리
 
 # ---------------------------------------------------------------------------
 # InferenceMixin

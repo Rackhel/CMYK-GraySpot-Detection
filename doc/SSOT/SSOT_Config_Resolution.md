@@ -1,3 +1,14 @@
+---
+type: ssot
+domain: config_resolution
+status: Active
+last_updated: 2026-05-17
+owner: CMYK WooSong Team
+related_docs:
+  - "SSOT_Core.md"
+  - "SSOT_GlobalVariables.md"
+---
+
 # SSOT Config Resolution — 설정 해소 대조표 / Config Resolution Cross-Reference
 
 CMYK Grayspot Detection System 의 `config.json` 키별 소비 현황과 해석 규칙에 관한 단일 진실 공급원.
@@ -9,17 +20,6 @@ This document tracks the consumption status of every key in `config.json` and de
 > **근거 파일 / Basis**: `src/config/config.json`, 전체 `src/` 코드 분석
 > **관련 문서 / See also**: [SSOT_Core.md](SSOT_Core.md), [SSOT_GlobalVariables.md](SSOT_GlobalVariables.md)
 > **Fail-Fast 코드 / Codes**: `SSOT-CF01` (필수 키 누락), `SSOT-CF02` (Dead Config 감지)
-
----
-
-## Table of Contents / 목차
-
-1. [Config 로딩 API / Config Loading Interface](#1-config-로딩-api--config-loading-interface)
-2. [목적 및 아이콘 / Purpose and Icons](#2-목적-및-아이콘--purpose-and-icons)
-3. [전체 요약 / Summary](#3-전체-요약--summary)
-4. [상세 대조표 / Detailed Cross-Reference](#4-상세-대조표--detailed-cross-reference)
-5. [Dead Config 요약 / Dead Config Summary](#5-dead-config-요약--dead-config-summary)
-6. [사용 규칙 / Usage Rules](#6-사용-규칙--usage-rules)
 
 ---
 
@@ -39,28 +39,6 @@ config 로딩은 `src/utils/utils_config.py` 의 함수들로 대체되었다. /
 | `get_nested(cfg, key, default=None)` | `Any` | `"phase2.learning_rate"` 형식의 dot-notation으로 optional 키 조회 / Optional key lookup via dot-notation (e.g., `"phase2.learning_rate"`) |
 
 모든 함수는 `from src.utils import ...` 또는 `from utils import ...` (shim 환경) 로 임포트한다. / All functions are imported via `from src.utils import ...` or `from utils import ...` (shim context).
-
-### 1.2 접근 패턴 / Access Pattern
-
-```python
-# ✅ 현재 패턴 / Current pattern
-from src.utils import load_config, validate_config, create_directories, get_nested
-
-cfg = load_config()               # returns dict directly
-validate_config(cfg)
-create_directories(cfg)
-
-cfg["phase2"]["learning_rate"]    # 필수 키 / Required key
-get_nested(cfg, "logging.level")  # 선택 키 (None-safe) / Optional key
-torch.device(cfg["system"]["device"])
-
-# ❌ 삭제된 패턴 / Deleted pattern (config_manager.py)
-# config = load_config()   → ConfigManager object
-# cfg = config.config
-# config.get("phase2.learning_rate")
-# config.validate()
-# config.create_necessary_directories()
-```
 
 ### 1.3 utils 모듈 구조 / utils Module Structure
 
@@ -265,8 +243,6 @@ src/utils/
 | 🟢 LOW | `reporting.*` (html 설정 외 / excluding html settings) | 쉬움 / Easy | 리포트 포맷 유연성 / Report format flexibility |
 | 🟢 LOW | `inference.*` (confidence_thresholds 제외 / excluding confidence_thresholds) | 보통 / Medium | 추론 설정 유연성 / Inference config flexibility |
 
-> ✅ **해소됨 / Resolved**: `inference.confidence_thresholds.*` → `Evaluator.__init__(cfg)` 소비 완료.
-
 ---
 
 ## 6. 사용 규칙 / Usage Rules
@@ -280,3 +256,20 @@ src/utils/
 > `SSOT-CF01`: If code references a key absent from config.json, **fail immediately**.
 
 ---
+
+## 체크리스트 / Checklist
+
+- [ ] 새 config 키 추가 → §4 대조표에 행 추가 / Add row to §4 cross-reference when adding new config key
+- [ ] config 키 제거 → §4에서 행 삭제 / Delete row from §4 when removing config key
+- [ ] 소비 지점 변경 → 소비 지점 컬럼 업데이트 / Update consumer column when consumption point changes
+- [ ] Dead Config 발견 → §5 Dead Config 요약 갱신 / Update §5 summary when Dead Config found
+
+---
+
+## See Also
+
+| 문서 / Document | 관계 / Relation |
+| --- | --- |
+| [SSOT_Core.md](SSOT_Core.md) | 우선순위 기준 / Priority criteria |
+| [SSOT_GlobalVariables.md](SSOT_GlobalVariables.md) | Hard/Soft 분류 / Hard/Soft classification |
+

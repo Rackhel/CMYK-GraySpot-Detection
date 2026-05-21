@@ -1,3 +1,15 @@
+---
+type: ssot
+domain: artifacts
+status: Active
+last_updated: 2026-05-17
+owner: CMYK WooSong Team
+related_docs:
+  - "SSOT_Core.md"
+  - "SSOT_Model_Architecture.md"
+  - "SSOT_Training_Pipeline.md"
+---
+
 # SSOT Artifacts — 산출물 의미 스키마 / Artifact Semantic Schema
 
 CMYK Grayspot Detection System 의 산출물 파일명 패턴, 경로, 내용 스키마에 관한 단일 진실 공급원.
@@ -10,32 +22,12 @@ This document is the authoritative reference for artifact filename patterns, dir
 
 ---
 
-## Table of Contents / 목차
-
-1. [절대 원칙 / Mandatory Rules](#1-절대-원칙--mandatory-rules)
-2. [파일명 패턴 원칙 / Filename Pattern Principles](#2-파일명-패턴-원칙--filename-pattern-principles)
-3. [산출물 카탈로그 / Artifact Catalog](#3-산출물-카탈로그--artifact-catalog)
-4. [디렉토리 구조 / Directory Structure](#4-디렉토리-구조--directory-structure)
-5. [아티팩트 의존 관계 / Artifact Dependency Graph](#5-아티팩트-의존-관계--artifact-dependency-graph)
-6. [state_dict 호환 규칙 / state_dict Compatibility Rules](#6-state_dict-호환-규칙--state_dict-compatibility-rules)
-
----
-
 ## 1. 절대 원칙 / Mandatory Rules
 
 ### ❌ 하드코딩 금지 / No Hardcoded Paths
 
 - `"best_Y.pt"` 등 **문자열 리터럴 경로 사용 금지** / **String literal paths such as `"best_Y.pt"` are prohibited**
 - 모든 경로는 **config + channel + tag 변수에서 동적 생성** / All paths must be **dynamically generated from config + channel + tag variables**
-
-```python
-# ❌ 금지 / Prohibited
-path = "data_set/models/best_Y.pt"
-
-# ✅ 허용 / Allowed
-path = model_dir / f"best_{channel}.pt"
-path = model_dir / f"phase0_backbone_{channel}_{backbone_tag(backbone)}.pt"
-```
 
 ### ❌ Fallback 금지 / No Fallbacks
 
@@ -72,22 +64,17 @@ path = model_dir / f"phase0_backbone_{channel}_{backbone_tag(backbone)}.pt"
 
 ### 2.3 Backbone 태그 / Backbone Tags
 
-```python
-from utils import backbone_tag          # ✅ 권장 / Recommended (utils_model.py 정의)
-# from training import backbone_tag     # 하위 호환 유지 / Also works (trainer.py 로컬 복사본)
-
-backbone_tag("efficientnet_b0")  # → "effb0"
-backbone_tag("resnet50")         # → "res50"
-```
+| backbone 이름 / Name | 태그 / Tag |
+|---|---|
+| `efficientnet_b0` | `effb0` |
+| `resnet50` | `res50` |
 
 ### 2.4 Channel Invariant
 
 동일 `{channel}` = 동일 의미 공간 / Same `{channel}` = same semantic space:
 
-```
-phase0_backbone_Y_effb0.pt → best_Y.pt   (Y 채널 연속 학습 / Continuous Y-channel training ✅)
-phase0_backbone_Y_effb0.pt → best_M.pt   (채널 교차 금지 / Cross-channel prohibited ❌ SSOT-FF01)
-```
+- `phase0_backbone_Y_effb0.pt → best_Y.pt` — Y 채널 연속 학습 / Continuous Y-channel training ✅
+- `phase0_backbone_Y_effb0.pt → best_M.pt` — 채널 교차 금지 / Cross-channel prohibited ❌ SSOT-FF01
 
 ---
 
@@ -101,20 +88,6 @@ phase0_backbone_Y_effb0.pt → best_M.pt   (채널 교차 금지 / Cross-channel
 
 **예시 / Example**: `phase0_backbone_Y_effb0.pt`
 
-**state_dict 스키마 / Schema**:
-
-```python
-{
-    "backbone.features.0.0.weight": Tensor,  # EfficientNet-B0 첫 레이어 / EfficientNet-B0 first layer
-    # ... EfficientNet-B0 layers ...
-    "head.fc1.weight":  Tensor,              # ProjectionHead fc1
-    "head.fc1.bias":    Tensor,
-    "head.bn1.weight":  Tensor,
-    "head.fc2.weight":  Tensor,              # ProjectionHead fc2 (→ projection_dim=128)
-    "head.fc2.bias":    Tensor,
-}
-```
-
 ### 3.2 Phase 2 산출물 / Phase 2 Artifacts
 
 | 파일명 패턴 / Pattern | 형식 / Format | 내용 / Content | SSOT |
@@ -125,20 +98,6 @@ phase0_backbone_Y_effb0.pt → best_M.pt   (채널 교차 금지 / Cross-channel
 **예시 / Examples**:
 - `best_Y.pt`
 - `phase2_Y_effb0_v1.pt`
-
-**state_dict 스키마 / Schema**:
-
-```python
-{
-    "backbone.features.0.0.weight": Tensor,  # backbone (Phase 0에서 이월 / carried over from Phase 0)
-    # ... backbone layers ...
-    "head.fc1.weight":  Tensor,              # ClassifierHead fc1
-    "head.bn1.weight":  Tensor,
-    "head.fc1.bias":    Tensor,
-    "head.fc2.weight":  Tensor,              # ClassifierHead fc2 (→ num_levels=6)
-    "head.fc2.bias":    Tensor,
-}
-```
 
 ### 3.3 학습 이력 / Training History Artifacts
 
@@ -157,27 +116,6 @@ phase0_backbone_Y_effb0.pt → best_M.pt   (채널 교차 금지 / Cross-channel
 
 **예시 / Example**: `config_snapshot_Y_phase0_20260508_143000.json`
 
-**스키마 / Schema**:
-
-```json
-{
-  "timestamp": "2026-05-08T14:30:00.123456",
-  "tag": "Y_phase0",
-  "environment": {
-    "python": "3.11.5 (main, ...)",
-    "platform": "macOS-...",
-    "torch": "2.1.0",
-    "cuda_available": false,
-    "cuda_version": null
-  },
-  "git": {
-    "commit": "a1b2c3d",
-    "dirty": false
-  },
-  "config": { ... }
-}
-```
-
 ### 3.5 평가 산출물 / Evaluation Artifacts
 
 | 파일명 패턴 / Pattern | 형식 / Format | 내용 / Content | SSOT |
@@ -185,7 +123,7 @@ phase0_backbone_Y_effb0.pt → best_M.pt   (채널 교차 금지 / Cross-channel
 | `evaluation_results_{name}.csv` | CSV | 샘플별 예측 결과 / Per-sample prediction results | ❌ Soft |
 | `misclassified_{name}.csv` | CSV | 오분류 샘플 목록 / Misclassified sample list | ❌ Soft |
 | `metrics_summary_{name}.json` | JSON | 채널별 집계 지표 / Per-channel aggregated metrics | ❌ Soft |
-| `baseline_report_{ch}.html` | HTML | 시각화 리포트 / Visualization report | ❌ Soft |
+| `baseline.html` | HTML | 시각화 리포트 (generate_baseline_report() 생성) / Visualization report (generated by generate_baseline_report()) | ❌ Soft |
 
 ### 3.6 Optuna 산출물 / Optuna Artifacts
 
@@ -206,26 +144,6 @@ phase0_backbone_Y_effb0.pt → best_M.pt   (채널 교차 금지 / Cross-channel
 - `outputs/optuna/best_params_all.json`
 - `outputs/optuna/trials_summary_all.json`
 
-**best_params JSON 스키마 / Schema** (EfficientNet-B0 기준):
-
-```json
-{
-  "learning_rate": 0.0001,
-  "batch_size": 16,
-  "weight_decay": 0.0001,
-  "epochs": 10,
-  "dropout": 0.2,
-  "hidden_dim": 128
-}
-```
-
-**ResNet-50 추가 필드 / ResNet-50 additional field**:
-```json
-{
-  "mid_dim": 512
-}
-```
-
 ---
 
 ## 4. 디렉토리 구조 / Directory Structure
@@ -242,15 +160,15 @@ CMYK_MAIN/
 │   │   ├── config.json              ← 모든 런타임 파라미터 SSOT / SSOT for all runtime parameters
 │   │   ├── dependencies.json        ← 의존성 레지스트리 / Dependency registry
 │   │   └── pyproject.toml           ← 빌드 & 도구 설정 / Build & tool settings
-│   ├── data/                        dataset.py, augmentation.py, preprocessing.py
+│   ├── data/                        dataset.py, augmentation.py, preprocessing.py, normalize.py
 │   ├── models/                      backbone.py, classifier.py, grayspot_model.py, projection_head.py
 │   ├── training/                    trainer.py, contrastive_loss.py, losses.py
 │   ├── evaluation/                  metrics.py, confusion.py, evaluator.py (Orchestrator), evaluator_inference.py, evaluator_metrics.py, evaluator_export.py, evaluator_charts.py
 │   ├── inference/                   predictor.py (Orchestrator), predictor_device.py, predictor_loader.py, predictor_inference.py
-│   ├── reporting/                   html_report.py
+│   ├── reporting/                   html_report.py (generate_baseline_report())
 │   ├── tuning/                      optuna_tuner.py, search_space.py, optuna_utils.py
 │   ├── utils/                       utils_config.py, utils_model.py, logger.py
-│   ├── scripts/                     train.py, run_phase0.py, run_phase2.py, run_baseline.py, run_optuna.py
+│   ├── scripts/                     train.py, run_phase0.py, run_phase2.py, run_baseline.py, run_optuna.py, tsne_review.py
 │   ├── tests/
 │   │   ├── unit/                    ← 단위 테스트 (I/O 없음, < 1초) / Unit tests (no I/O, < 1s)
 │   │   ├── integration/             ← 통합 테스트 (모듈 연결 검증) / Integration tests (module connection)
@@ -271,8 +189,11 @@ CMYK_MAIN/
 │   ├── snapshots/                   ← 실행 시점 config 스냅샷 / Config snapshot at run time
 │   │   └── config_snapshot_{tag}_{ts}.json
 │   ├── logs/                        ← 실행 로그 / Execution logs
-│   ├── reports/                     ← HTML 평가 리포트 / HTML evaluation reports
+│   ├── reports/                     ← HTML 평가 리포트 & t-SNE 시각화 / HTML evaluation reports & t-SNE visualizations
 │   │   ├── phase2_{ver}.html
+│   │   ├── baseline.html                  ← generate_baseline_report() 생성 / Generated by generate_baseline_report()
+│   │   ├── tsne_plot.png                  ← t-SNE 임베딩 시각화 / t-SNE embedding visualization
+│   │   ├── priority_review_samples.csv    ← 우선 검토 샘플 목록 / Priority review samples
 │   │   └── confusion/
 │   │       ├── cm_{ch}.html
 │   │       └── cm_overall.html
@@ -320,25 +241,49 @@ metrics_summary_{name}.json + baseline_report_{ch}.html
 
 ### 6.1 Phase 0 → Phase 2 전환 / Phase 0 → Phase 2 Switch
 
-```python
-# GrayspotModel.switch_to_phase2()에서의 로드 규칙 / Load rules in GrayspotModel.switch_to_phase2()
-state = torch.load(backbone_path)
-backbone_keys = {k: v for k, v in state.items() if k.startswith("backbone.")}
-model.load_state_dict(backbone_keys, strict=False)
-```
-
 - `backbone.*` prefix 키만 선택적 로드 / Only `backbone.*` prefix keys are loaded
 - Head 키 무시 (ProjectionHead → ClassifierHead 교체) / Head keys discarded (ProjectionHead replaced by ClassifierHead)
 - `strict=False`: 새 ClassifierHead 키 불일치 허용 / Allows new ClassifierHead key mismatches
 
 ### 6.2 추론 시 로드 / Inference Load
 
-```python
-checkpoint = torch.load(path, map_location="cpu", weights_only=True)
-model.load_state_dict(checkpoint, strict=False)
-```
-
 - `weights_only=True`: pickle 보안 — 임의 코드 실행 방지 / Pickle security — prevent arbitrary code execution
 - `strict=False`: 버전 간 호환성 / Cross-version compatibility
 
 ---
+
+## ONNX 산출물
+
+| 파일명 | 위치 | 생성 시점 |
+| --- | --- | --- |
+| `model_{channel}_{backbone_tag}.onnx` | `outputs/onnx/` | S4 ONNX 변환 |
+| `model_{channel}_{backbone_tag}.tflite` | `outputs/onnx/` | S5 선택 사항 |
+
+### ONNX 모델 사양
+
+| 항목 | 값 |
+| --- | --- |
+| 입력 shape | `(1, 3, 128, 128)` float32 |
+| 출력 shape | `(1, 6)` float32 (logits) |
+| opset | 17 |
+| 소스 | Phase 2 `best_{channel}.pt` |
+
+---
+
+## 체크리스트 / Checklist
+
+- [ ] 새 산출물 추가 시 §3 카탈로그 업데이트 / Update §3 catalog when adding new artifact
+- [ ] Backbone 추가 시 `backbone_tag()` 매핑 업데이트 / Update `backbone_tag()` mapping when adding backbone
+- [ ] state_dict 스키마 변경 시 §6 동기화 / Sync §6 on state_dict schema change
+- [ ] 디렉토리 경로 변경 시 §4 갱신 / Update §4 when directory paths change
+
+---
+
+## See Also
+
+| 문서 / Document | 관계 / Relation |
+| --- | --- |
+| [SSOT_Core.md](SSOT_Core.md) | 최상위 원칙 / Top-level principles |
+| [SSOT_Model_Architecture.md](SSOT_Model_Architecture.md) | 모델 구조 정의 / Model architecture definition |
+| [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | 산출물 생산 흐름 / Artifact production flow |
+
