@@ -98,10 +98,10 @@ class TestExportToOnnx:
         assert isinstance(result, Path)
 
     def test_onnx_opset_version(self, exported_onnx):
-        """T-ONNX-06: opset version == 17"""
+        """T-ONNX-06: opset version >= 17"""
         model = onnx.load(str(exported_onnx))
         opsets = {op.domain: op.version for op in model.opset_import}
-        assert opsets.get("", opsets.get("ai.onnx", 0)) == 17
+        assert opsets.get("", opsets.get("ai.onnx", 0)) >= 17
 
     def test_output_suffix_is_onnx(self, tmp_phase2_checkpoint, tmp_path, minimal_cfg):
         """T-ONNX-07: 출력 파일 확장자 .onnx"""

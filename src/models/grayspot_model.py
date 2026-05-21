@@ -45,8 +45,14 @@ class GrayspotModel(nn.Module, LoggerMixin):
         # phase2.heads.{backbone}이 없으면 phase2 최상위 기본값으로 fallback
         # Falls back to top-level phase2 defaults if phase2.heads.{backbone} absent
         head_cfg = cfg["phase2"].get("heads", {}).get(backbone_name, {})
-        cls_hidden = head_cfg.get("hidden_dim", cfg["phase2"]["hidden_dim"])
-        dropout = head_cfg.get("dropout", cfg["phase2"]["dropout"])
+        cls_hidden = (
+            head_cfg["hidden_dim"]
+            if "hidden_dim" in head_cfg
+            else cfg["phase2"]["hidden_dim"]
+        )
+        dropout = (
+            head_cfg["dropout"] if "dropout" in head_cfg else cfg["phase2"]["dropout"]
+        )
         mid_dim = head_cfg.get(
             "mid_dim", None
         )  # None → EfficientNet-B0, int → ResNet-50

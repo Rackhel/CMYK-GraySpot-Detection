@@ -17,11 +17,8 @@ sys.path.insert(0, str(ROOT_DIR))
 sys.path.insert(0, str(SRC_DIR))
 
 # Will raise ImportError until implemented — correct failing behavior
-from evaluation.swing_efficiency import (  # noqa: E402
-    SwingEfficiencyReport,
-    compute_swing_efficiency,
-    should_early_stop,
-)
+from evaluation.swing_efficiency import SwingEfficiencyReport  # noqa: E402
+from evaluation.swing_efficiency import compute_swing_efficiency, should_early_stop
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

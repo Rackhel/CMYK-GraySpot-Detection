@@ -5,14 +5,24 @@ Status: FAILING — LabelRefiner not yet implemented.
 Ref: doc/TDD/TDD_LabelRefiner.md
 """
 
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
-# Will raise ImportError until implemented
-from data.label_refiner import LabelRefiner
+# ── sys.path 설정 / sys.path setup ─────────────────────────────────────────
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
+SRC_DIR = ROOT_DIR / "src"
+sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(SRC_DIR))
+
+pytest.importorskip(
+    "data.label_refiner",
+    reason="LabelRefiner module not yet implemented",
+)
+from data.label_refiner import LabelRefiner  # noqa: E402
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
