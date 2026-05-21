@@ -162,7 +162,12 @@ def _run_channel_evaluation(
     # Save JSON report directly (ensures report file is always created per Contract §10)
     # SSOT_Artifacts.md §3.5 — 파일명 패턴: metrics_summary_{name}.json
     # SSOT_Artifacts.md §3.5 — filename pattern: metrics_summary_{name}.json
-    report_path = output_dir / f"metrics_summary_{channel}.json"
+    metrics_summary_path = output_dir / f"metrics_summary_{channel}.json"
+    _write_json_summary(metrics_summary_path, channel, metrics)
+
+    # evaluate.py 전용 호환 파일명: report_{channel}.json
+    # Compatibility filename for evaluate.py integration tests and CLI contract
+    report_path = output_dir / f"report_{channel}.json"
     _write_json_summary(report_path, channel, metrics)
 
     # HTML 대시보드 저장
