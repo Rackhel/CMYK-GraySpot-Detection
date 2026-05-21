@@ -99,7 +99,7 @@ NUM: 순번 (01, 02, ...) / Sequential number
 | 즉각 조치 / Immediate Action | 색상 공간 강제 확인 후 불일치 시 중단 / Force color space check and halt on mismatch |
 | 해결 방법 / Fix | `cv2.imread()` 사용 → BGR 유지. PIL/torchvision 사용 시 BGR 변환 명시 / Use `cv2.imread()` to keep BGR. Explicitly convert to BGR when using PIL/torchvision. |
 
-적용 범위 / Scope: `data/dataset.py`, `data/augmentation.py`, `inference/predictor_inference.py`, `scripts/tsne_review.py`
+적용 범위 / Scope: `data/dataset.py`, `data/augmentation.py`, `inference/predictor_inference.py`
 
 ---
 

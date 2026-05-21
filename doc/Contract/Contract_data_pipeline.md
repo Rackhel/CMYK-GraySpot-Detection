@@ -151,7 +151,9 @@ image = image / 255.0   # float32 [0,1]
 - [x] 전처리 전 경로에서 BGR 유지 확인 / Verify BGR maintained through preprocessing
 - [x] ImageNet 정규화 학습/추론 동일 적용 / ImageNet normalization applied identically in training and inference
 - [x] val split 증강 미적용 확인 / Confirm no augmentation on val split
-- [ ] `_EvalDataset`에 ImageNet 정규화 적용 (N-01) / Apply ImageNet normalization to `_EvalDataset`
+- [x] `_EvalDataset`에 ImageNet 정규화 적용 (N-01) / Apply ImageNet normalization to `_EvalDataset`
+- [x] `_EvalDataset` 을 `data/dataset.py` 로 이동 — 데이터 계층 SRP 준수 / Moved `_EvalDataset` to `data/dataset.py` — SRP compliance for data layer
+- [x] `InferenceMixin.load_labels()` 에서 labels_master.csv (long-format) 및 labels_v0.csv (wide-format) 자동 감지 지원 / Auto-detect support for labels_master.csv (long-format) and labels_v0.csv (wide-format) in `InferenceMixin.load_labels()`
 
 ---
 

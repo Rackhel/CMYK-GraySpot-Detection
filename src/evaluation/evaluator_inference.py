@@ -50,17 +50,82 @@ class InferenceMixin:
 
     def load_labels(self) -> pd.DataFrame:
         """
-        labels_v0.csv 를 long-format DataFrame 으로 변환한다.
-        Converts labels_v0.csv to a long-format DataFrame.
+        CSV 파일을 읽어 long-format DataFrame 으로 반환한다.
+        Reads a CSV file and returns it as a long-format DataFrame.
 
-        파일명 색상과 일치하는 라벨만 포함한다.
-        Only labels matching the color in the filename are included.
+        두 가지 CSV 형식을 자동 감지한다 / Auto-detects two CSV formats:
+
+          [형식 A / Format A] labels_master.csv (long-format) — 권장 / Recommended
+            columns: filepath, channel, level
+            → filepath 에서 파일명을 추출해 filename 컬럼 생성
+            → channel 컬럼을 color 컬럼으로 복사
+
+          [형식 B / Format B] labels_v0.csv (wide-format) — 레거시 / Legacy
+            columns: filename, C, M, Y, K
+            → 파일명에서 색상 코드를 추출해 long-format 으로 변환
+
+        Returns:
+            pd.DataFrame — columns: ["filename", "color", "level"]
         """
         df = pd.read_csv(self.labels_csv)
-        cols_map = {"Y": "Y", "M": "M", "C": "C", "K": "K"}
 
+        # ── 형식 감지 / Format detection ──────────────────────────────────────
+        is_long_format = "filepath" in df.columns and "channel" in df.columns
+
+        if is_long_format:
+            return self._load_labels_long(df)
+        else:
+            return self._load_labels_wide(df)
+
+    def _load_labels_long(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        long-format CSV (labels_master.csv) 처리.
+        Processes long-format CSV (labels_master.csv).
+
+        columns: filepath, channel, level
+        """
         records = []
         skipped = 0
+
+        for _, row in df.iterrows():
+            filepath = str(row["filepath"])
+            color = str(row["channel"]).strip().upper()
+            if color not in ("Y", "M", "C", "K"):
+                skipped += 1
+                continue
+            try:
+                level = int(row["level"])
+            except (ValueError, TypeError):
+                skipped += 1
+                continue
+
+            filename = Path(filepath).name
+            records.append(
+                {
+                    "filename": filename,
+                    "color": color,
+                    "level": level,
+                }
+            )
+
+        long_df = pd.DataFrame(records)
+        self.logger.info(
+            f"Labels loaded (long-format) / 라벨 로드: "
+            f"{len(long_df)} rows  (skipped / 제외: {skipped})"
+        )
+        return long_df
+
+    def _load_labels_wide(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        wide-format CSV (labels_v0.csv / labels_cmyk.csv) 처리.
+        Processes wide-format CSV (labels_v0.csv / labels_cmyk.csv).
+
+        columns: filename, C, M, Y, K
+        """
+        cols_map = {"Y": "Y", "M": "M", "C": "C", "K": "K"}
+        records = []
+        skipped = 0
+
         for _, row in df.iterrows():
             color = self._extract_color(str(row["filename"]))
             if color is None:
@@ -80,7 +145,8 @@ class InferenceMixin:
 
         long_df = pd.DataFrame(records)
         self.logger.info(
-            f"Labels loaded / 라벨 로드: {len(long_df)} rows  (skipped / 제외: {skipped})"
+            f"Labels loaded (wide-format) / 라벨 로드: "
+            f"{len(long_df)} rows  (skipped / 제외: {skipped})"
         )
         return long_df
 

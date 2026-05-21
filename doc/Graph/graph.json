@@ -66,7 +66,6 @@
     { "id": "scripts.run_optuna",       "label": "scripts/run_optuna.py",               "group": "scripts",          "path": "src/scripts/run_optuna.py" },
     { "id": "scripts.generate_baseline_report","label": "scripts/generate_baseline_report.py","group": "scripts",    "path": "src/scripts/generate_baseline_report.py" },
     { "id": "scripts.train",            "label": "scripts/train.py",                    "group": "scripts",          "path": "src/scripts/train.py" },
-    { "id": "scripts.tsne_review",      "label": "scripts/tsne_review.py",              "group": "scripts",          "path": "src/scripts/tsne_review.py" },
 
     { "id": "tests.unit.test_augmentation",  "label": "tests/unit/test_augmentation.py", "group": "tests.unit",     "path": "src/tests/unit/test_augmentation.py" },
     { "id": "tests.unit.test_confusion",     "label": "tests/unit/test_confusion.py",    "group": "tests.unit",     "path": "src/tests/unit/test_confusion.py" },
