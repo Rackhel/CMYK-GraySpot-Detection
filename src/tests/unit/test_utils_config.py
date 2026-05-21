@@ -196,7 +196,9 @@ class TestGetFloat:
         assert result == pytest.approx(0.5)
 
     def test_min_val_passes_on_equal(self, minimal_cfg):
-        result = get_float(minimal_cfg, "phase2.learning_rate", default=1e-3, min_val=1e-4)
+        result = get_float(
+            minimal_cfg, "phase2.learning_rate", default=1e-3, min_val=1e-4
+        )
         assert result == pytest.approx(1e-4)
 
     def test_min_val_raises_when_below(self):
@@ -273,7 +275,9 @@ class TestGetStr:
 
     def test_allowed_passes_on_valid_value(self, minimal_cfg):
         result = get_str(
-            minimal_cfg, "model.backbone", default="efficientnet_b0",
+            minimal_cfg,
+            "model.backbone",
+            default="efficientnet_b0",
             allowed=["efficientnet_b0", "resnet50"],
         )
         assert result == "efficientnet_b0"
@@ -281,8 +285,12 @@ class TestGetStr:
     def test_allowed_raises_on_invalid_value(self):
         cfg = {"model": {"backbone": "vgg16"}}
         with pytest.raises(ValueError, match="must be one of"):
-            get_str(cfg, "model.backbone", default="efficientnet_b0",
-                    allowed=["efficientnet_b0", "resnet50"])
+            get_str(
+                cfg,
+                "model.backbone",
+                default="efficientnet_b0",
+                allowed=["efficientnet_b0", "resnet50"],
+            )
 
     def test_no_allowed_accepts_any_string(self):
         cfg = {"a": {"b": "anything"}}

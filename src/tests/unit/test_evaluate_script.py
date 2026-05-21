@@ -21,7 +21,6 @@ sys.path.insert(0, str(SRC_DIR))
 # Will raise ImportError until implemented — correct failing behavior
 from scripts.evaluate import main, parse_args  # noqa: E402
 
-
 # ── CLI 인수 파싱 ──────────────────────────────────────────────────────────────
 # T-EVAL-01 ~ T-EVAL-05
 
@@ -126,9 +125,7 @@ class TestReportGeneration:
                     str(tmp_path / "nonexistent.pt"),
                 ]
             )
-        assert exc_info.value.code == 1, (
-            f"종료 코드={exc_info.value.code}, 1 기대"
-        )
+        assert exc_info.value.code == 1, f"종료 코드={exc_info.value.code}, 1 기대"
 
     def test_channel_all_runs_all_channels(self, tmp_path, monkeypatch):
         """T-EVAL-12: --channel all → C, M, Y, K 4채널 모두 처리"""
@@ -147,6 +144,9 @@ class TestReportGeneration:
         ):
             main(["--channel", "all", "--output-dir", str(tmp_path)])
 
-        assert set(channels_processed) == {"Y", "M", "C", "K"}, (
-            f"처리된 채널={set(channels_processed)}, {{'Y','M','C','K'}} 기대"
-        )
+        assert set(channels_processed) == {
+            "Y",
+            "M",
+            "C",
+            "K",
+        }, f"처리된 채널={set(channels_processed)}, {{'Y','M','C','K'}} 기대"

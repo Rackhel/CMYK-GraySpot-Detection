@@ -254,9 +254,7 @@ class _EvalDataset(Dataset):
         img_path = self.patch_dir / color / str(level) / fname
 
         if not img_path.exists():
-            raise FileNotFoundError(
-                f"Image not found / 이미지 없음: {img_path}"
-            )
+            raise FileNotFoundError(f"Image not found / 이미지 없음: {img_path}")
 
         img = cv2.imread(str(img_path))
         # SSOT-CS01: BGR 유지 — RGB 변환 금지 / Keep BGR — no RGB conversion

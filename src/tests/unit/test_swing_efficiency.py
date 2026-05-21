@@ -23,7 +23,6 @@ from evaluation.swing_efficiency import (  # noqa: E402
     should_early_stop,
 )
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -77,9 +76,9 @@ class TestComputeSwingEfficiency:
             cycle=1,
             cfg=base_cfg,
         )
-        assert abs(report.delta_acc - 0.09) < 1e-6, (
-            f"delta_acc={report.delta_acc}, 0.09 기대"
-        )
+        assert (
+            abs(report.delta_acc - 0.09) < 1e-6
+        ), f"delta_acc={report.delta_acc}, 0.09 기대"
 
     def test_normal_cycle_efficiency_ratio(self, base_cfg):
         """T-SE-01b: efficiency_ratio = delta_acc / n_labels_changed = 0.09/45"""
@@ -91,9 +90,9 @@ class TestComputeSwingEfficiency:
             cfg=base_cfg,
         )
         expected = 0.09 / 45
-        assert abs(report.efficiency_ratio - expected) < 1e-9, (
-            f"efficiency_ratio={report.efficiency_ratio}, {expected} 기대"
-        )
+        assert (
+            abs(report.efficiency_ratio - expected) < 1e-9
+        ), f"efficiency_ratio={report.efficiency_ratio}, {expected} 기대"
 
     def test_normal_cycle_decision_is_valid(self, base_cfg):
         """T-SE-01c: swing_decision ∈ {'pass','retry_phase2','retry_phase0'}"""
@@ -104,9 +103,11 @@ class TestComputeSwingEfficiency:
             cycle=1,
             cfg=base_cfg,
         )
-        assert report.swing_decision in {"pass", "retry_phase2", "retry_phase0"}, (
-            f"swing_decision='{report.swing_decision}' 유효하지 않은 값"
-        )
+        assert report.swing_decision in {
+            "pass",
+            "retry_phase2",
+            "retry_phase0",
+        }, f"swing_decision='{report.swing_decision}' 유효하지 않은 값"
 
     def test_zero_labels_changed_no_exception(self, base_cfg):
         """T-SE-02: n_labels_changed=0 → delta=0.0, efficiency=0.0 (ZeroDivisionError 없음)"""
@@ -117,12 +118,12 @@ class TestComputeSwingEfficiency:
             cycle=1,
             cfg=base_cfg,
         )
-        assert report.delta_acc == pytest.approx(0.0, abs=1e-8), (
-            f"delta_acc={report.delta_acc}, 0.0 기대"
-        )
-        assert report.efficiency_ratio == pytest.approx(0.0), (
-            f"efficiency_ratio={report.efficiency_ratio}, 0.0 기대 (0/0 → 0.0)"
-        )
+        assert report.delta_acc == pytest.approx(
+            0.0, abs=1e-8
+        ), f"delta_acc={report.delta_acc}, 0.0 기대"
+        assert report.efficiency_ratio == pytest.approx(
+            0.0
+        ), f"efficiency_ratio={report.efficiency_ratio}, 0.0 기대 (0/0 → 0.0)"
 
     def test_regression_cycle_delta_negative(self, base_cfg):
         """T-SE-03a: baseline=0.81 > cycle=0.75 → delta_acc < 0"""
@@ -133,9 +134,9 @@ class TestComputeSwingEfficiency:
             cycle=2,
             cfg=base_cfg,
         )
-        assert report.delta_acc < 0, (
-            f"성능 하락 시 delta_acc={report.delta_acc} < 0 이어야 함"
-        )
+        assert (
+            report.delta_acc < 0
+        ), f"성능 하락 시 delta_acc={report.delta_acc} < 0 이어야 함"
 
     def test_regression_cycle_decision(self, base_cfg):
         """T-SE-03b: 성능 하락 → decision ∈ {'retry_phase0','retry_phase2'}"""
@@ -146,9 +147,10 @@ class TestComputeSwingEfficiency:
             cycle=2,
             cfg=base_cfg,
         )
-        assert report.swing_decision in {"retry_phase0", "retry_phase2"}, (
-            f"성능 하락 시 swing_decision='{report.swing_decision}'"
-        )
+        assert report.swing_decision in {
+            "retry_phase0",
+            "retry_phase2",
+        }, f"성능 하락 시 swing_decision='{report.swing_decision}'"
 
     def test_large_improvement_delta_acc(self, base_cfg):
         """T-SE-04a: baseline=0.50, cycle=0.95, n=10 → delta_acc == 0.45"""
@@ -159,9 +161,9 @@ class TestComputeSwingEfficiency:
             cycle=1,
             cfg=base_cfg,
         )
-        assert abs(report.delta_acc - 0.45) < 1e-6, (
-            f"delta_acc={report.delta_acc}, 0.45 기대"
-        )
+        assert (
+            abs(report.delta_acc - 0.45) < 1e-6
+        ), f"delta_acc={report.delta_acc}, 0.45 기대"
 
     def test_large_improvement_efficiency_ratio(self, base_cfg):
         """T-SE-04b: delta=0.45, n=10 → efficiency_ratio == 0.045"""
@@ -172,9 +174,9 @@ class TestComputeSwingEfficiency:
             cycle=1,
             cfg=base_cfg,
         )
-        assert abs(report.efficiency_ratio - 0.045) < 1e-9, (
-            f"efficiency_ratio={report.efficiency_ratio}, 0.045 기대"
-        )
+        assert (
+            abs(report.efficiency_ratio - 0.045) < 1e-9
+        ), f"efficiency_ratio={report.efficiency_ratio}, 0.045 기대"
 
     def test_cycle_number_stored(self, base_cfg):
         """T-SE-05: report.cycle == 입력 cycle 값(3)"""
@@ -196,9 +198,9 @@ class TestComputeSwingEfficiency:
             cycle=1,
             cfg=base_cfg,
         )
-        assert isinstance(report, SwingEfficiencyReport), (
-            f"반환 타입={type(report)}, SwingEfficiencyReport 기대"
-        )
+        assert isinstance(
+            report, SwingEfficiencyReport
+        ), f"반환 타입={type(report)}, SwingEfficiencyReport 기대"
 
     def test_swing_decision_valid_values(self, base_cfg):
         """T-SE-23: swing_decision은 {'pass','retry_phase2','retry_phase0'} 중 하나"""
@@ -209,9 +211,11 @@ class TestComputeSwingEfficiency:
             cycle=1,
             cfg=base_cfg,
         )
-        assert report.swing_decision in {"pass", "retry_phase2", "retry_phase0"}, (
-            f"swing_decision='{report.swing_decision}' 유효하지 않은 값"
-        )
+        assert report.swing_decision in {
+            "pass",
+            "retry_phase2",
+            "retry_phase0",
+        }, f"swing_decision='{report.swing_decision}' 유효하지 않은 값"
 
 
 # ── should_early_stop() ───────────────────────────────────────────────────────
@@ -225,33 +229,31 @@ class TestShouldEarlyStop:
         """T-SE-10: curr.eff=0.0009 < prev.eff*0.5=0.001 → True"""
         prev = make_report(efficiency_ratio=0.002)
         curr = make_report(efficiency_ratio=0.0009, cycle=2)
-        assert should_early_stop(curr, prev) is True, (
-            "curr.eff(0.0009) < prev.eff*0.5(0.001) → True 기대"
-        )
+        assert (
+            should_early_stop(curr, prev) is True
+        ), "curr.eff(0.0009) < prev.eff*0.5(0.001) → True 기대"
 
     def test_early_stop_false_when_above_half(self):
         """T-SE-11: curr.eff=0.0015 >= prev.eff*0.5=0.001 → False"""
         prev = make_report(efficiency_ratio=0.002)
         curr = make_report(efficiency_ratio=0.0015, cycle=2)
-        assert should_early_stop(curr, prev) is False, (
-            "curr.eff(0.0015) >= prev.eff*0.5(0.001) → False 기대"
-        )
+        assert (
+            should_early_stop(curr, prev) is False
+        ), "curr.eff(0.0015) >= prev.eff*0.5(0.001) → False 기대"
 
     def test_early_stop_boundary_equal_to_half(self):
         """T-SE-12: curr.eff == prev.eff*0.5 (경계값 0.001) → False (경계 포함)"""
         prev = make_report(efficiency_ratio=0.002)
         curr = make_report(efficiency_ratio=0.001, cycle=2)
-        assert should_early_stop(curr, prev) is False, (
-            "경계값(curr.eff == prev.eff*0.5) → False 기대 (포함)"
-        )
+        assert (
+            should_early_stop(curr, prev) is False
+        ), "경계값(curr.eff == prev.eff*0.5) → False 기대 (포함)"
 
     def test_early_stop_true_when_previous_is_zero(self):
         """T-SE-13: prev.eff=0.0 → 항상 True (분모 0 처리)"""
         prev = make_report(efficiency_ratio=0.0)
         curr = make_report(efficiency_ratio=0.001, cycle=2)
-        assert should_early_stop(curr, prev) is True, (
-            "prev.eff=0.0 → 항상 True 기대"
-        )
+        assert should_early_stop(curr, prev) is True, "prev.eff=0.0 → 항상 True 기대"
 
 
 # ── SwingEfficiencyReport dataclass ───────────────────────────────────────────
@@ -264,19 +266,19 @@ class TestSwingEfficiencyReportDataclass:
     def test_cycle_is_int(self, base_cfg):
         """T-SE-20: report.cycle은 int 타입"""
         report = compute_swing_efficiency(0.72, 0.81, 45, cycle=1, cfg=base_cfg)
-        assert isinstance(report.cycle, int), (
-            f"report.cycle type={type(report.cycle)}, int 기대"
-        )
+        assert isinstance(
+            report.cycle, int
+        ), f"report.cycle type={type(report.cycle)}, int 기대"
 
     def test_acc_fields_are_float(self, base_cfg):
         """T-SE-21: baseline_acc, cycle_acc는 float 타입"""
         report = compute_swing_efficiency(0.72, 0.81, 45, cycle=1, cfg=base_cfg)
-        assert isinstance(report.baseline_acc, float), (
-            f"baseline_acc type={type(report.baseline_acc)}, float 기대"
-        )
-        assert isinstance(report.cycle_acc, float), (
-            f"cycle_acc type={type(report.cycle_acc)}, float 기대"
-        )
+        assert isinstance(
+            report.baseline_acc, float
+        ), f"baseline_acc type={type(report.baseline_acc)}, float 기대"
+        assert isinstance(
+            report.cycle_acc, float
+        ), f"cycle_acc type={type(report.cycle_acc)}, float 기대"
 
     def test_delta_acc_equals_difference(self, base_cfg):
         """T-SE-22: delta_acc == cycle_acc - baseline_acc"""
@@ -290,13 +292,13 @@ class TestSwingEfficiencyReportDataclass:
     def test_n_labels_changed_is_int(self, base_cfg):
         """T-SE-20 확장: n_labels_changed는 int 타입"""
         report = compute_swing_efficiency(0.72, 0.81, 45, cycle=1, cfg=base_cfg)
-        assert isinstance(report.n_labels_changed, int), (
-            f"n_labels_changed type={type(report.n_labels_changed)}, int 기대"
-        )
+        assert isinstance(
+            report.n_labels_changed, int
+        ), f"n_labels_changed type={type(report.n_labels_changed)}, int 기대"
 
     def test_efficiency_ratio_is_float(self, base_cfg):
         """T-SE-21 확장: efficiency_ratio는 float 타입"""
         report = compute_swing_efficiency(0.72, 0.81, 45, cycle=1, cfg=base_cfg)
-        assert isinstance(report.efficiency_ratio, float), (
-            f"efficiency_ratio type={type(report.efficiency_ratio)}, float 기대"
-        )
+        assert isinstance(
+            report.efficiency_ratio, float
+        ), f"efficiency_ratio type={type(report.efficiency_ratio)}, float 기대"

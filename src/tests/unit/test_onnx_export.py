@@ -5,10 +5,11 @@ Status: FAILING — onnx_export.py not yet implemented.
 Ref: doc/TDD/TDD_ONNX_Export.md
 """
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 import torch
-from pathlib import Path
 
 # Skip entire module if onnx not installed
 onnx = pytest.importorskip("onnx")
@@ -16,8 +17,8 @@ onnx = pytest.importorskip("onnx")
 # Will raise ImportError until implemented
 from inference.onnx_export import export_to_onnx
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def minimal_cfg():
@@ -25,11 +26,7 @@ def minimal_cfg():
         "model": {"backbone": "efficientnet_b0", "frozen_backbone": False},
         "data": {"num_levels": 6, "image_size": 128},
         "phase0": {"projection_dim": 128, "hidden_dim": 256},
-        "phase2": {
-            "heads": {
-                "efficientnet_b0": {"hidden_dim": 256, "dropout": 0.2}
-            }
-        },
+        "phase2": {"heads": {"efficientnet_b0": {"hidden_dim": 256, "dropout": 0.2}}},
         "system": {"device": "cpu"},
     }
 
@@ -38,6 +35,7 @@ def minimal_cfg():
 def tmp_phase2_checkpoint(tmp_path, minimal_cfg):
     """유효한 Phase 2 체크포인트 생성"""
     from models.grayspot_model import GrayspotModel
+
     model = GrayspotModel(minimal_cfg, phase=2)
     ckpt_path = tmp_path / "best_Y.pt"
     torch.save(model.state_dict(), ckpt_path)
@@ -60,6 +58,7 @@ def exported_onnx(tmp_phase2_checkpoint, tmp_path, minimal_cfg):
 
 # ── export_to_onnx() ──────────────────────────────────────────────────────────
 
+
 class TestExportToOnnx:
     """T-ONNX-01 ~ T-ONNX-07"""
 
@@ -74,14 +73,18 @@ class TestExportToOnnx:
         model = onnx.load(str(exported_onnx))
         onnx.checker.check_model(model)  # 예외 없으면 통과
 
-    def test_corrupted_checkpoint_raises_runtime_error(self, corrupt_checkpoint, tmp_path, minimal_cfg):
+    def test_corrupted_checkpoint_raises_runtime_error(
+        self, corrupt_checkpoint, tmp_path, minimal_cfg
+    ):
         """T-ONNX-03: 손상된 체크포인트 → RuntimeError, 파일 미생성"""
         output = tmp_path / "should_not_exist.onnx"
         with pytest.raises(RuntimeError):
             export_to_onnx(corrupt_checkpoint, output, minimal_cfg)
         assert not output.exists()
 
-    def test_auto_creates_output_directory(self, tmp_phase2_checkpoint, tmp_path, minimal_cfg):
+    def test_auto_creates_output_directory(
+        self, tmp_phase2_checkpoint, tmp_path, minimal_cfg
+    ):
         """T-ONNX-04: 미존재 출력 디렉토리 → 자동 생성"""
         new_dir = tmp_path / "new_subdir" / "onnx"
         output = new_dir / "model.onnx"
@@ -108,6 +111,7 @@ class TestExportToOnnx:
 
 
 # ── ONNX 추론 shape 검증 ───────────────────────────────────────────────────────
+
 
 class TestOnnxInferenceShape:
     """T-ONNX-INT-01 ~ T-ONNX-INT-03"""

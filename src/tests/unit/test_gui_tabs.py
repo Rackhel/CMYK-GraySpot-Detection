@@ -13,11 +13,11 @@ pytest.importorskip("pytestqt")  # requires pytest-qt
 
 # Will raise ImportError until implemented
 from gui.tabs.tab_data import DataTab
-from gui.tabs.tab_training import TrainingTab
-from gui.tabs.tab_evaluation import EvaluationTab
-from gui.tabs.tab_settings import SettingsTab
-from gui.tabs.tab_optuna import OptunaTab
 from gui.tabs.tab_embedding import EmbeddingTab
+from gui.tabs.tab_evaluation import EvaluationTab
+from gui.tabs.tab_optuna import OptunaTab
+from gui.tabs.tab_settings import SettingsTab
+from gui.tabs.tab_training import TrainingTab
 
 ALL_TABS = [DataTab, TrainingTab, EvaluationTab, SettingsTab, OptunaTab, EmbeddingTab]
 
@@ -33,13 +33,14 @@ class TestTabInterface:
     @pytest.mark.parametrize("TabClass", ALL_TABS)
     def test_tab_has_on_worker_finished(self, TabClass):
         """T-GUI-21: on_worker_finished() 메서드 존재"""
-        assert hasattr(TabClass, "on_worker_finished"), (
-            f"{TabClass.__name__} missing on_worker_finished()"
-        )
+        assert hasattr(
+            TabClass, "on_worker_finished"
+        ), f"{TabClass.__name__} missing on_worker_finished()"
 
     def test_main_window_has_six_tabs(self, qtbot):
         """T-GUI-22: MainWindow의 탭 위젯이 6개 탭 포함"""
         from gui.main_window import MainWindow
+
         window = MainWindow()
         qtbot.addWidget(window)
         assert window.tab_widget.count() == 6
@@ -59,6 +60,7 @@ class TestEmbeddingTabLabelSave:
     def test_save_label_correction_correct_level(self, qtbot, tmp_path):
         """T-GUI-31: 저장된 CSV에서 해당 경로 level == new_level"""
         import pandas as pd
+
         tab = EmbeddingTab(cfg={}, labels_dir=str(tmp_path))
         qtbot.addWidget(tab)
         tab.save_label_correction("img1.png", new_level=3)

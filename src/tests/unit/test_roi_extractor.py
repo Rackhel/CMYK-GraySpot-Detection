@@ -21,7 +21,6 @@ sys.path.insert(0, str(SRC_DIR))
 # Will raise ImportError until implemented — correct failing behavior
 from data.roi_extractor import ROIExtractor  # noqa: E402
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -55,9 +54,12 @@ class TestSplitCmyk:
         extractor = ROIExtractor(cfg=roi_cfg)
         white = np.ones((128, 128, 3), dtype=np.uint8) * 255
         result = extractor.split_cmyk(white)
-        assert set(result.keys()) == {"C", "M", "Y", "K"}, (
-            "결과 dict 키는 정확히 {'C','M','Y','K'} 여야 함"
-        )
+        assert set(result.keys()) == {
+            "C",
+            "M",
+            "Y",
+            "K",
+        }, "결과 dict 키는 정확히 {'C','M','Y','K'} 여야 함"
         assert np.allclose(result["C"], 0.0, atol=1e-5), "흰색 → C=0.0 기대"
         assert np.allclose(result["M"], 0.0, atol=1e-5), "흰색 → M=0.0 기대"
         assert np.allclose(result["Y"], 0.0, atol=1e-5), "흰색 → Y=0.0 기대"
@@ -99,9 +101,9 @@ class TestSplitCmyk:
         img = np.random.randint(0, 256, (64, 64, 3), dtype=np.uint8)
         result = extractor.split_cmyk(img)
         for ch in ["C", "M", "Y", "K"]:
-            assert result[ch].dtype == np.float32, (
-                f"{ch} dtype={result[ch].dtype}, float32 기대"
-            )
+            assert (
+                result[ch].dtype == np.float32
+            ), f"{ch} dtype={result[ch].dtype}, float32 기대"
 
 
 # ── extract_patches() ─────────────────────────────────────────────────────────
@@ -117,9 +119,7 @@ class TestExtractPatches:
         patches = extractor.extract_patches(tmp_image_path, channel="Y", level=3)
         assert len(patches) > 0, "패치 리스트가 비어 있음"
         for p in patches:
-            assert p.shape == (128, 128, 3), (
-                f"패치 shape={p.shape}, (128,128,3) 기대"
-            )
+            assert p.shape == (128, 128, 3), f"패치 shape={p.shape}, (128,128,3) 기대"
             assert p.dtype == np.uint8, f"패치 dtype={p.dtype}, uint8 기대"
 
     def test_invalid_path_raises_file_not_found(self, roi_cfg):
@@ -136,12 +136,8 @@ class TestExtractPatches:
         patches = extractor.extract_patches(tmp_image_path, channel="Y", level=3)
         assert len(patches) > 0, "패치 리스트가 비어 있음"
         for idx, p in enumerate(patches):
-            assert np.array_equal(p[:, :, 0], p[:, :, 1]), (
-                f"패치[{idx}] Ch0 != Ch1"
-            )
-            assert np.array_equal(p[:, :, 1], p[:, :, 2]), (
-                f"패치[{idx}] Ch1 != Ch2"
-            )
+            assert np.array_equal(p[:, :, 0], p[:, :, 1]), f"패치[{idx}] Ch0 != Ch1"
+            assert np.array_equal(p[:, :, 1], p[:, :, 2]), f"패치[{idx}] Ch1 != Ch2"
 
     def test_result_not_empty_for_valid_input(self, roi_cfg, tmp_image_path):
         """T-ROI-13: 유효 입력(level=3) → 비어있지 않은 List 반환"""
