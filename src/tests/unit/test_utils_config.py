@@ -19,7 +19,10 @@ sys.path.insert(0, str(SRC_DIR))
 from utils.utils_config import (
     _resolve_device,
     create_directories,
+    get_float,
+    get_int,
     get_nested,
+    get_str,
     load_config,
     validate_config,
 )
@@ -177,6 +180,118 @@ class TestValidateConfig:
             ValueError, match=r"\[CONFIG ERROR / SSOT-CF01\].*phase2\.epochs"
         ):
             validate_config(minimal_cfg)
+
+
+# ── get_float ───────────────────────────────────────────────────────────────
+
+
+class TestGetFloat:
+    def test_returns_float_from_nested_key(self, minimal_cfg):
+        result = get_float(minimal_cfg, "phase2.learning_rate", default=1e-3)
+        assert isinstance(result, float)
+        assert result == pytest.approx(1e-4)
+
+    def test_returns_default_when_missing(self, minimal_cfg):
+        result = get_float(minimal_cfg, "phase2.nonexistent", default=0.5)
+        assert result == pytest.approx(0.5)
+
+    def test_min_val_passes_on_equal(self, minimal_cfg):
+        result = get_float(minimal_cfg, "phase2.learning_rate", default=1e-3, min_val=1e-4)
+        assert result == pytest.approx(1e-4)
+
+    def test_min_val_raises_when_below(self):
+        cfg = {"a": {"b": -0.1}}
+        with pytest.raises(ValueError, match="below minimum"):
+            get_float(cfg, "a.b", default=0.0, min_val=0.0)
+
+    def test_max_val_raises_when_exceeded(self):
+        cfg = {"a": {"b": 1.5}}
+        with pytest.raises(ValueError, match="exceeds maximum"):
+            get_float(cfg, "a.b", default=0.0, max_val=1.0)
+
+    def test_type_error_on_non_numeric_string(self):
+        cfg = {"a": {"b": "not_a_number"}}
+        with pytest.raises(TypeError, match="cannot be converted to float"):
+            get_float(cfg, "a.b", default=0.0)
+
+    def test_int_value_coerced_to_float(self):
+        cfg = {"a": {"b": 3}}
+        result = get_float(cfg, "a.b", default=0.0)
+        assert result == 3.0
+        assert isinstance(result, float)
+
+
+# ── get_int ─────────────────────────────────────────────────────────────────
+
+
+class TestGetInt:
+    def test_returns_int_from_nested_key(self, minimal_cfg):
+        result = get_int(minimal_cfg, "data.num_levels", default=6)
+        assert result == 6
+        assert isinstance(result, int)
+
+    def test_returns_default_when_missing(self, minimal_cfg):
+        result = get_int(minimal_cfg, "data.nonexistent", default=99)
+        assert result == 99
+
+    def test_min_val_passes_on_equal(self):
+        cfg = {"a": {"b": 2}}
+        assert get_int(cfg, "a.b", default=0, min_val=2) == 2
+
+    def test_min_val_raises_when_below(self):
+        cfg = {"a": {"b": 1}}
+        with pytest.raises(ValueError, match="below minimum"):
+            get_int(cfg, "a.b", default=0, min_val=2)
+
+    def test_max_val_raises_when_exceeded(self):
+        cfg = {"a": {"b": 11}}
+        with pytest.raises(ValueError, match="exceeds maximum"):
+            get_int(cfg, "a.b", default=0, max_val=10)
+
+    def test_float_value_truncated_to_int(self):
+        cfg = {"a": {"b": 3.9}}
+        result = get_int(cfg, "a.b", default=0)
+        assert result == 3
+
+    def test_type_error_on_non_numeric_string(self):
+        cfg = {"a": {"b": "abc"}}
+        with pytest.raises(TypeError, match="cannot be converted to int"):
+            get_int(cfg, "a.b", default=0)
+
+
+# ── get_str ─────────────────────────────────────────────────────────────────
+
+
+class TestGetStr:
+    def test_returns_str_from_nested_key(self, minimal_cfg):
+        result = get_str(minimal_cfg, "model.backbone", default="efficientnet_b0")
+        assert result == "efficientnet_b0"
+
+    def test_returns_default_when_missing(self, minimal_cfg):
+        result = get_str(minimal_cfg, "model.nonexistent", default="fallback")
+        assert result == "fallback"
+
+    def test_allowed_passes_on_valid_value(self, minimal_cfg):
+        result = get_str(
+            minimal_cfg, "model.backbone", default="efficientnet_b0",
+            allowed=["efficientnet_b0", "resnet50"],
+        )
+        assert result == "efficientnet_b0"
+
+    def test_allowed_raises_on_invalid_value(self):
+        cfg = {"model": {"backbone": "vgg16"}}
+        with pytest.raises(ValueError, match="must be one of"):
+            get_str(cfg, "model.backbone", default="efficientnet_b0",
+                    allowed=["efficientnet_b0", "resnet50"])
+
+    def test_no_allowed_accepts_any_string(self):
+        cfg = {"a": {"b": "anything"}}
+        assert get_str(cfg, "a.b", default="x") == "anything"
+
+    def test_int_value_coerced_to_str(self):
+        cfg = {"a": {"b": 42}}
+        result = get_str(cfg, "a.b", default="0")
+        assert result == "42"
 
 
 # ── create_directories ──────────────────────────────────────────────────────
