@@ -355,8 +355,10 @@ def main() -> None:
 
     # ── config 로드 / Load config ─────────────────────────────────────────────
     cfg = load_config()
-    if not validate_config(cfg):
-        print("[ERROR] Configuration validation failed.")
+    try:
+        validate_config(cfg)
+    except ValueError as exc:
+        print(f"[ERROR] Configuration validation failed (SSOT-CF01): {exc}")
         sys.exit(1)
 
     create_directories(cfg)
