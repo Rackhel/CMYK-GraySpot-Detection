@@ -104,8 +104,11 @@ def objective(
     # 단일 채널 튜닝
     if channel != "all":
         result = run_phase2(
-            cfg, channel=channel.upper(), device=device,
-            phase0_dir=phase0_dir, ckpt_dir=ckpt_dir,
+            cfg,
+            channel=channel.upper(),
+            device=device,
+            phase0_dir=phase0_dir,
+            ckpt_dir=ckpt_dir,
         )
 
         # Skip handling
@@ -122,8 +125,11 @@ def objective(
 
     for ch in channels:
         result = run_phase2(
-            cfg, channel=ch, device=device,
-            phase0_dir=phase0_dir, ckpt_dir=ckpt_dir,
+            cfg,
+            channel=ch,
+            device=device,
+            phase0_dir=phase0_dir,
+            ckpt_dir=ckpt_dir,
         )
 
         # Skip channels with no training data
@@ -166,11 +172,13 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     target_channels = ["Y", "M", "C", "K"] if channel == "all" else [channel.upper()]
     try:
         from src.utils.utils_model import backbone_tag
+
         _tag = backbone_tag(cfg["model"]["backbone"])
     except Exception:
         _tag = cfg["model"]["backbone"].replace("_", "").replace("-", "")[:6]
     missing = [
-        ch for ch in target_channels
+        ch
+        for ch in target_channels
         if not (phase0_dir / f"phase0_backbone_{ch}_{_tag}.pt").exists()
     ]
     if missing:
@@ -226,7 +234,9 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
 
     # Bind channel, phase0_dir, ckpt_dir to objective
     # objective에 channel / 디렉토리 고정 전달
-    objective_fn = partial(objective, channel=channel, phase0_dir=phase0_dir, ckpt_dir=ckpt_dir)
+    objective_fn = partial(
+        objective, channel=channel, phase0_dir=phase0_dir, ckpt_dir=ckpt_dir
+    )
 
     # Run optimization
     # 최적화 실행

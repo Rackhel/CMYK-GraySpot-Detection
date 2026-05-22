@@ -73,6 +73,7 @@ REPORT_DIR = ROOT / "outputs" / "reports"
 # Helper: auto-detect backbone / hidden_dim from checkpoint weights
 # ---------------------------------------------------------------------------
 
+
 def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
     """
     체크포인트 weight shape에서 backbone과 hidden_dim을 역산해 cfg 복사본을 패치한다.
@@ -86,7 +87,7 @@ def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
         1792: "efficientnet_b4",
         1536: "efficientnet_b3",
         1408: "efficientnet_b2",
-        512:  "resnet18",
+        512: "resnet18",
         1024: "densenet121",
     }
 
@@ -99,18 +100,18 @@ def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
         return cfg
 
     in_features = int(w0.shape[1])
-    first_out   = int(w0.shape[0])
+    first_out = int(w0.shape[0])
 
     num_classes = cfg.get("data", {}).get("num_levels", 6)
     w4 = state.get("head.net.4.weight")
     if w4 is not None and int(w4.shape[0]) == num_classes:
-        mid_dim    = None
+        mid_dim = None
         hidden_dim = first_out
     elif w4 is not None:
-        mid_dim    = first_out
+        mid_dim = first_out
         hidden_dim = int(w4.shape[1])
     else:
-        mid_dim    = None
+        mid_dim = None
         hidden_dim = first_out
 
     patched = copy.deepcopy(cfg)
@@ -125,7 +126,7 @@ def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
     heads = patched.setdefault("phase2", {}).setdefault("heads", {})
     if backbone not in heads:
         heads[backbone] = {"dropout": 0.3}
-    heads[backbone]["mid_dim"]    = mid_dim
+    heads[backbone]["mid_dim"] = mid_dim
     heads[backbone]["hidden_dim"] = hidden_dim
     return patched
 
@@ -133,6 +134,7 @@ def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
 # ---------------------------------------------------------------------------
 # Summary loading
 # ---------------------------------------------------------------------------
+
 
 def find_latest_phase2_summary() -> Path | None:
     """outputs/checkpoints/ 에서 가장 최근 phase2_summary_*.json 파일을 찾는다."""
@@ -177,20 +179,20 @@ def summary_to_cards(summary: dict, available: list) -> dict:
 
     for r in valid:
         cards[r["channel"]] = {
-            "test_acc":    r["test_acc"],
-            "mae":         r["mae"],
+            "test_acc": r["test_acc"],
+            "mae": r["mae"],
             "best_val_acc": r["best_val_acc"],
-            "n_train":     r.get("n_train", 0),
-            "n_val":       r.get("n_val", 0),
-            "n_test":      r.get("n_test", 0),
-            "pass_acc":    r.get("pass_acc", r["test_acc"] >= TARGET_PER_COLOR_ACC),
-            "pass_mae":    r.get("pass_mae", r["mae"] <= TARGET_MAE),
+            "n_train": r.get("n_train", 0),
+            "n_val": r.get("n_val", 0),
+            "n_test": r.get("n_test", 0),
+            "pass_acc": r.get("pass_acc", r["test_acc"] >= TARGET_PER_COLOR_ACC),
+            "pass_mae": r.get("pass_mae", r["mae"] <= TARGET_MAE),
         }
 
     if valid:
         cards["overall"] = {
             "test_acc": round(sum(r["test_acc"] for r in valid) / len(valid), 4),
-            "mae":      round(sum(r["mae"]      for r in valid) / len(valid), 4),
+            "mae": round(sum(r["mae"] for r in valid) / len(valid), 4),
         }
 
     return cards
@@ -200,6 +202,7 @@ def summary_to_cards(summary: dict, available: list) -> dict:
 # Checkpoint path resolution
 # ---------------------------------------------------------------------------
 
+
 def find_checkpoint(ch: str, backbone: str, tag: str) -> Path | None:
     """
     체크포인트 경로 탐색 순서:
@@ -208,7 +211,11 @@ def find_checkpoint(ch: str, backbone: str, tag: str) -> Path | None:
     3. None (추론 skip)
     """
     # Normalize backbone name: efficientnet_b0 -> effb0
-    short = backbone.replace("efficientnet_b", "effb").replace("resnet", "res").replace("_", "")
+    short = (
+        backbone.replace("efficientnet_b", "effb")
+        .replace("resnet", "res")
+        .replace("_", "")
+    )
     p1 = CKPT_DIR / f"phase2_{ch}_{short}_{tag}.pt"
     if p1.exists():
         return p1
@@ -221,6 +228,7 @@ def find_checkpoint(ch: str, backbone: str, tag: str) -> Path | None:
 # ---------------------------------------------------------------------------
 # History CSV loading
 # ---------------------------------------------------------------------------
+
 
 def load_history(ch: str) -> pd.DataFrame | None:
     """phase2_history_{ch}.csv 를 로드한다. 없으면 None."""
@@ -236,6 +244,7 @@ def load_history(ch: str) -> pd.DataFrame | None:
 # ---------------------------------------------------------------------------
 # Plotly figure builders
 # ---------------------------------------------------------------------------
+
 
 def _build_training_curves(channels: list[str], max_epochs: int) -> dict[str, object]:
     """
@@ -257,34 +266,59 @@ def _build_training_curves(channels: list[str], max_epochs: int) -> dict[str, ob
         early_stop = n_epochs < max_epochs
 
         fig = make_subplots(
-            rows=1, cols=2,
+            rows=1,
+            cols=2,
             subplot_titles=[f"[{ch}] Loss", f"[{ch}] Accuracy"],
             horizontal_spacing=0.12,
         )
 
         # Loss traces
-        fig.add_trace(go.Scatter(
-            x=df["epoch"], y=df["train_loss"],
-            name="train_loss", line=dict(color="#66d9ff", width=2),
-            showlegend=True,
-        ), row=1, col=1)
-        fig.add_trace(go.Scatter(
-            x=df["epoch"], y=df["val_loss"],
-            name="val_loss", line=dict(color="#ff7aa2", width=2, dash="dash"),
-            showlegend=True,
-        ), row=1, col=1)
+        fig.add_trace(
+            go.Scatter(
+                x=df["epoch"],
+                y=df["train_loss"],
+                name="train_loss",
+                line=dict(color="#66d9ff", width=2),
+                showlegend=True,
+            ),
+            row=1,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=df["epoch"],
+                y=df["val_loss"],
+                name="val_loss",
+                line=dict(color="#ff7aa2", width=2, dash="dash"),
+                showlegend=True,
+            ),
+            row=1,
+            col=1,
+        )
 
         # Accuracy traces
-        fig.add_trace(go.Scatter(
-            x=df["epoch"], y=df["train_acc"],
-            name="train_acc", line=dict(color="#50e3c2", width=2),
-            showlegend=True,
-        ), row=1, col=2)
-        fig.add_trace(go.Scatter(
-            x=df["epoch"], y=df["val_acc"],
-            name="val_acc", line=dict(color="#c792ea", width=2, dash="dash"),
-            showlegend=True,
-        ), row=1, col=2)
+        fig.add_trace(
+            go.Scatter(
+                x=df["epoch"],
+                y=df["train_acc"],
+                name="train_acc",
+                line=dict(color="#50e3c2", width=2),
+                showlegend=True,
+            ),
+            row=1,
+            col=2,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=df["epoch"],
+                y=df["val_acc"],
+                name="val_acc",
+                line=dict(color="#c792ea", width=2, dash="dash"),
+                showlegend=True,
+            ),
+            row=1,
+            col=2,
+        )
 
         # Early stopping vertical line
         if early_stop:
@@ -297,7 +331,8 @@ def _build_training_curves(channels: list[str], max_epochs: int) -> dict[str, ob
                     annotation_text=f"Early stop @ {n_epochs}",
                     annotation_font_color="#f39c12",
                     annotation_font_size=10,
-                    row=1, col=col,
+                    row=1,
+                    col=col,
                 )
 
         fig.update_layout(
@@ -309,8 +344,9 @@ def _build_training_curves(channels: list[str], max_epochs: int) -> dict[str, ob
             margin=dict(l=40, r=40, t=50, b=40),
             legend=dict(orientation="h", y=1.12, x=0.5, xanchor="center"),
         )
-        figs[ch] = pio.to_html(fig, full_html=False, include_plotlyjs=False,
-                                div_id=f"fig-curve-{ch}")
+        figs[ch] = pio.to_html(
+            fig, full_html=False, include_plotlyjs=False, div_id=f"fig-curve-{ch}"
+        )
     return figs
 
 
@@ -331,14 +367,31 @@ def _build_per_class_bars(metrics: dict, available: list) -> dict[str, object]:
 
         levels = [f"Level {p['level']}" for p in pc]
         fig = go.Figure()
-        fig.add_trace(go.Bar(name="F1",        x=levels, y=[p["f1"] for p in pc],
-                             marker_color="#1976D2"))
-        fig.add_trace(go.Bar(name="Precision", x=levels, y=[p["precision"] for p in pc],
-                             marker_color="#388E3C"))
-        fig.add_trace(go.Bar(name="Recall",    x=levels, y=[p["recall"] for p in pc],
-                             marker_color="#F57C00"))
-        fig.add_hline(y=TARGET_PER_CLASS_F1, line_dash="dash", line_color="#ff7aa2",
-                      annotation_text=f"F1 Target >= {TARGET_PER_CLASS_F1:.2f}")
+        fig.add_trace(
+            go.Bar(name="F1", x=levels, y=[p["f1"] for p in pc], marker_color="#1976D2")
+        )
+        fig.add_trace(
+            go.Bar(
+                name="Precision",
+                x=levels,
+                y=[p["precision"] for p in pc],
+                marker_color="#388E3C",
+            )
+        )
+        fig.add_trace(
+            go.Bar(
+                name="Recall",
+                x=levels,
+                y=[p["recall"] for p in pc],
+                marker_color="#F57C00",
+            )
+        )
+        fig.add_hline(
+            y=TARGET_PER_CLASS_F1,
+            line_dash="dash",
+            line_color="#ff7aa2",
+            annotation_text=f"F1 Target >= {TARGET_PER_CLASS_F1:.2f}",
+        )
 
         fig.update_layout(
             title=f"[{ch}] Per-Class F1 / Precision / Recall",
@@ -353,8 +406,9 @@ def _build_per_class_bars(metrics: dict, available: list) -> dict[str, object]:
             margin=dict(l=40, r=40, t=60, b=40),
             legend=dict(orientation="h", y=1.1),
         )
-        figs[ch] = pio.to_html(fig, full_html=False, include_plotlyjs=False,
-                                div_id=f"fig-f1-{ch}")
+        figs[ch] = pio.to_html(
+            fig, full_html=False, include_plotlyjs=False, div_id=f"fig-f1-{ch}"
+        )
     return figs
 
 
@@ -364,8 +418,8 @@ def _build_mae_heatmap(all_results: dict, channels: list) -> object:
     import plotly.io as pio
 
     level_names = [f"Level {i}" for i in range(NUM_LEVELS)]
-    mae_matrix  = np.full((len(channels), NUM_LEVELS), np.nan)
-    cnt_matrix  = np.zeros((len(channels), NUM_LEVELS), dtype=int)
+    mae_matrix = np.full((len(channels), NUM_LEVELS), np.nan)
+    cnt_matrix = np.zeros((len(channels), NUM_LEVELS), dtype=int)
 
     for ci, ch in enumerate(channels):
         if ch not in all_results:
@@ -382,19 +436,29 @@ def _build_mae_heatmap(all_results: dict, channels: list) -> object:
 
     annot = [
         [
-            (f"{mae_matrix[r, c]:.2f}<br>(n={cnt_matrix[r, c]})"
-             if not np.isnan(mae_matrix[r, c]) else "N/A")
+            (
+                f"{mae_matrix[r, c]:.2f}<br>(n={cnt_matrix[r, c]})"
+                if not np.isnan(mae_matrix[r, c])
+                else "N/A"
+            )
             for c in range(NUM_LEVELS)
         ]
         for r in range(len(channels))
     ]
 
-    fig = go.Figure(go.Heatmap(
-        z=mae_matrix, x=level_names, y=channels,
-        text=annot, texttemplate="%{text}",
-        colorscale="YlOrRd", zmin=0, zmax=2.0,
-        colorbar=dict(title="MAE", thickness=14),
-    ))
+    fig = go.Figure(
+        go.Heatmap(
+            z=mae_matrix,
+            x=level_names,
+            y=channels,
+            text=annot,
+            texttemplate="%{text}",
+            colorscale="YlOrRd",
+            zmin=0,
+            zmax=2.0,
+            colorbar=dict(title="MAE", thickness=14),
+        )
+    )
     fig.update_layout(
         title=f"MAE per (Color x True Level) — Target <= {TARGET_MAE}",
         xaxis=dict(title="True Level"),
@@ -406,7 +470,9 @@ def _build_mae_heatmap(all_results: dict, channels: list) -> object:
         height=320,
         margin=dict(l=40, r=20, t=50, b=40),
     )
-    return pio.to_html(fig, full_html=False, include_plotlyjs=False, div_id="fig-mae-heat")
+    return pio.to_html(
+        fig, full_html=False, include_plotlyjs=False, div_id="fig-mae-heat"
+    )
 
 
 def _build_mae_dist(all_results: dict, channels: list) -> object:
@@ -422,12 +488,15 @@ def _build_mae_dist(all_results: dict, channels: list) -> object:
         yt = all_results[ch]["y_true"].astype(float)
         yp = all_results[ch]["y_pred"].astype(float)
         err = yp - yt
-        fig.add_trace(go.Histogram(
-            x=err, name=ch,
-            marker_color=colors.get(ch, "#aaa"),
-            opacity=0.7,
-            xbins=dict(start=-5.5, end=5.5, size=1),
-        ))
+        fig.add_trace(
+            go.Histogram(
+                x=err,
+                name=ch,
+                marker_color=colors.get(ch, "#aaa"),
+                opacity=0.7,
+                xbins=dict(start=-5.5, end=5.5, size=1),
+            )
+        )
     fig.update_layout(
         title="Prediction Error Distribution (Pred - True)",
         barmode="overlay",
@@ -441,7 +510,9 @@ def _build_mae_dist(all_results: dict, channels: list) -> object:
         margin=dict(l=40, r=40, t=60, b=40),
         legend=dict(orientation="h", y=1.1),
     )
-    return pio.to_html(fig, full_html=False, include_plotlyjs=False, div_id="fig-mae-dist")
+    return pio.to_html(
+        fig, full_html=False, include_plotlyjs=False, div_id="fig-mae-dist"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -552,12 +623,12 @@ def build_phase2_html(
     output_path: Path,
 ) -> None:
     """6탭 통합 Phase 2 HTML 리포트를 생성한다."""
-    meta       = report_data["meta"]
-    cards      = report_data["cards"]
-    metrics    = report_data["metrics"]
-    figs       = report_data["figures"]
-    phase3     = report_data["phase3_text"]
-    available  = report_data["available"]
+    meta = report_data["meta"]
+    cards = report_data["cards"]
+    metrics = report_data["metrics"]
+    figs = report_data["figures"]
+    phase3 = report_data["phase3_text"]
+    available = report_data["available"]
     baseline_cards = report_data.get("baseline_cards", {})
     max_epochs = meta.get("epochs", 50)
 
@@ -566,7 +637,7 @@ def build_phase2_html(
     for ch in ["Y", "M", "C", "K"]:
         if ch not in cards:
             continue
-        c  = cards[ch]
+        c = cards[ch]
         bc = baseline_cards.get(ch)
         delta_acc = f"<br>{_delta_html(c['test_acc'] - bc['test_acc'])}" if bc else ""
         delta_mae = f"<br>{_delta_html(-(c['mae'] - bc['mae']))}" if bc else ""
@@ -624,7 +695,7 @@ def build_phase2_html(
     first_ch = available[0] if available else "Y"
     ch_tabs_html = "".join(
         f'<div class="ch-tab{"active" if ch == first_ch else ""}" '
-        f'data-ch="{ch}" onclick="switchChTab(\'curves\',\'{ch}\')">{ch}</div>'
+        f"data-ch=\"{ch}\" onclick=\"switchChTab('curves','{ch}')\">{ch}</div>"
         for ch in available
     )
     ch_panels_html = ""
@@ -634,7 +705,9 @@ def build_phase2_html(
         if curve_div:
             content = curve_div
         else:
-            content = f'<div class="no-data">No history CSV data for channel {ch}.</div>'
+            content = (
+                f'<div class="no-data">No history CSV data for channel {ch}.</div>'
+            )
         ch_panels_html += (
             f'<div class="ch-panel {active_cls}" id="curves-panel-{ch}">{content}</div>'
         )
@@ -670,7 +743,7 @@ def build_phase2_html(
     first_ch_f1 = available[0] if available else "Y"
     ch_tabs_f1 = "".join(
         f'<div class="ch-tab{"active" if ch == first_ch_f1 else ""}" '
-        f'data-ch="{ch}" onclick="switchChTab(\'f1tabs\',\'{ch}\')">{ch}</div>'
+        f"data-ch=\"{ch}\" onclick=\"switchChTab('f1tabs','{ch}')\">{ch}</div>"
         for ch in available
     )
     ch_panels_f1 = ""
@@ -733,8 +806,7 @@ def build_phase2_html(
     all_pass = all(cards[c]["pass_acc"] and cards[c]["pass_mae"] for c in available)
     box_cls = "p3box" if all_pass else "p3box p3box-fail"
     phase3_html = (
-        phase3
-        .replace("\n", "<br>")
+        phase3.replace("\n", "<br>")
         .replace("TERMINATE", "<strong>TERMINATE</strong>")
         .replace("PASS", "<strong>PASS</strong>")
     )
@@ -746,12 +818,12 @@ def build_phase2_html(
 
     # ── Tabs list ───────────────────────────────────────────────────────────
     tabs = [
-        ("summary",  "1. Summary"),
-        ("curves",   "2. Training Curves"),
-        ("cm",       "3. Confusion Matrix"),
-        ("f1",       "4. Per-Class F1"),
-        ("mae",      "5. MAE"),
-        ("phase3",   "6. Phase 3 Feedback"),
+        ("summary", "1. Summary"),
+        ("curves", "2. Training Curves"),
+        ("cm", "3. Confusion Matrix"),
+        ("f1", "4. Per-Class F1"),
+        ("mae", "5. MAE"),
+        ("phase3", "6. Phase 3 Feedback"),
     ]
     tabs_html = "".join(
         f'<div class="nav-tab{"active" if i == 0 else ""}" '
@@ -761,23 +833,23 @@ def build_phase2_html(
 
     sections_map = {
         "summary": sec_summary,
-        "curves":  sec_curves,
-        "cm":      sec_cm,
-        "f1":      sec_f1,
-        "mae":     sec_mae,
-        "phase3":  sec_p3,
+        "curves": sec_curves,
+        "cm": sec_cm,
+        "f1": sec_f1,
+        "mae": sec_mae,
+        "phase3": sec_p3,
     }
     sections_html = "".join(
         f'<section id="sec-{tid}" class="section{"active" if i == 0 else ""}">'
-        f'{sections_map[tid]}</section>'
+        f"{sections_map[tid]}</section>"
         for i, (tid, _) in enumerate(tabs)
     )
 
     generated_at = meta["generated_at"]
-    tag          = meta["tag"]
-    backbone     = meta["backbone"]
-    epochs       = meta["epochs"]
-    image_size   = meta["image_size"]
+    tag = meta["tag"]
+    backbone = meta["backbone"]
+    epochs = meta["epochs"]
+    image_size = meta["image_size"]
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -822,18 +894,32 @@ def build_phase2_html(
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate Phase 2 evaluation HTML report"
     )
-    parser.add_argument("--tag", default=None,
-                        help="Cycle tag (e.g. v1). Defaults to latest phase2_summary file.")
-    parser.add_argument("--channels", nargs="+", default=None,
-                        help="Channels to include (default: all from summary)")
-    parser.add_argument("--open-browser", action="store_true",
-                        help="Open the generated HTML in the default browser")
-    parser.add_argument("--no-inference", action="store_true",
-                        help="Skip checkpoint loading; use history/summary only")
+    parser.add_argument(
+        "--tag",
+        default=None,
+        help="Cycle tag (e.g. v1). Defaults to latest phase2_summary file.",
+    )
+    parser.add_argument(
+        "--channels",
+        nargs="+",
+        default=None,
+        help="Channels to include (default: all from summary)",
+    )
+    parser.add_argument(
+        "--open-browser",
+        action="store_true",
+        help="Open the generated HTML in the default browser",
+    )
+    parser.add_argument(
+        "--no-inference",
+        action="store_true",
+        help="Skip checkpoint loading; use history/summary only",
+    )
     args = parser.parse_args()
 
     cfg = load_config()
@@ -866,7 +952,7 @@ def main() -> None:
     logger.info(f"Loaded phase2_summary (tag={tag})")
 
     backbone = summary.get("backbone", cfg["model"]["backbone"])
-    epochs   = summary.get("epochs", cfg["phase2"]["epochs"])
+    epochs = summary.get("epochs", cfg["phase2"]["epochs"])
 
     all_results_in_summary = [
         r["channel"] for r in summary["results"] if not r.get("skipped")
@@ -904,7 +990,7 @@ def main() -> None:
                 if not r.get("skipped") and r["channel"] in available:
                     baseline_cards[r["channel"]] = {
                         "test_acc": r["test_acc"],
-                        "mae":      r["mae"],
+                        "mae": r["mae"],
                     }
             logger.info(f"Loaded baseline comparison for: {list(baseline_cards)}")
         except Exception as e:
@@ -913,12 +999,13 @@ def main() -> None:
     # ── 3. Inference (unless --no-inference) ─────────────────────────────
     all_results: dict = {}
     import torch
+
     device = torch.device(cfg["system"]["device"])
 
     if not args.no_inference:
         labeled_dir = Path(cfg["storage"]["labeled_dir"])
-        labels_csv  = Path(cfg["storage"]["data_root"]) / "labels_master.csv"
-        tmp_dir     = REPORT_DIR / "tmp"
+        labels_csv = Path(cfg["storage"]["data_root"]) / "labels_master.csv"
+        tmp_dir = REPORT_DIR / "tmp"
 
         for ch in available:
             ckpt = find_checkpoint(ch, backbone, tag)
@@ -978,7 +1065,8 @@ def main() -> None:
             yt, yp = all_results[ch]["y_true"], all_results[ch]["y_pred"]
             ch_acc = metrics[ch]["accuracy"] if ch in metrics else 0.0
             fig = plot_confusion_matrix(
-                yt, yp,
+                yt,
+                yp,
                 title=f"[{ch}] Confusion Matrix  Acc={ch_acc:.4f}",
                 normalize=True,
             )
@@ -989,7 +1077,8 @@ def main() -> None:
         all_pred = np.concatenate([all_results[c]["y_pred"] for c in all_results])
         ov_acc = metrics.get("overall", {}).get("accuracy", 0.0)
         fig_ov = plot_confusion_matrix(
-            all_true, all_pred,
+            all_true,
+            all_pred,
             title=f"[Overall] Confusion Matrix  Acc={ov_acc:.4f}",
             normalize=True,
         )
@@ -1001,14 +1090,16 @@ def main() -> None:
     # MAE heatmap / distribution
     if all_results:
         figs["mae_heatmap"] = _build_mae_heatmap(all_results, list(all_results.keys()))
-        figs["mae_dist"]    = _build_mae_dist(all_results, list(all_results.keys()))
+        figs["mae_dist"] = _build_mae_dist(all_results, list(all_results.keys()))
     else:
         figs["mae_heatmap"] = ""
-        figs["mae_dist"]    = ""
+        figs["mae_dist"] = ""
 
     # ── 6. Phase 3 feedback text ──────────────────────────────────────────
     lines = ["=== Phase 3 Feedback Decision (PRD 3.3.2) ==="]
-    all_pass_flag = all(cards[c]["pass_acc"] and cards[c]["pass_mae"] for c in available)
+    all_pass_flag = all(
+        cards[c]["pass_acc"] and cards[c]["pass_mae"] for c in available
+    )
 
     if all_pass_flag:
         lines.append("All targets met -- TERMINATE Swing")
@@ -1030,32 +1121,32 @@ def main() -> None:
     lines += [
         "",
         f'  Avg. Test Accuracy : {cards["overall"]["test_acc"]:.4f}'
-        f'  (target >= {TARGET_PER_COLOR_ACC})',
+        f"  (target >= {TARGET_PER_COLOR_ACC})",
         f'  Avg. MAE           : {cards["overall"]["mae"]:.4f}'
-        f'  (target <= {TARGET_MAE})',
+        f"  (target <= {TARGET_MAE})",
         f"  Source             : phase2_summary_{tag}.json (Test-set 15%)",
     ]
     phase3_text = "\n".join(lines)
 
     # ── 7. Build HTML ─────────────────────────────────────────────────────
     meta = {
-        "tag":          tag,
+        "tag": tag,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "backbone":     backbone,
-        "epochs":       epochs,
-        "image_size":   cfg["data"]["image_size"],
-        "channels":     available,
+        "backbone": backbone,
+        "epochs": epochs,
+        "image_size": cfg["data"]["image_size"],
+        "channels": available,
     }
 
     output_path = REPORT_DIR / f"phase2_{tag}.html"
     build_phase2_html(
         report_data={
-            "meta":           meta,
-            "cards":          cards,
-            "metrics":        metrics,
-            "figures":        figs,
-            "phase3_text":    phase3_text,
-            "available":      available,
+            "meta": meta,
+            "cards": cards,
+            "metrics": metrics,
+            "figures": figs,
+            "phase3_text": phase3_text,
+            "available": available,
             "baseline_cards": baseline_cards,
         },
         output_path=output_path,
@@ -1070,6 +1161,7 @@ def main() -> None:
 
     if args.open_browser:
         import webbrowser
+
         webbrowser.open(output_path.resolve().as_uri())
 
 

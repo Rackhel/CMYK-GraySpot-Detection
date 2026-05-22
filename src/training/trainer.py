@@ -148,10 +148,9 @@ class Phase0Trainer:
         logger.info(f"  {'Epoch':<8} {'Loss':<14} {'LR':<14} Elapsed")
         logger.info(f"  {'-'*50}")
 
-        use_amp = (
-            self.cfg["train"].get("mixed_precision", False)
-            and self.device.type in ("cuda", "mps")
-        )
+        use_amp = self.cfg["train"].get(
+            "mixed_precision", False
+        ) and self.device.type in ("cuda", "mps")
         grad_accum = max(1, int(self.cfg["train"].get("grad_accumulation_steps", 1)))
         scaler = (
             torch.cuda.amp.GradScaler()
@@ -171,9 +170,15 @@ class Phase0Trainer:
 
                 if use_amp:
                     with torch.autocast(device_type=self.device.type):
-                        loss = self.criterion(self.model(view1), self.model(view2)) / grad_accum
+                        loss = (
+                            self.criterion(self.model(view1), self.model(view2))
+                            / grad_accum
+                        )
                 else:
-                    loss = self.criterion(self.model(view1), self.model(view2)) / grad_accum
+                    loss = (
+                        self.criterion(self.model(view1), self.model(view2))
+                        / grad_accum
+                    )
 
                 if scaler:
                     scaler.scale(loss).backward()
@@ -185,7 +190,9 @@ class Phase0Trainer:
                     if grad_clip:
                         if scaler:
                             scaler.unscale_(self.optimizer)
-                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
+                        torch.nn.utils.clip_grad_norm_(
+                            self.model.parameters(), grad_clip
+                        )
 
                     if scaler:
                         scaler.step(self.optimizer)
@@ -194,7 +201,9 @@ class Phase0Trainer:
                         self.optimizer.step()
                     self.optimizer.zero_grad()
 
-                total_loss += loss.item() * grad_accum  # 원래 scale로 기록 / record at original scale
+                total_loss += (
+                    loss.item() * grad_accum
+                )  # 원래 scale로 기록 / record at original scale
 
             avg_loss = total_loss / max(len(loader), 1)
             self.scheduler.step()
@@ -290,10 +299,9 @@ class Phase2Trainer:
         )
         logger.info(f"  {'-'*60}")
 
-        use_amp = (
-            self.cfg["train"].get("mixed_precision", False)
-            and self.device.type in ("cuda", "mps")
-        )
+        use_amp = self.cfg["train"].get(
+            "mixed_precision", False
+        ) and self.device.type in ("cuda", "mps")
         grad_accum = max(1, int(self.cfg["train"].get("grad_accumulation_steps", 1)))
         scaler = (
             torch.cuda.amp.GradScaler()
@@ -330,7 +338,9 @@ class Phase2Trainer:
                     if grad_clip:
                         if scaler:
                             scaler.unscale_(self.optimizer)
-                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
+                        torch.nn.utils.clip_grad_norm_(
+                            self.model.parameters(), grad_clip
+                        )
 
                     if scaler:
                         scaler.step(self.optimizer)
@@ -339,7 +349,9 @@ class Phase2Trainer:
                         self.optimizer.step()
                     self.optimizer.zero_grad()
 
-                train_loss += loss.item() * grad_accum  # 원래 scale로 기록 / record at original scale
+                train_loss += (
+                    loss.item() * grad_accum
+                )  # 원래 scale로 기록 / record at original scale
                 train_correct += (logits.argmax(1) == labels).sum().item()
                 train_total += len(labels)
 
