@@ -57,7 +57,7 @@
   },
 
   "phase2": {
-    "epochs":        30,
+    "epochs":        50, 
     "batch_size":    16,
     "learning_rate": 1.0e-4,
     "weight_decay":  1.0e-4,
@@ -66,7 +66,7 @@
     "oversample":    true,
     "early_stopping": {
       "enabled":   true,
-      "patience":  5,
+      "patience":  10,
       "min_delta": 1.0e-4
     },
     "augmentation": {

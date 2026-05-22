@@ -136,10 +136,10 @@ def _run_channel_evaluation(
             storage.get("data_root", "data_set/labeled"),
         )
     )
-    # labels_v0.csv는 data_root(data_set/) 에 위치 — labeled_dir 한 단계 위
-    # labels_v0.csv lives at data_root (data_set/), one level above labeled_dir
+    # labels_master.csv는 data_root(data_set/) 에 위치 — labeled_dir 한 단계 위
+    # labels_master.csv lives at data_root (data_set/), one level above labeled_dir
     data_root = Path(storage.get("data_root", "data_set"))
-    labels_csv = data_root / "labels_v0.csv"
+    labels_csv = data_root / "labels_master.csv"
 
     # 모델 로딩 시도 — 테스트 환경에서 Evaluator가 모킹될 경우 model 값은 무시된다
     # Try model loading — when Evaluator is mocked in tests, the model arg is ignored

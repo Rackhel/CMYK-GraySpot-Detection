@@ -62,17 +62,68 @@ from src.utils import (
 
 
 def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
-    """체크포인트 weight shape에서 hidden_dim을 역산해 cfg 복사본을 패치한다."""
+    """
+    체크포인트 weight shape에서 backbone과 hidden_dim을 역산해 cfg 복사본을 패치한다.
+    Auto-detects backbone and hidden_dim from checkpoint weight shapes.
+    """
+    # 알려진 backbone feature 크기 매핑 / Known backbone output feature sizes
+    _FEATURE_TO_BACKBONE: dict = {
+        2048: "resnet50",
+        1280: "efficientnet_b0",
+        1792: "efficientnet_b4",
+        1536: "efficientnet_b3",
+        1408: "efficientnet_b2",
+        512:  "resnet18",
+        1024: "densenet121",
+    }
+
     state = torch.load(str(ckpt), map_location="cpu", weights_only=True)
     if isinstance(state, dict) and "model_state_dict" in state:
         state = state["model_state_dict"]
-    w = state.get("head.net.0.weight")
-    if w is None:
+
+    w0 = state.get("head.net.0.weight")
+    if w0 is None:
         return cfg
-    hidden_dim = int(w.shape[0])
+
+    in_features = int(w0.shape[1])  # backbone output features
+    first_out   = int(w0.shape[0])  # first head layer output
+
+    # net.4.weight shape[0] == num_classes (6) → mid_dim 없음
+    # Detect whether a mid_dim layer exists
+    num_classes = cfg.get("data", {}).get("num_levels", 6)
+    w4 = state.get("head.net.4.weight")
+    if w4 is not None and int(w4.shape[0]) == num_classes:
+        # 구조: Linear(in, hidden) → ... → Linear(hidden, 6)
+        # Structure: Linear(in, hidden_dim) → ... → Linear(hidden_dim, 6)
+        mid_dim    = None
+        hidden_dim = first_out
+    elif w4 is not None:
+        # 구조: Linear(in, mid) → ... → Linear(mid, hidden) → ... → Linear(hidden, 6)
+        # Structure: Linear(in, mid_dim) → ... further layers
+        mid_dim    = first_out
+        hidden_dim = int(w4.shape[1])
+    else:
+        mid_dim    = None
+        hidden_dim = first_out
+
     patched = copy.deepcopy(cfg)
-    backbone = patched.get("model", {}).get("backbone", "efficientnet_b0")
-    patched["phase2"]["heads"][backbone]["hidden_dim"] = hidden_dim
+
+    # backbone 자동 감지 — 기존 config backbone 이름이 아닐 경우 교체
+    # Auto-detect backbone; override cfg if checkpoint uses a different backbone
+    detected_backbone = _FEATURE_TO_BACKBONE.get(in_features)
+    if detected_backbone is not None:
+        patched.setdefault("model", {})["backbone"] = detected_backbone
+        backbone = detected_backbone
+    else:
+        backbone = patched.get("model", {}).get("backbone", "efficientnet_b0")
+
+    # heads 설정 완전 패치 (mid_dim + hidden_dim)
+    # Fully patch heads config (mid_dim + hidden_dim from checkpoint)
+    heads = patched.setdefault("phase2", {}).setdefault("heads", {})
+    if backbone not in heads:
+        heads[backbone] = {"dropout": 0.3}
+    heads[backbone]["mid_dim"]    = mid_dim
+    heads[backbone]["hidden_dim"] = hidden_dim
     return patched
 
 
@@ -411,7 +462,7 @@ def main() -> None:
 
     baseline_dir = Path(cfg["storage"]["data_root"]) / "baseline"
     labeled_dir = Path(cfg["storage"]["labeled_dir"])
-    labels_csv = Path(cfg["storage"]["data_root"]) / "labels_v0.csv"
+    labels_csv = Path(cfg["storage"]["data_root"]) / "labels_master.csv"
     output_dir = ROOT / "outputs" / "reports"
     output_dir.mkdir(parents=True, exist_ok=True)
     device = torch.device(cfg["system"]["device"])

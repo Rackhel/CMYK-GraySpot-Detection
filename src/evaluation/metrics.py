@@ -27,13 +27,55 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import numpy as np
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-)
+
+
+# ---------------------------------------------------------------------------
+# sklearn 없이 numpy로 구현한 분류 지표 / Classification metrics without sklearn
+# ---------------------------------------------------------------------------
+
+def _accuracy_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Accuracy = 정답 수 / 전체 수."""
+    if len(y_true) == 0:
+        return 0.0
+    return float(np.mean(np.asarray(y_true) == np.asarray(y_pred)))
+
+
+def _per_class_prf(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    labels: list,
+    zero_division: float = 0.0,
+):
+    """
+    클래스별 Precision, Recall, F1 을 numpy로 계산한다.
+    Returns three arrays: (precision, recall, f1), each shape (n_classes,).
+    """
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    n = len(labels)
+    prec = np.zeros(n)
+    rec  = np.zeros(n)
+    f1   = np.zeros(n)
+    for i, lbl in enumerate(labels):
+        tp = int(np.sum((y_true == lbl) & (y_pred == lbl)))
+        fp = int(np.sum((y_true != lbl) & (y_pred == lbl)))
+        fn = int(np.sum((y_true == lbl) & (y_pred != lbl)))
+        prec[i] = tp / (tp + fp) if (tp + fp) > 0 else zero_division
+        rec[i]  = tp / (tp + fn) if (tp + fn) > 0 else zero_division
+        denom = prec[i] + rec[i]
+        f1[i]   = 2 * prec[i] * rec[i] / denom if denom > 0 else zero_division
+    return prec, rec, f1
+
+
+def _f1_macro(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    labels: list,
+    zero_division: float = 0.0,
+) -> float:
+    """Macro-averaged F1."""
+    _, _, f1 = _per_class_prf(y_true, y_pred, labels, zero_division)
+    return float(np.mean(f1))
 
 # ---------------------------------------------------------------------------
 # Constants / 상수
@@ -148,9 +190,7 @@ def compute_per_class_metrics(
         List of dicts: [{'level': int, 'precision': float, 'recall': float, 'f1': float}, ...]
     """
     labels = list(range(num_classes))
-    prec = precision_score(y_true, y_pred, labels=labels, average=None, zero_division=0)
-    rec = recall_score(y_true, y_pred, labels=labels, average=None, zero_division=0)
-    f1 = f1_score(y_true, y_pred, labels=labels, average=None, zero_division=0)
+    prec, rec, f1 = _per_class_prf(y_true, y_pred, labels, zero_division=0.0)
 
     # Count support per class / 클래스별 샘플 수
     from collections import Counter
@@ -200,8 +240,9 @@ def compute_metrics(
             "n_samples": 0,
         }
 
-    accuracy = float(accuracy_score(y_true, y_pred))
-    macro_f1 = float(f1_score(y_true, y_pred, average="macro", zero_division=0))
+    labels = list(range(num_classes))
+    accuracy = _accuracy_score(y_true, y_pred)
+    macro_f1 = _f1_macro(y_true, y_pred, labels, zero_division=0.0)
     mae = float(np.mean(np.abs(y_true.astype(float) - y_pred.astype(float))))
 
     return {

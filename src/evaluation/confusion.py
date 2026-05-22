@@ -14,9 +14,36 @@ from typing import Optional, Tuple
 
 import numpy as np
 import plotly.graph_objects as go
-from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 
 from evaluation.metrics import NUM_LEVELS
+
+
+def _confusion_matrix_numpy(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    labels: list,
+) -> np.ndarray:
+    """
+    sklearn 없이 numpy만으로 혼동 행렬을 계산한다.
+    Computes confusion matrix using only numpy (no sklearn dependency).
+
+    Args:
+        y_true : 정답 라벨 / True labels (N,)
+        y_pred : 예측 라벨 / Predicted labels (N,)
+        labels : 클래스 목록 / Class list
+
+    Returns:
+        ndarray shape (n_classes, n_classes)
+    """
+    n = len(labels)
+    label_to_idx = {lbl: i for i, lbl in enumerate(labels)}
+    cm = np.zeros((n, n), dtype=np.int64)
+    for t, p in zip(y_true, y_pred):
+        ti = label_to_idx.get(int(t))
+        pi = label_to_idx.get(int(p))
+        if ti is not None and pi is not None:
+            cm[ti, pi] += 1
+    return cm
 
 # ---------------------------------------------------------------------------
 # Visualization constants used by html_report.py and evaluator.py
@@ -55,7 +82,7 @@ def compute_confusion_matrix(
         cm_norm : row-normalized (or same as cm_raw if normalize=False)
     """
     labels = list(range(num_classes))
-    cm_raw = sk_confusion_matrix(y_true, y_pred, labels=labels)
+    cm_raw = _confusion_matrix_numpy(y_true, y_pred, labels=labels)
 
     if normalize:
         row_sums = cm_raw.sum(axis=1, keepdims=True)

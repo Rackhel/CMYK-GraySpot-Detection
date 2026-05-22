@@ -549,11 +549,11 @@ def _build_confusion_fig(
     6×6 row-normalized confusion matrix heatmap (mirrors Cell 7).
     6×6 행 정규화 혼동 행렬 히트맵 (Cell 7 반영).
     """
-    from sklearn.metrics import confusion_matrix as sk_cm
+    from evaluation.confusion import _confusion_matrix_numpy
 
     labels = list(range(num_classes))
     level_names = [f"L{i}" for i in labels]
-    cm = sk_cm(y_true, y_pred, labels=labels)
+    cm = _confusion_matrix_numpy(y_true, y_pred, labels=labels)
     row_sums = cm.sum(axis=1, keepdims=True)
     z = np.where(row_sums > 0, cm / row_sums, 0.0)
     z_text = [[f"{v:.2f}" for v in row] for row in z]

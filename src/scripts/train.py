@@ -216,7 +216,7 @@ def step_report(cfg, channels: list[str], device, open_browser: bool, logger) ->
 
     baseline_dir = Path(cfg["storage"]["data_root"]) / "baseline"
     labeled_dir = Path(cfg["storage"]["labeled_dir"])
-    labels_csv = Path(cfg["storage"]["data_root"]) / "labels_v0.csv"
+    labels_csv = Path(cfg["storage"]["data_root"]) / "labels_master.csv"
     output_dir = ROOT / "outputs" / "reports"
     output_dir.mkdir(parents=True, exist_ok=True)
 
