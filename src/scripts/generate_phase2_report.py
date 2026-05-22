@@ -791,6 +791,12 @@ def build_phase2_html(
     # ── Tab 5: MAE ──────────────────────────────────────────────────────────
     mae_heat = figs.get("mae_heatmap", "")
     mae_dist = figs.get("mae_dist", "")
+    mismatch_div = figs.get("mismatch", "")
+    import plotly.io as _pio
+    if mismatch_div and hasattr(mismatch_div, "data"):
+        mismatch_div = _pio.to_html(
+            mismatch_div, full_html=False, include_plotlyjs=False, div_id="fig-mismatch"
+        )
 
     sec_mae = f"""
     <div class="card">
@@ -800,9 +806,26 @@ def build_phase2_html(
     <div class="card">
       <h2>Prediction Error Distribution</h2>
       {mae_dist if mae_dist else '<div class="no-data">Error distribution not available (no inference).</div>'}
+    </div>
+    <div class="card">
+      <h2>Misclassified Samples (오분류 샘플)</h2>
+      {mismatch_div if mismatch_div else '<div class="no-data">Mismatch scatter not available (no inference).</div>'}
     </div>"""
 
-    # ── Tab 6: Phase 3 Feedback ─────────────────────────────────────────────
+    # ── Tab 6: Confidence Distribution ─────────────────────────────────────
+    conf_div = figs.get("conf_dist", "")
+    if conf_div and hasattr(conf_div, "data"):
+        conf_div = _pio.to_html(
+            conf_div, full_html=False, include_plotlyjs=False, div_id="fig-conf"
+        )
+
+    sec_conf = f"""
+    <div class="card">
+      <h2>Prediction Confidence Distribution (신뢰도 분포)</h2>
+      {conf_div if conf_div else '<div class="no-data">Confidence distribution not available (no inference).</div>'}
+    </div>"""
+
+    # ── Tab 7: Phase 3 Feedback ─────────────────────────────────────────────
     all_pass = all(cards[c]["pass_acc"] and cards[c]["pass_mae"] for c in available)
     box_cls = "p3box" if all_pass else "p3box p3box-fail"
     phase3_html = (
@@ -818,12 +841,13 @@ def build_phase2_html(
 
     # ── Tabs list ───────────────────────────────────────────────────────────
     tabs = [
-        ("summary", "1. Summary"),
-        ("curves", "2. Training Curves"),
-        ("cm", "3. Confusion Matrix"),
-        ("f1", "4. Per-Class F1"),
-        ("mae", "5. MAE"),
-        ("phase3", "6. Phase 3 Feedback"),
+        ("summary", "① Summary"),
+        ("curves", "② Training Curves"),
+        ("cm", "③ Confusion Matrix"),
+        ("f1", "④ Per-Class F1"),
+        ("mae", "⑤ MAE / Mismatch"),
+        ("conf", "⑥ Confidence"),
+        ("phase3", "⑦ Phase 3 Feedback"),
     ]
     tabs_html = "".join(
         f'<div class="nav-tab{"active" if i == 0 else ""}" '
@@ -837,6 +861,7 @@ def build_phase2_html(
         "cm": sec_cm,
         "f1": sec_f1,
         "mae": sec_mae,
+        "conf": sec_conf,
         "phase3": sec_p3,
     }
     sections_html = "".join(
@@ -1094,6 +1119,53 @@ def main() -> None:
     else:
         figs["mae_heatmap"] = ""
         figs["mae_dist"] = ""
+
+    # Mismatch scatter + Confidence distribution (baseline과 동일한 차트)
+    # Mismatch scatter + Confidence distribution (same charts as baseline)
+    if all_results:
+        labeled_dir = Path(cfg["storage"]["labeled_dir"])
+        labels_csv  = Path(cfg["storage"]["data_root"]) / "labels_master.csv"
+        # 첫 번째 체크포인트로 ev_report 인스턴스 생성 (차트 메서드 전용)
+        # Create ev_report instance for chart methods (model not used here)
+        first_ckpt = find_checkpoint(available[0], backbone, tag)
+        ev_report = Evaluator(
+            model=build_model(_cfg_for_ckpt(cfg, first_ckpt), first_ckpt, device)
+                  if first_ckpt else None,
+            labeled_dir=labeled_dir,
+            labels_csv=labels_csv,
+            output_dir=REPORT_DIR,
+            device=device,
+            image_size=cfg["data"]["image_size"],
+            batch_size=cfg["phase2"]["batch_size"],
+            num_levels=cfg["data"]["num_levels"],
+            cfg=cfg,
+        )
+        df_miss = ev_report.get_misclassified(all_results, list(all_results.keys()))
+        figs["mismatch"]  = ev_report._build_mismatch_scatter(df_miss)
+        figs["conf_dist"] = ev_report._build_confidence_dist(
+            all_results, list(all_results.keys())
+        )
+
+        # CSV / JSON 저장 (baseline과 동일)
+        # Save CSV / JSON (same as baseline)
+        ev_report.save_csv(
+            all_results, experiment_name=f"phase2_{tag}",
+            channels=list(all_results.keys())
+        )
+        ev_report.save_json(
+            metrics, experiment_name=f"phase2_{tag}",
+            channels=list(all_results.keys()),
+            checkpoint_path=", ".join(
+                str(find_checkpoint(ch, backbone, tag) or "")
+                for ch in available
+            ),
+        )
+        miss_csv = REPORT_DIR / f"misclassified_phase2_{tag}.csv"
+        df_miss.to_csv(miss_csv, index=False, encoding="utf-8-sig")
+        logger.info(f"Saved: {miss_csv}")
+    else:
+        figs["mismatch"]  = ""
+        figs["conf_dist"] = ""
 
     # ── 6. Phase 3 feedback text ──────────────────────────────────────────
     lines = ["=== Phase 3 Feedback Decision (PRD 3.3.2) ==="]
