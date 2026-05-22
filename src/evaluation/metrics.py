@@ -28,10 +28,10 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-
 # ---------------------------------------------------------------------------
 # sklearn 없이 numpy로 구현한 분류 지표 / Classification metrics without sklearn
 # ---------------------------------------------------------------------------
+
 
 def _accuracy_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """Accuracy = 정답 수 / 전체 수."""
@@ -54,16 +54,16 @@ def _per_class_prf(
     y_pred = np.asarray(y_pred)
     n = len(labels)
     prec = np.zeros(n)
-    rec  = np.zeros(n)
-    f1   = np.zeros(n)
+    rec = np.zeros(n)
+    f1 = np.zeros(n)
     for i, lbl in enumerate(labels):
         tp = int(np.sum((y_true == lbl) & (y_pred == lbl)))
         fp = int(np.sum((y_true != lbl) & (y_pred == lbl)))
         fn = int(np.sum((y_true == lbl) & (y_pred != lbl)))
         prec[i] = tp / (tp + fp) if (tp + fp) > 0 else zero_division
-        rec[i]  = tp / (tp + fn) if (tp + fn) > 0 else zero_division
+        rec[i] = tp / (tp + fn) if (tp + fn) > 0 else zero_division
         denom = prec[i] + rec[i]
-        f1[i]   = 2 * prec[i] * rec[i] / denom if denom > 0 else zero_division
+        f1[i] = 2 * prec[i] * rec[i] / denom if denom > 0 else zero_division
     return prec, rec, f1
 
 
@@ -76,6 +76,7 @@ def _f1_macro(
     """Macro-averaged F1."""
     _, _, f1 = _per_class_prf(y_true, y_pred, labels, zero_division)
     return float(np.mean(f1))
+
 
 # ---------------------------------------------------------------------------
 # Constants / 상수
