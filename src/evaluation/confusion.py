@@ -45,6 +45,7 @@ def _confusion_matrix_numpy(
             cm[ti, pi] += 1
     return cm
 
+
 # ---------------------------------------------------------------------------
 # Visualization constants used by html_report.py and evaluator.py
 # ---------------------------------------------------------------------------

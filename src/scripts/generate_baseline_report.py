@@ -73,7 +73,7 @@ def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
         1792: "efficientnet_b4",
         1536: "efficientnet_b3",
         1408: "efficientnet_b2",
-        512:  "resnet18",
+        512: "resnet18",
         1024: "densenet121",
     }
 
@@ -86,7 +86,7 @@ def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
         return cfg
 
     in_features = int(w0.shape[1])  # backbone output features
-    first_out   = int(w0.shape[0])  # first head layer output
+    first_out = int(w0.shape[0])  # first head layer output
 
     # net.4.weight shape[0] == num_classes (6) → mid_dim 없음
     # Detect whether a mid_dim layer exists
@@ -95,15 +95,15 @@ def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
     if w4 is not None and int(w4.shape[0]) == num_classes:
         # 구조: Linear(in, hidden) → ... → Linear(hidden, 6)
         # Structure: Linear(in, hidden_dim) → ... → Linear(hidden_dim, 6)
-        mid_dim    = None
+        mid_dim = None
         hidden_dim = first_out
     elif w4 is not None:
         # 구조: Linear(in, mid) → ... → Linear(mid, hidden) → ... → Linear(hidden, 6)
         # Structure: Linear(in, mid_dim) → ... further layers
-        mid_dim    = first_out
+        mid_dim = first_out
         hidden_dim = int(w4.shape[1])
     else:
-        mid_dim    = None
+        mid_dim = None
         hidden_dim = first_out
 
     patched = copy.deepcopy(cfg)
@@ -122,7 +122,7 @@ def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
     heads = patched.setdefault("phase2", {}).setdefault("heads", {})
     if backbone not in heads:
         heads[backbone] = {"dropout": 0.3}
-    heads[backbone]["mid_dim"]    = mid_dim
+    heads[backbone]["mid_dim"] = mid_dim
     heads[backbone]["hidden_dim"] = hidden_dim
     return patched
 
