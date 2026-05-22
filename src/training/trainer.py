@@ -66,26 +66,46 @@ def _build_optimizer(model: torch.nn.Module, lr: float, weight_decay: float, cfg
         )
 
 
-def _build_scheduler(optimizer, epochs: int, cfg: dict):
+def _build_scheduler(optimizer, epochs: int, cfg: dict, phase: str = "train"):
     """
     cfg["train"]["scheduler"] 값에 따라 LR scheduler를 생성한다.
     Builds an LR scheduler based on cfg["train"]["scheduler"].
 
+    warmup_epochs 설정이 있으면 LinearWarmup + 기본 스케줄러 조합.
+    If warmup_epochs is set, combines LinearWarmup + base scheduler.
+
     지원 값 / Supported values: "cosine" (default), "step"
+    phase: "phase0" | "phase2" | "train"
     """
+    phase_cfg = cfg.get(phase, {}) if phase in ("phase0", "phase2") else {}
+    warmup_epochs = int(phase_cfg.get("warmup_epochs", 0))
+
     name = cfg["train"].get("scheduler", "cosine").lower()
     if name == "step":
         from torch.optim.lr_scheduler import StepLR
 
-        return StepLR(
+        base_scheduler = StepLR(
             optimizer,
             step_size=max(1, epochs // 3),
             gamma=cfg["train"].get("gamma", 0.1),
         )
     else:  # cosine (default)
-        return CosineAnnealingLR(
-            optimizer, T_max=epochs, eta_min=cfg["train"]["eta_min"]
+        base_scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=max(epochs - warmup_epochs, 1),
+            eta_min=cfg["train"]["eta_min"],
         )
+
+    if warmup_epochs > 0:
+        from torch.optim.lr_scheduler import LinearLR, SequentialLR
+
+        warmup = LinearLR(
+            optimizer, start_factor=0.1, end_factor=1.0, total_iters=warmup_epochs
+        )
+        return SequentialLR(
+            optimizer, schedulers=[warmup, base_scheduler], milestones=[warmup_epochs]
+        )
+    return base_scheduler
 
 
 # ──────────────────────────────────────────────────────────────
@@ -114,7 +134,7 @@ class Phase0Trainer:
             cfg=cfg,
         )
         self.scheduler = _build_scheduler(
-            self.optimizer, epochs=cfg["phase0"]["epochs"], cfg=cfg
+            self.optimizer, epochs=cfg["phase0"]["epochs"], cfg=cfg, phase="phase0"
         )
 
     def train(self, loader: DataLoader) -> list[dict]:
@@ -128,21 +148,53 @@ class Phase0Trainer:
         logger.info(f"  {'Epoch':<8} {'Loss':<14} {'LR':<14} Elapsed")
         logger.info(f"  {'-'*50}")
 
+        use_amp = (
+            self.cfg["train"].get("mixed_precision", False)
+            and self.device.type in ("cuda", "mps")
+        )
+        grad_accum = max(1, int(self.cfg["train"].get("grad_accumulation_steps", 1)))
+        scaler = (
+            torch.cuda.amp.GradScaler()
+            if use_amp and self.device.type == "cuda"
+            else None
+        )
+        grad_clip = self.cfg["train"].get("gradient_clip", 0.0)
+
         for epoch in range(1, epochs + 1):
             t0 = time.time()
             self.model.train()
             total_loss = 0.0
+            self.optimizer.zero_grad()  # accum 방식: epoch 시작 시 초기화 / zero_grad at epoch start for accumulation
 
-            grad_clip = self.cfg["train"].get("gradient_clip", 0.0)
-            for view1, view2 in loader:
+            for step, (view1, view2) in enumerate(loader):
                 view1, view2 = view1.to(self.device), view2.to(self.device)
-                loss = self.criterion(self.model(view1), self.model(view2))
-                self.optimizer.zero_grad()
-                loss.backward()
-                if grad_clip:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
-                self.optimizer.step()
-                total_loss += loss.item()
+
+                if use_amp:
+                    with torch.autocast(device_type=self.device.type):
+                        loss = self.criterion(self.model(view1), self.model(view2)) / grad_accum
+                else:
+                    loss = self.criterion(self.model(view1), self.model(view2)) / grad_accum
+
+                if scaler:
+                    scaler.scale(loss).backward()
+                else:
+                    loss.backward()
+
+                # accumulation step 완료 시 optimizer.step / optimizer.step when accumulation complete
+                if (step + 1) % grad_accum == 0 or (step + 1) == len(loader):
+                    if grad_clip:
+                        if scaler:
+                            scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
+
+                    if scaler:
+                        scaler.step(self.optimizer)
+                        scaler.update()
+                    else:
+                        self.optimizer.step()
+                    self.optimizer.zero_grad()
+
+                total_loss += loss.item() * grad_accum  # 원래 scale로 기록 / record at original scale
 
             avg_loss = total_loss / max(len(loader), 1)
             self.scheduler.step()
@@ -212,7 +264,7 @@ class Phase2Trainer:
             cfg=cfg,
         )
         self.scheduler = _build_scheduler(
-            self.optimizer, epochs=cfg["phase2"]["epochs"], cfg=cfg
+            self.optimizer, epochs=cfg["phase2"]["epochs"], cfg=cfg, phase="phase2"
         )
 
     def train(self, train_loader: DataLoader, val_loader: DataLoader) -> list[dict]:
@@ -238,22 +290,56 @@ class Phase2Trainer:
         )
         logger.info(f"  {'-'*60}")
 
+        use_amp = (
+            self.cfg["train"].get("mixed_precision", False)
+            and self.device.type in ("cuda", "mps")
+        )
+        grad_accum = max(1, int(self.cfg["train"].get("grad_accumulation_steps", 1)))
+        scaler = (
+            torch.cuda.amp.GradScaler()
+            if use_amp and self.device.type == "cuda"
+            else None
+        )
+
         for epoch in range(1, epochs + 1):
             t0 = time.time()
 
             # Train
             self.model.train()
             train_loss, train_correct, train_total = 0.0, 0, 0
-            for x, labels in train_loader:
+            self.optimizer.zero_grad()  # accum 방식: epoch 시작 시 초기화 / zero_grad at epoch start for accumulation
+
+            for step, (x, labels) in enumerate(train_loader):
                 x, labels = x.to(self.device), labels.to(self.device)
-                logits = self.model(x)
-                loss = self.criterion(logits, labels)
-                self.optimizer.zero_grad()
-                loss.backward()
-                if grad_clip:
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
-                self.optimizer.step()
-                train_loss += loss.item()
+
+                if use_amp:
+                    with torch.autocast(device_type=self.device.type):
+                        logits = self.model(x)
+                        loss = self.criterion(logits, labels) / grad_accum
+                else:
+                    logits = self.model(x)
+                    loss = self.criterion(logits, labels) / grad_accum
+
+                if scaler:
+                    scaler.scale(loss).backward()
+                else:
+                    loss.backward()
+
+                # accumulation step 완료 시 optimizer.step / optimizer.step when accumulation complete
+                if (step + 1) % grad_accum == 0 or (step + 1) == len(train_loader):
+                    if grad_clip:
+                        if scaler:
+                            scaler.unscale_(self.optimizer)
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), grad_clip)
+
+                    if scaler:
+                        scaler.step(self.optimizer)
+                        scaler.update()
+                    else:
+                        self.optimizer.step()
+                    self.optimizer.zero_grad()
+
+                train_loss += loss.item() * grad_accum  # 원래 scale로 기록 / record at original scale
                 train_correct += (logits.argmax(1) == labels).sum().item()
                 train_total += len(labels)
 

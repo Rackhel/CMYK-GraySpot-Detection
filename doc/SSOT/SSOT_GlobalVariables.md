@@ -185,9 +185,9 @@ config.json에 선언되었으나 코드에서 소비되지 않는 주요 키. /
 | `phase0.augmentation.normalize` | `preprocessing.py` 고정 처리 / Fixed handling in `preprocessing.py` |
 | `phase2.warmup_epochs` | warmup 스케줄러 미구현 / Warmup scheduler not implemented |
 | `phase2.class_weights` | `losses.py` 내부 자체 처리 / Handled internally in `losses.py` |
-| `phase2.loss_type` | 항상 CrossEntropy 사용 — Focal Loss 미구현 / Always uses CrossEntropy — Focal Loss not implemented |
-| `phase2.focal_alpha` | Focal Loss 미구현 / Focal Loss not implemented |
-| `phase2.focal_gamma` | Focal Loss 미구현 / Focal Loss not implemented |
+| `phase2.loss_type` | Focal Loss 삭제 — CrossEntropy 고정 사용 / Focal Loss deleted — CrossEntropy fixed |
+| `phase2.focal_alpha` | Focal Loss 삭제 / Focal Loss deleted |
+| `phase2.focal_gamma` | Focal Loss 삭제 / Focal Loss deleted |
 | `train.grad_accumulation_steps` | 미구현 기능 플레이스홀더 / Unimplemented feature placeholder |
 | `evaluation.metrics` | 코드 내부 고정 목록 / Fixed list inside code |
 | `cuda.visible_devices` | 코드에서 미사용 / Not consumed by code |

@@ -4,9 +4,9 @@ tuning/optuna_tuner.py
 Optuna 기반 하이퍼파라미터 튜닝 모듈
 Optuna-based hyperparameter tuning module
 
-Baseline 학습 파이프라인(run_baseline)을 재사용하여
+Phase 2 학습 파이프라인(run_phase2)을 재사용하여
 Phase 2 하이퍼파라미터를 자동 탐색한다.
-Reuses the baseline training pipeline (run_baseline)
+Reuses the Phase 2 training pipeline (run_phase2)
 to automatically search Phase 2 hyperparameters.
 
 지원 모드 / Supported modes:
@@ -22,8 +22,8 @@ to automatically search Phase 2 hyperparameters.
     - epochs
 
 목적 / Purpose:
-    Baseline 대비 성능 향상을 위한 최적의 하이퍼파라미터 탐색
-    Find optimal hyperparameters to improve performance over the baseline
+    Phase 2 대비 성능 향상을 위한 최적의 하이퍼파라미터 탐색
+    Find optimal hyperparameters to improve Phase 2 performance
 
     단일 채널 또는 전체 채널 기준으로 유연한 실험 수행
     Perform flexible experiments for a single channel or all channels
@@ -41,6 +41,7 @@ to automatically search Phase 2 hyperparameters.
     python -m src.scripts.run_optuna --trials 10 --channel M
 """
 
+import sys
 from functools import partial
 from pathlib import Path
 
@@ -50,16 +51,23 @@ import torch
 from src.tuning.optuna_utils import save_best_params, save_trials_summary
 from src.tuning.search_space import get_phase2_search_space
 
+ROOT_DIR = Path(__file__).resolve().parents[2]
 
-def objective(trial: optuna.Trial, channel: str) -> float:
+
+def objective(
+    trial: optuna.Trial,
+    channel: str,
+    phase0_dir: Path,
+    ckpt_dir: Path,
+) -> float:
     """
     Optuna objective function
-    Runs baseline training and returns validation accuracy
+    Runs Phase 2 training and returns validation accuracy
 
     Optuna 목적 함수
-    Baseline 학습을 실행하고 validation accuracy를 반환
+    Phase 2 학습을 실행하고 validation accuracy를 반환
     """
-    from src.scripts.run_baseline import run_baseline
+    from src.scripts.run_phase2 import run_phase2
     from src.utils import load_config
 
     cfg = load_config()
@@ -95,7 +103,10 @@ def objective(trial: optuna.Trial, channel: str) -> float:
     # Single-channel tuning
     # 단일 채널 튜닝
     if channel != "all":
-        result = run_baseline(cfg, channel=channel.upper(), device=device)
+        result = run_phase2(
+            cfg, channel=channel.upper(), device=device,
+            phase0_dir=phase0_dir, ckpt_dir=ckpt_dir,
+        )
 
         # Skip handling
         # 데이터가 없어서 skip된 경우 낮은 점수 반환
@@ -110,7 +121,10 @@ def objective(trial: optuna.Trial, channel: str) -> float:
     scores = []
 
     for ch in channels:
-        result = run_baseline(cfg, channel=ch, device=device)
+        result = run_phase2(
+            cfg, channel=ch, device=device,
+            phase0_dir=phase0_dir, ckpt_dir=ckpt_dir,
+        )
 
         # Skip channels with no training data
         # 학습 데이터가 없는 채널은 건너뜀
@@ -135,7 +149,7 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
 
     Optuna 하이퍼파라미터 튜닝 실행
     """
-    from src.scripts.run_baseline import run_baseline  # noqa: F401
+    from src.scripts.run_phase2 import run_phase2  # noqa: F401
     from src.utils import load_config
 
     channel = channel.lower()
@@ -143,6 +157,29 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     # Load config once for global settings
     # 전역 설정 확인을 위해 config 1회 로드
     cfg = load_config()
+
+    # Phase 0 backbone 디렉토리 결정 / Resolve Phase 0 backbone directory
+    phase0_dir = ROOT_DIR / cfg["storage"]["models_dir"]
+    ckpt_dir = ROOT_DIR / "outputs" / "checkpoints"
+
+    # Phase 0 backbone 존재 확인 / Check Phase 0 backbone existence
+    target_channels = ["Y", "M", "C", "K"] if channel == "all" else [channel.upper()]
+    try:
+        from src.utils.utils_model import backbone_tag
+        _tag = backbone_tag(cfg["model"]["backbone"])
+    except Exception:
+        _tag = cfg["model"]["backbone"].replace("_", "").replace("-", "")[:6]
+    missing = [
+        ch for ch in target_channels
+        if not (phase0_dir / f"phase0_backbone_{ch}_{_tag}.pt").exists()
+    ]
+    if missing:
+        print(
+            f"[ERROR] Phase 0 backbone 없음 / Phase 0 backbone not found: {missing}\n"
+            f"        Phase 0 완료 후 실행 / Run Phase 0 first: python -m src.scripts.run_phase0\n"
+            f"        경로 확인 / Check path: {phase0_dir}"
+        )
+        sys.exit(1)
 
     # Output directory
     # 결과 저장 폴더
@@ -187,9 +224,9 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
         pruner=pruner,
     )
 
-    # Bind channel to objective
-    # objective에 channel 고정 전달
-    objective_fn = partial(objective, channel=channel)
+    # Bind channel, phase0_dir, ckpt_dir to objective
+    # objective에 channel / 디렉토리 고정 전달
+    objective_fn = partial(objective, channel=channel, phase0_dir=phase0_dir, ckpt_dir=ckpt_dir)
 
     # Run optimization
     # 최적화 실행
