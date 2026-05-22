@@ -137,7 +137,7 @@ class Phase0Trainer:
             self.optimizer, epochs=cfg["phase0"]["epochs"], cfg=cfg, phase="phase0"
         )
 
-    def train(self, loader: DataLoader) -> list[dict]:
+    def train(self, loader: DataLoader, optuna_trial=None) -> list[dict]:
         """학습 루프 실행 / Run training loop."""
         epochs = self.cfg["phase0"]["epochs"]
         history = []
@@ -220,6 +220,16 @@ class Phase0Trainer:
             )
             logger.info(f"  {epoch:<8} {avg_loss:<14.4f} {lr:<14.2e} {elapsed:.1f}s")
 
+            # Optuna MedianPruner: 에폭별 중간 결과 보고 (Phase 0 — minimize loss)
+            # Report per-epoch intermediate value for Optuna pruning (Phase 0 — minimize loss)
+            if optuna_trial is not None:
+                import optuna as _optuna
+
+                optuna_trial.report(avg_loss, epoch)
+                if optuna_trial.should_prune():
+                    logger.info(f"  [Optuna] Trial pruned at epoch {epoch}")
+                    raise _optuna.exceptions.TrialPruned()
+
         logger.info(
             f"  {'-'*50}\n  Done — Loss: {history[0]['loss']:.4f} → {history[-1]['loss']:.4f}"
         )
@@ -276,7 +286,12 @@ class Phase2Trainer:
             self.optimizer, epochs=cfg["phase2"]["epochs"], cfg=cfg, phase="phase2"
         )
 
-    def train(self, train_loader: DataLoader, val_loader: DataLoader) -> list[dict]:
+    def train(
+        self,
+        train_loader: DataLoader,
+        val_loader: DataLoader,
+        optuna_trial=None,
+    ) -> list[dict]:
         """학습 루프 실행 / Run training loop."""
         epochs = self.cfg["phase2"]["epochs"]
         models_dir = Path(self.cfg["storage"]["models_dir"])
@@ -400,6 +415,15 @@ class Phase2Trainer:
                 f"  {epoch:<8} {train_loss_avg:<14.4f} {train_acc:<12.4f} "
                 f"{val_loss_avg:<12.4f} {val_acc:<10.4f} {lr:.2e}"
             )
+
+            # Optuna MedianPruner: 에폭별 중간 결과 보고 / Report per-epoch intermediate value
+            if optuna_trial is not None:
+                import optuna as _optuna
+
+                optuna_trial.report(val_acc, epoch)
+                if optuna_trial.should_prune():
+                    logger.info(f"  [Optuna] Trial pruned at epoch {epoch}")
+                    raise _optuna.exceptions.TrialPruned()
 
             if es_enabled and no_improve >= es_patience:
                 logger.info(

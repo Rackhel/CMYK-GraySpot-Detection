@@ -164,6 +164,12 @@ config.json에 선언되었으나 코드에서 소비되지 않는 주요 키. /
 | `optuna.search_space.resnet50.*` | `get_phase2_search_space(trial, cfg)` backbone별 분기 탐색 / backbone-branched search in `get_phase2_search_space` |
 | `optuna.search_space.efficientnet_b0.*` | `get_phase2_search_space(trial, cfg)` backbone별 분기 탐색 / backbone-branched search in `get_phase2_search_space` |
 | `optuna.pruner.n_warmup_steps` | `run_optuna()` 에서 `MedianPruner(n_warmup_steps=...)` 소비 / consumed as `MedianPruner(n_warmup_steps=...)` in `run_optuna()` |
+| `optuna.n_jobs` | `study.optimize(n_jobs=...)` 로 소비 / consumed as `study.optimize(n_jobs=...)` in `run_optuna()` |
+| `optuna.enabled` | `run_optuna()` 시작 시 활성화 여부 확인 / checked at run_optuna() start |
+| `phase0.warmup_epochs` | `trainer.py` `_build_scheduler()` Phase0 warmup SequentialLR 소비 / consumed in Phase0 warmup SequentialLR |
+| `phase2.warmup_epochs` | `trainer.py` `_build_scheduler()` Phase2 warmup SequentialLR 소비 / consumed in Phase2 warmup SequentialLR |
+| `train.grad_accumulation_steps` | `Phase2Trainer.train()` / `Phase0Trainer.train()` 에서 gradient accumulation 루프로 소비 / consumed in gradient accumulation loop |
+| `train.mixed_precision` | `Phase2Trainer.train()` / `Phase0Trainer.train()` 에서 AMP autocast / GradScaler로 소비 / consumed as AMP autocast / GradScaler |
 | `phase2.heads.efficientnet_b0.*` | `grayspot_model.py` ClassifierHead 직접 압축 구조 소비 / consumed for direct-compression ClassifierHead in `grayspot_model.py` |
 | `phase2.heads.resnet50.*` | `grayspot_model.py` ClassifierHead 단계적 압축 구조 소비 / consumed for staged-compression ClassifierHead in `grayspot_model.py` |
 
@@ -173,7 +179,6 @@ config.json에 선언되었으나 코드에서 소비되지 않는 주요 키. /
 |---|---|
 | `system.project_name` | 코드에서 미사용 — 메타 정보만 / Not consumed by code — metadata only |
 | `system.version` | 코드에서 미사용 — 메타 정보만 / Not consumed by code — metadata only |
-| `system.mixed_precision` | 미구현 기능 플레이스홀더 / Unimplemented feature placeholder |
 | `storage.raw_dir` | 코드에서 미사용 / Not consumed by code |
 | `storage.outputs_dir` | 코드에서 미사용 (optuna_tuner.py 내부 고정 경로 사용) / Not consumed (fixed path used inside optuna_tuner.py) |
 | `storage.model_checkpoint` | 코드에서 동적 생성 (`best_{channel}.pt`) / Dynamically generated in code (`best_{channel}.pt`) |
@@ -181,14 +186,11 @@ config.json에 선언되었으나 코드에서 소비되지 않는 주요 키. /
 | `storage.history_file` | 코드에서 미사용 / Not consumed by code |
 | `model.weights` | 커스텀 가중치 로드 미구현 / Custom weight loading not implemented |
 | `phase0.enabled` | 코드에서 미사용 (Phase 0 항상 수동 실행) / Not consumed (Phase 0 always run manually) |
-| `phase0.warmup_epochs` | warmup 스케줄러 미구현 / Warmup scheduler not implemented |
 | `phase0.augmentation.normalize` | `preprocessing.py` 고정 처리 / Fixed handling in `preprocessing.py` |
-| `phase2.warmup_epochs` | warmup 스케줄러 미구현 / Warmup scheduler not implemented |
 | `phase2.class_weights` | `losses.py` 내부 자체 처리 / Handled internally in `losses.py` |
 | `phase2.loss_type` | Focal Loss 삭제 — CrossEntropy 고정 사용 / Focal Loss deleted — CrossEntropy fixed |
 | `phase2.focal_alpha` | Focal Loss 삭제 / Focal Loss deleted |
 | `phase2.focal_gamma` | Focal Loss 삭제 / Focal Loss deleted |
-| `train.grad_accumulation_steps` | 미구현 기능 플레이스홀더 / Unimplemented feature placeholder |
 | `evaluation.metrics` | 코드 내부 고정 목록 / Fixed list inside code |
 | `cuda.visible_devices` | 코드에서 미사용 / Not consumed by code |
 | `logging.log_interval` | 코드에서 미사용 / Not consumed by code |

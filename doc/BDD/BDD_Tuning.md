@@ -107,12 +107,12 @@ Feature: Optuna 하이퍼파라미터 튜닝 / Optuna hyperparameter tuning
 ### Scenario 5.5 — 역방향 의존성 격리 / Reverse Dependency Isolation
 
 ```gherkin
-  Scenario: optuna_tuner.py의 run_baseline 의존성이 런타임에만 활성화된다
-  Scenario: run_baseline dependency in optuna_tuner.py is activated only at runtime
+  Scenario: optuna_tuner.py의 run_phase2 의존성이 런타임에만 활성화된다
+  Scenario: run_phase2 dependency in optuna_tuner.py is activated only at runtime
 
     Given optuna_tuner 모듈이 import된다
 
-    When  run_optuna() 함수 외부에서 run_baseline이 호출되지 않는다
+    When  objective() 함수 내부에서만 run_phase2가 lazy import된다
 
     Then  tuning 모듈이 scripts 모듈 없이 import될 수 있다
     And   순환 import 오류가 발생하지 않는다

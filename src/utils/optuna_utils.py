@@ -1,5 +1,5 @@
 """
-tuning/optuna_utils.py
+utils/optuna_utils.py
 
 Optuna 산출물 저장·로드 유틸리티 / Optuna artifact save/load utilities.
 
@@ -135,6 +135,34 @@ def save_trials_summary(
         json.dump(trials_summary, f, indent=2, ensure_ascii=False)
 
     return path
+
+
+def apply_phase0_params(cfg: dict, params: dict) -> dict:
+    """
+    Optuna 최적 파라미터를 phase0 config에 반영한다.
+    Applies Optuna best params to the phase0 config section.
+
+    Args:
+        cfg:    현재 config dict / Current config dict
+        params: Optuna 최적 파라미터 dict / Optuna best params dict
+
+    Returns:
+        갱신된 cfg dict / Updated cfg dict
+
+    Raises:
+        KeyError: 필수 파라미터 키 누락 / Required param keys missing
+    """
+    required = {"learning_rate", "weight_decay", "batch_size", "epochs"}
+    missing = required - set(params.keys())
+    if missing:
+        raise KeyError(f"Missing required Phase 0 Optuna params: {sorted(missing)}")
+
+    cfg["phase0"]["learning_rate"] = params["learning_rate"]
+    cfg["phase0"]["weight_decay"] = params["weight_decay"]
+    cfg["phase0"]["batch_size"] = params["batch_size"]
+    cfg["phase0"]["epochs"] = params["epochs"]
+
+    return cfg
 
 
 def apply_phase2_params(cfg: dict, params: dict) -> dict:

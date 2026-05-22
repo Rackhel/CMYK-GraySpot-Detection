@@ -4,54 +4,65 @@ scripts/run_optuna.py
 Optuna Hyperparameter Tuning 실행 파일
 Optuna Hyperparameter Tuning Execution Script
 
-Baseline 모델을 기반으로 Phase 2 하이퍼파라미터를 자동 탐색한다.
-Performs automated hyperparameter optimization for Phase 2 based on the baseline model.
+Phase 0 SimCLR 또는 Phase 2 Supervised Classification 하이퍼파라미터를 자동 탐색한다.
+Performs automated hyperparameter optimization for Phase 0 or Phase 2.
 
-사용자는 trial 수와 채널을 지정할 수 있다.
-Users can specify the number of trials and target channel.
-
-목적 / Purpose:
-    Baseline 대비 성능 향상을 위한 최적의 하이퍼파라미터 탐색
-    Find optimal hyperparameters to improve performance over the baseline
-
-    단일 채널 또는 전체 채널 기준으로 유연하게 튜닝 수행
-    Perform flexible tuning for a single channel or all channels
+최적화 완료 후 best params로 최종 재학습하여 실제 모델 가중치를 갱신한다.
+After optimization, retrains with best params to update the actual model weights.
 
 출력 / Outputs:
     outputs/optuna/
-    ├── study_*.db              ← Optuna 실험 데이터베이스 / Optuna study database
-    ├── best_params_*.json      ← 최적 하이퍼파라미터 / Best hyperparameters
-    └── trials_summary_*.json   ← 전체 trial 결과 요약 / All trial results summary
+    ├── study_phase{N}_{ch}.db              ← Optuna 실험 DB
+    ├── best_params_phase{N}_{ch}.json      ← 최적 하이퍼파라미터
+    └── trials_summary_phase{N}_{ch}.json   ← 전체 trial 요약
+
+    최적 가중치 / Best weights (final retrain):
+    Phase 0: data_set/models/phase0_backbone_{ch}_{tag}.pt
+    Phase 2: data_set/models/best_{ch}.pt
 
 실행 / Run:
-    단일 채널(single-channel)
-    python -m src.scripts.run_optuna --channel C
-    전체 채널(All-channel)
-    python -m src.scripts.run_optuna --channel all
-    trial 지정(trial-select)
-    python -m src.scripts.run_optuna --trials 10 --channel M
+    Phase 2 전체 채널
+    python -m src.scripts.run_optuna --phase 2
+
+    Phase 2 단일 채널
+    python -m src.scripts.run_optuna --phase 2 --channel C
+
+    Phase 0 전체 채널
+    python -m src.scripts.run_optuna --phase 0
+
+    Phase 0 단일 채널 + trial 수 지정
+    python -m src.scripts.run_optuna --phase 0 --channel Y --trials 10
 """
 
 import argparse
 
-from src.tuning.optuna_tuner import run_optuna
+from src.tuning.optuna_tuner import run_optuna, run_phase0_optuna
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run Optuna Hyperparameter Tuning")
+    parser = argparse.ArgumentParser(
+        description="Run Optuna Hyperparameter Tuning",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
 
+    parser.add_argument(
+        "--phase",
+        type=int,
+        choices=[0, 2],
+        default=2,
+        help="Phase to tune: 0 (SimCLR) or 2 (Supervised). Default: 2",
+    )
     parser.add_argument(
         "--trials",
         type=int,
         default=None,
         help="Number of trials (default: config value)",
     )
-
     parser.add_argument(
         "--channel",
         type=str,
         default="all",
-        help="Target channel to tune: Y / M / C / K / all (default: all)",
+        help="Target channel: Y / M / C / K / all (default: all)",
     )
 
     args = parser.parse_args()
@@ -60,24 +71,25 @@ def main():
     valid_channels = {"Y", "M", "C", "K", "ALL"}
     if channel not in valid_channels:
         raise ValueError(
-            f"Unsupported channel: {args.channel}. " f"Available: Y, M, C, K, all"
+            f"Unsupported channel: {args.channel}. Available: Y, M, C, K, all"
         )
 
-    print("\n======================================")
-    print(" Starting Optuna Hyperparameter Tuning")
-    print("======================================")
-    print(f"Target Channel: {channel}")
+    print("\n" + "=" * 60)
+    print(" Optuna Hyperparameter Tuning")
+    print("=" * 60)
+    print(f"  Phase  : {args.phase}")
+    print(f"  Channel: {channel}")
+    print(f"  Trials : {args.trials if args.trials else 'config-defined'}")
+    print("=" * 60)
 
-    if args.trials is not None:
-        print(f"Trials: {args.trials}")
+    if args.phase == 0:
+        run_phase0_optuna(n_trials=args.trials, channel=channel.lower())
     else:
-        print("Trials: config-defined value")
+        run_optuna(n_trials=args.trials, channel=channel.lower())
 
-    run_optuna(n_trials=args.trials, channel=channel.lower())
-
-    print("\n======================================")
-    print(" Optuna Tuning Finished")
-    print("======================================")
+    print("\n" + "=" * 60)
+    print(f" Phase {args.phase} Optuna Tuning + Final Retrain Finished")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
