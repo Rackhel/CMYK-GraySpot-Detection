@@ -76,7 +76,7 @@ def load_best_params(channel: str, output_dir: str | Path = "outputs/optuna") ->
 
 
 def save_best_params(
-    params: dict, channel: str, output_dir: str | Path = "outputs/optuna"
+    params: dict, suffix: str, output_dir: str | Path = "outputs/optuna"
 ) -> Path:
     """
     최적 파라미터를 JSON 파일로 저장한다.
@@ -84,13 +84,15 @@ def save_best_params(
 
     Args:
         params:     저장할 파라미터 dict / Parameter dict to save
-        channel:    Y / M / C / K / all
+        suffix:     파일명 접미사 — 채널명 또는 phase 포함 식별자
+                    Filename suffix — channel name or phase-prefixed identifier
+                    (e.g. "y", "phase2_y", "phase0_m")
         output_dir: 저장 디렉토리 / Output directory
 
     Returns:
         저장된 파일 경로 / Path to the saved file
     """
-    suffix = normalize_channel(channel)
+    suffix = suffix.lower()
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -102,7 +104,7 @@ def save_best_params(
 
 
 def save_trials_summary(
-    trials: list, channel: str, output_dir: str | Path = "outputs/optuna"
+    trials: list, suffix: str, output_dir: str | Path = "outputs/optuna"
 ) -> Path:
     """
     전체 trial 결과 요약을 JSON 파일로 저장한다.
@@ -110,13 +112,14 @@ def save_trials_summary(
 
     Args:
         trials:     optuna.Study.trials 리스트 / optuna.Study.trials list
-        channel:    Y / M / C / K / all
+        suffix:     파일명 접미사 — 채널명 또는 phase 포함 식별자
+                    Filename suffix — channel name or phase-prefixed identifier
         output_dir: 저장 디렉토리 / Output directory
 
     Returns:
         저장된 파일 경로 / Path to the saved file
     """
-    suffix = normalize_channel(channel)
+    suffix = suffix.lower()
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
