@@ -189,7 +189,9 @@
   "optuna": {
     "enabled":   true,
     "n_trials":  50,
-    "n_jobs":    1,
+    "n_jobs":         1,
+    "n_jobs_windows": 4,
+    "_n_jobs_note": "플랫폼별 자동 선택: macOS/Linux → n_jobs, Windows → n_jobs_windows. 모두 ThreadPoolExecutor 사용 (fork/spawn 없음). / Platform-auto: macOS/Linux uses n_jobs, Windows uses n_jobs_windows. Both use ThreadPoolExecutor (no fork/spawn).",
     "sampler":   "tpe",
     "pruner": {
       "type":           "median",

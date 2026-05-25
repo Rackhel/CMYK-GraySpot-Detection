@@ -11,7 +11,9 @@ Contract:
     - load_best_params(channel, output_dir) → dict
     - save_best_params(params, channel, output_dir) → Path
     - save_trials_summary(trials, channel, output_dir) → Path
+    - apply_phase0_params(cfg, params) → dict
     - apply_phase2_params(cfg, params) → dict
+    - resolve_n_jobs(cfg) → int
 
 Fail-Fast (SSOT-FF01):
     - FileNotFoundError if best_params file does not exist
@@ -22,7 +24,10 @@ Fail-Fast (SSOT-FF01):
 from __future__ import annotations
 
 import json
+import platform
 from pathlib import Path
+
+_IS_WINDOWS = platform.system() == "Windows"
 
 VALID_CHANNELS = {"Y", "M", "C", "K", "ALL"}
 
@@ -217,3 +222,39 @@ def apply_phase2_params(cfg: dict, params: dict) -> dict:
         cfg["phase2"]["heads"][backbone_name]["mid_dim"] = params["mid_dim"]
 
     return cfg
+
+
+def resolve_n_jobs(cfg: dict) -> int:
+    """
+    플랫폼에 따라 적합한 n_jobs 값을 config에서 선택한다.
+    Selects the appropriate n_jobs from config based on the current platform.
+
+    선택 규칙 / Selection rules:
+      - Windows : optuna.n_jobs_windows (기본 4)
+                  ThreadPoolExecutor 내에서 fork 없이 안전하게 동작.
+                  Safe inside ThreadPoolExecutor — no fork on Windows.
+      - macOS   : optuna.n_jobs (기본 1)
+                  18 GB RAM 환경에서 동시 trial = 모델 메모리 × N 유발.
+                  Concurrent trials × model memory on 18 GB Mac.
+      - Linux   : optuna.n_jobs (기본 1)
+                  서버 환경이면 값을 올려도 무방.
+                  Raise safely on servers with sufficient RAM.
+
+    Args:
+        cfg: load_config() 결과 dict / Config dict from load_config()
+
+    Returns:
+        유효 스레드 수 (최소 1) / Effective thread count (minimum 1)
+    """
+    optuna_cfg = cfg.get("optuna", {})
+    if _IS_WINDOWS:
+        n_jobs = int(optuna_cfg.get("n_jobs_windows", 4))
+        label = "Windows (n_jobs_windows)"
+    else:
+        n_jobs = int(optuna_cfg.get("n_jobs", 1))
+        os_name = "macOS" if platform.system() == "Darwin" else "Linux"
+        label = f"{os_name} (n_jobs)"
+
+    n_jobs = max(1, n_jobs)
+    print(f"[Optuna] platform={platform.system()}  effective n_jobs={n_jobs}  source={label}")
+    return n_jobs

@@ -21,6 +21,7 @@ from .optuna_utils import (
     apply_phase2_params,
     load_best_params,
     normalize_channel,
+    resolve_n_jobs,
     save_best_params,
     save_trials_summary,
 )
@@ -55,4 +56,5 @@ __all__ = [
     "save_trials_summary",
     "apply_phase0_params",
     "apply_phase2_params",
+    "resolve_n_jobs",
 ]

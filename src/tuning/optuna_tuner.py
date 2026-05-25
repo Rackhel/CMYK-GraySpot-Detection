@@ -36,16 +36,97 @@ Phase 2 탐색 대상 / Phase 2 search targets:
 """
 
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
 
 import optuna
 import torch
 
-from src.utils.optuna_utils import save_best_params, save_trials_summary
+from src.utils.optuna_utils import save_best_params, save_trials_summary, resolve_n_jobs
 from src.tuning.search_space import get_phase0_search_space, get_phase2_search_space
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
+
+
+# Optuna SQLite storage는 thread-safe하나, 동시에 trial을 제출할 때
+# 락 충돌을 줄이기 위해 trial 단위로 순차 제출을 보장하는 락을 사용.
+# SQLite storage is thread-safe; this lock staggers concurrent trial submissions
+# to reduce WAL contention under heavy parallel workloads.
+_TRIAL_SUBMIT_LOCK = threading.Lock()
+
+
+def _optimize_with_thread_pool(
+    study: optuna.Study,
+    objective_fn,
+    n_trials: int,
+    n_jobs: int,
+) -> None:
+    """
+    ThreadPoolExecutor 기반 Optuna 병렬 최적화.
+    Thread-pool-based Optuna parallel optimization.
+
+    Optuna 기본 n_jobs 방식(joblib/fork)을 대체한다.
+    Replaces Optuna's built-in n_jobs approach (joblib/fork).
+
+    동작 방식 / How it works:
+      - n_jobs=1 : 기존과 동일하게 study.optimize() 직접 호출 (오버헤드 없음)
+                   Direct study.optimize() call — no overhead
+      - n_jobs>1 : ThreadPoolExecutor(max_workers=n_jobs) 로 trial을 1개씩 제출.
+                   각 스레드는 독립된 trial을 순차 실행하며 SQLite 공유 study에 기록.
+                   Each thread runs one trial at a time against the shared SQLite study.
+
+    장점 / Advantages over n_jobs:
+      - Fork/spawn 없음 → macOS 메모리 압박 없음
+        No fork/spawn → no macOS memory pressure
+      - 스레드는 PyTorch MPS/CPU 텐서를 공유 메모리 없이 독립 실행 가능
+        Threads run PyTorch MPS/CPU tensors independently without shared-memory issues
+      - 풀 크기를 n_jobs로 명시적 제한 → 과도한 동시성 방지
+        Pool size bounded by n_jobs → prevents runaway concurrency
+
+    주의 / Note:
+      - GIL로 인해 순수 Python 연산은 직렬화되지만, PyTorch 연산(C++ 커널)은
+        GIL을 해제하므로 실질적 병렬 이득을 얻는다.
+      - Due to GIL, pure Python is serialized, but PyTorch ops (C++ kernels)
+        release the GIL and run in parallel.
+
+    Args:
+        study:        Optuna study 객체 / Optuna study object
+        objective_fn: trial → float 목적 함수 / objective function
+        n_trials:     총 trial 수 / total number of trials
+        n_jobs:       동시 실행 스레드 수 / number of concurrent threads
+    """
+    if n_jobs <= 1:
+        # 단일 스레드 경로 — 오버헤드 없음 / Single-thread path — zero overhead
+        study.optimize(objective_fn, n_trials=n_trials, n_jobs=1)
+        return
+
+    def _run_one_trial(_: int) -> None:
+        """1개의 trial을 실행하고 study에 기록. / Run one trial and record to study."""
+        with _TRIAL_SUBMIT_LOCK:
+            # 이미 n_trials 채워졌으면 제출 생략 / Skip if quota already met
+            done = len([t for t in study.trials
+                        if t.state in (
+                            optuna.trial.TrialState.COMPLETE,
+                            optuna.trial.TrialState.PRUNED,
+                        )])
+            if done >= n_trials:
+                return
+        # 락 밖에서 실제 학습 실행 (병렬성 확보)
+        # Run actual training outside the lock (enables parallelism)
+        study.optimize(objective_fn, n_trials=1, n_jobs=1)
+
+    print(
+        f"[ThreadPool] n_trials={n_trials}, n_jobs={n_jobs} "
+        f"(fork-free thread pool / 프로세스 없는 스레드 풀)"
+    )
+    with ThreadPoolExecutor(max_workers=n_jobs) as pool:
+        futures = [pool.submit(_run_one_trial, i) for i in range(n_trials)]
+        for fut in as_completed(futures):
+            exc = fut.exception()
+            if exc is not None:
+                print(f"[ThreadPool] Trial worker raised: {exc}")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -291,8 +372,8 @@ def run_phase0_optuna(n_trials: int | None = None, channel: str = "all") -> None
     )
 
     objective_fn = partial(objective_phase0, channel=channel)
-    n_jobs = int(cfg.get("optuna", {}).get("n_jobs", 1))
-    study.optimize(objective_fn, n_trials=n_trials, n_jobs=n_jobs)
+    n_jobs = resolve_n_jobs(cfg)
+    _optimize_with_thread_pool(study, objective_fn, n_trials=n_trials, n_jobs=n_jobs)
 
     print(f"\n[Phase 0 Optuna] Best Trial")
     print(f"  Channel  : {channel.upper()}")
@@ -398,8 +479,8 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     objective_fn = partial(
         objective, channel=channel, phase0_dir=phase0_dir, ckpt_dir=ckpt_dir
     )
-    n_jobs = int(cfg.get("optuna", {}).get("n_jobs", 1))
-    study.optimize(objective_fn, n_trials=n_trials, n_jobs=n_jobs)
+    n_jobs = resolve_n_jobs(cfg)
+    _optimize_with_thread_pool(study, objective_fn, n_trials=n_trials, n_jobs=n_jobs)
 
     print(f"\n[Phase 2 Optuna] Best Trial")
     print(f"  Channel     : {channel.upper()}")
