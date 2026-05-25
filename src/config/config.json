@@ -96,10 +96,10 @@
 
   "train": {
     "seed":               42,
-    "num_workers":        4,
-    "pin_memory":         true,
+    "num_workers":        0,
+    "pin_memory":         false,
     "prefetch_factor":    2,
-    "persistent_workers": true,
+    "persistent_workers": false,
     "drop_last":          false,
     "scheduler":          "cosine",
     "eta_min":            1.0e-6,
