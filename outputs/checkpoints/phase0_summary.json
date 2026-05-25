@@ -1,0 +1,35 @@
+{
+  "version": "phase0_v1",
+  "generated_at": "2026-05-22 21:15:59",
+  "checkpoint_path": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/phase0_v1.pt",
+  "results": [
+    {
+      "channel": "Y",
+      "n_images": 1520,
+      "epochs": 10,
+      "final_loss": 1.045929,
+      "skipped": false
+    },
+    {
+      "channel": "M",
+      "n_images": 1520,
+      "epochs": 10,
+      "final_loss": 1.006994,
+      "skipped": false
+    },
+    {
+      "channel": "C",
+      "n_images": 1520,
+      "epochs": 10,
+      "final_loss": 0.736187,
+      "skipped": false
+    },
+    {
+      "channel": "K",
+      "n_images": 1520,
+      "epochs": 10,
+      "final_loss": 0.630622,
+      "skipped": false
+    }
+  ]
+}

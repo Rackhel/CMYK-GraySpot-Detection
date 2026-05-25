@@ -1,0 +1,68 @@
+{
+  "mode": "Phase 2 Supervised (Swing Cycle 1, Phase 0 backbone)",
+  "cycle_tag": "v1",
+  "backbone": "efficientnet_b0",
+  "epochs": 50,
+  "results": [
+    {
+      "channel": "Y",
+      "skipped": false,
+      "test_acc": 0.7447,
+      "mae": 0.3745,
+      "best_val_acc": 0.7733,
+      "n_train": 1380,
+      "n_val": 225,
+      "n_test": 235,
+      "epochs": 50,
+      "backbone": "efficientnet_b0",
+      "pass_acc": false,
+      "pass_mae": true,
+      "checkpoint_path": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/phase2_Y_effb0_v1.pt"
+    },
+    {
+      "channel": "M",
+      "skipped": false,
+      "test_acc": 0.8681,
+      "mae": 0.2085,
+      "best_val_acc": 0.8489,
+      "n_train": 1380,
+      "n_val": 225,
+      "n_test": 235,
+      "epochs": 50,
+      "backbone": "efficientnet_b0",
+      "pass_acc": true,
+      "pass_mae": true,
+      "checkpoint_path": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/phase2_M_effb0_v1.pt"
+    },
+    {
+      "channel": "C",
+      "skipped": false,
+      "test_acc": 0.834,
+      "mae": 0.2255,
+      "best_val_acc": 0.88,
+      "n_train": 1380,
+      "n_val": 225,
+      "n_test": 235,
+      "epochs": 50,
+      "backbone": "efficientnet_b0",
+      "pass_acc": false,
+      "pass_mae": true,
+      "checkpoint_path": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/phase2_C_effb0_v1.pt"
+    },
+    {
+      "channel": "K",
+      "skipped": false,
+      "test_acc": 0.766,
+      "mae": 0.3915,
+      "best_val_acc": 0.8311,
+      "n_train": 1380,
+      "n_val": 225,
+      "n_test": 235,
+      "epochs": 50,
+      "backbone": "efficientnet_b0",
+      "pass_acc": false,
+      "pass_mae": true,
+      "checkpoint_path": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/phase2_K_effb0_v1.pt"
+    }
+  ]
+}

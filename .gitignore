@@ -12,10 +12,12 @@ outputs/*
 !outputs/reports
 !outputs/baseline
 !outputs/optuna
+!outputs/checkpoints
 outputs/baseline/*
 !outputs/baseline/.gitkeep
 # Optuna 파라미터 공유 — JSON만 추적, SQLite DB 제외 / Track JSON params only, exclude SQLite DB
 outputs/optuna/*.db
+# 체크포인트 공유 — outputs/checkpoints/ 전체 추적 허용 / Allow checkpoints to be shared
 # 리포트 산출물 공유 — outputs/reports/ 전체 추적 허용 / Allow reports to be shared
 
 
@@ -32,9 +34,10 @@ __pycache__/
 venv/
 env/
 
-# 학습 결과물 / train reports — data_set/models/ 제외 / except data_set/models/
+# 학습 결과물 / train reports — 공유 폴더 제외 / except shared folders
 *.pt
 !data_set/models/*.pt
+!outputs/checkpoints/*.pt
 *.onnx
 *.mlmodel
 
