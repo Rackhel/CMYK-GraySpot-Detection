@@ -129,7 +129,7 @@ def _make_dataloader(dataset: CMYKDataset, cfg: dict, shuffle: bool) -> DataLoad
         pin_memory=bool(cfg["train"].get("pin_memory", False)),
         persistent_workers=persistent_workers,
         prefetch_factor=(
-            cfg["train"].get("prefetch_factor", 2) if num_workers > 0 else 2
+            cfg["train"].get("prefetch_factor", 2) if num_workers > 0 else None
         ),
     )
 

@@ -274,6 +274,47 @@ def _write_json_summary(
     )
 
 
+# ── Programmatic 진입점 / Programmatic entry point ───────────────────────────
+
+
+def run_evaluate(
+    channel: str,
+    cfg: dict,
+    checkpoint: Optional[Path] = None,
+    output_dir: Optional[Path] = None,
+) -> Path:
+    """
+    단일 채널 평가를 프로그래밍 방식으로 실행한다.
+    Runs single-channel evaluation programmatically (non-CLI).
+
+    Optuna final retrain 직후 best 가중치 검증 용도로 설계됐다.
+    Designed for post-Optuna best-weight verification after final retrain.
+
+    Args:
+        channel:    평가 대상 채널 (Y/M/C/K) / Target channel
+        cfg:        load_config() 결과 dict / Config dict
+        checkpoint: 모델 파일 경로. None 이면 models_dir/best_{channel}.pt 자동 탐색.
+                    Model path. None → auto-resolve models_dir/best_{channel}.pt
+        output_dir: 리포트 저장 경로. None 이면 config의 reports_dir 사용.
+                    Report output dir. None → config reports_dir
+
+    Returns:
+        Path — 생성된 JSON 리포트 파일 경로 / Path to generated JSON report
+    """
+    if output_dir is None:
+        output_dir = Path(
+            cfg.get("storage", {}).get("reports_dir", "outputs/reports")
+        )
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    return _run_channel_evaluation(
+        channel=channel,
+        output_dir=output_dir,
+        cfg=cfg,
+        checkpoint=checkpoint,
+    )
+
+
 # ── 메인 진입점 / Main entry point ───────────────────────────────────────────
 
 
