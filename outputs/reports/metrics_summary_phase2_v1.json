@@ -1,0 +1,97 @@
+{
+  "meta": {
+    "experiment": "phase2_v1",
+    "checkpoint": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/phase2_Y_effb0_v1.pt, /Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/phase2_M_effb0_v1.pt, /Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/phase2_C_effb0_v1.pt, /Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/phase2_K_effb0_v1.pt",
+    "image_size": 128,
+    "num_levels": 6
+  },
+  "targets": {
+    "overall_accuracy": 0.9,
+    "per_color_accuracy": 0.85,
+    "per_class_f1": 0.8,
+    "mae": 0.5
+  },
+  "global": {
+    "accuracy": 0.9077,
+    "macro_f1": 0.8961,
+    "mae": 0.1324,
+    "acc_pass": true,
+    "f1_pass": true,
+    "mae_pass": true,
+    "all_pass": true
+  },
+  "by_color": {
+    "Y": {
+      "accuracy": 0.8645,
+      "macro_f1": 0.8695,
+      "mae": 0.1816,
+      "acc_pass": true,
+      "all_pass": true
+    },
+    "M": {
+      "accuracy": 0.9158,
+      "macro_f1": 0.9001,
+      "mae": 0.1289,
+      "acc_pass": true,
+      "all_pass": true
+    },
+    "C": {
+      "accuracy": 0.9125,
+      "macro_f1": 0.8935,
+      "mae": 0.1099,
+      "acc_pass": true,
+      "all_pass": true
+    },
+    "K": {
+      "accuracy": 0.9382,
+      "macro_f1": 0.9248,
+      "mae": 0.1092,
+      "acc_pass": true,
+      "all_pass": true
+    }
+  },
+  "per_class_overall": [
+    {
+      "level": 0,
+      "precision": 0.9955,
+      "recall": 0.9977,
+      "f1": 0.9966,
+      "f1_pass": true
+    },
+    {
+      "level": 1,
+      "precision": 0.9235,
+      "recall": 0.9515,
+      "f1": 0.9373,
+      "f1_pass": true
+    },
+    {
+      "level": 2,
+      "precision": 0.8779,
+      "recall": 0.8773,
+      "f1": 0.8776,
+      "f1_pass": true
+    },
+    {
+      "level": 3,
+      "precision": 0.8811,
+      "recall": 0.8038,
+      "f1": 0.8407,
+      "f1_pass": true
+    },
+    {
+      "level": 4,
+      "precision": 0.8303,
+      "recall": 0.897,
+      "f1": 0.8623,
+      "f1_pass": true
+    },
+    {
+      "level": 5,
+      "precision": 0.8643,
+      "recall": 0.86,
+      "f1": 0.8622,
+      "f1_pass": true
+    }
+  ]
+}
