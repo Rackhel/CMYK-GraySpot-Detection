@@ -1,33 +1,36 @@
-"""
-Image viewing and display utilities.
-"""
+"""Reusable image preview widget."""
 
-import streamlit as st
-from PIL import Image
-import numpy as np
+from __future__ import annotations
+
+from pathlib import Path
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 
-def display_image_with_prediction(image_path: str, prediction: Dict, confidence: float):
-    """
-    Display image alongside prediction results.
+class ImageViewer(QWidget):
+    """Display a selected image without embedding prediction logic."""
 
-    Args:
-        image_path: Path to image file
-        prediction: Dict with prediction details
-        confidence: Confidence score (0-1)
-    """
-    col1, col2 = st.columns(2)
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.image_label = QLabel("No image selected")
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setMinimumHeight(220)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.image_label)
 
-    with col1:
-        image = Image.open(image_path)
-        st.image(image, caption="Input Image", use_column_width=True)
+    def load_image(self, path: str | Path) -> None:
+        """Load an image from disk into the preview area."""
 
-    with col2:
-        st.subheader("Prediction Results")
-        st.metric("Predicted Class", prediction.get("class", "N/A"))
-        st.metric("Confidence", f"{confidence:.2%}")
-
-        if "details" in prediction:
-            st.write("**Details:**")
-            for key, val in prediction["details"].items():
-                st.write(f"  - {key}: {val}")
+        image_path = Path(path)
+        pixmap = QPixmap(str(image_path))
+        if pixmap.isNull():
+            self.image_label.setText(f"Unable to load image: {image_path}")
+            return
+        scaled = pixmap.scaled(
+            self.image_label.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        self.image_label.setPixmap(scaled)
