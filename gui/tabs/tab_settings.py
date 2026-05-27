@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 )
 
 from gui.components.log_panel import LogPanel
+from gui.i18n import t, set_lang, get_lang
 from gui.tabs.base_tab import BaseTab
 
 _ROOT       = Path(__file__).resolve().parents[2]
@@ -59,8 +60,8 @@ class SettingsTab(BaseTab):
         scroll.setWidget(content)
 
         # ── 섹션별 위젯 생성 / Build section widgets ──────────────────────────
+        main_form.addWidget(self._build_appearance_group())
         main_form.addWidget(self._build_storage_group())
-        main_form.addWidget(self._build_model_group())
         main_form.addWidget(self._build_phase2_group())
         main_form.addWidget(self._build_phase0_group())
         main_form.addWidget(self._build_train_group())
@@ -68,14 +69,14 @@ class SettingsTab(BaseTab):
 
         # ── 버튼 / Buttons ────────────────────────────────────────────────────
         self.log_panel = LogPanel()
-        save_btn  = QPushButton("Save Settings")
-        reset_btn = QPushButton("Reset to Current Config")
-        save_btn.clicked.connect(self.save_settings)
-        reset_btn.clicked.connect(self.refresh)
+        self._save_btn  = QPushButton(t("btn_save_settings"))
+        self._reset_btn = QPushButton(t("btn_reset"))
+        self._save_btn.clicked.connect(self.save_settings)
+        self._reset_btn.clicked.connect(self.refresh)
 
         btn_row = QHBoxLayout()
-        btn_row.addWidget(save_btn)
-        btn_row.addWidget(reset_btn)
+        btn_row.addWidget(self._save_btn)
+        btn_row.addWidget(self._reset_btn)
 
         # ── 최상위 레이아웃 / Top-level layout ───────────────────────────────
         layout = QVBoxLayout(self)
@@ -91,10 +92,6 @@ class SettingsTab(BaseTab):
         self._models_dir.setText(s.get("models_dir", "data_set/models"))
         self._reports_dir.setText(s.get("reports_dir", "outputs/reports"))
         self._checkpoint_path.setText(self._load_gui_config().get("checkpoint_path", ""))
-
-        m = self.cfg.get("model", {})
-        self._backbone.setCurrentText(m.get("backbone", "efficientnet_b0"))
-        self._frozen.setChecked(bool(m.get("frozen_backbone", False)))
 
         p2 = self.cfg.get("phase2", {})
         self._p2_epochs.setValue(int(p2.get("epochs", 50)))
@@ -114,11 +111,11 @@ class SettingsTab(BaseTab):
         self._p0_lr.setValue(float(p0.get("learning_rate", 1e-3)))
         self._p0_temp.setValue(float(p0.get("temperature", 0.1)))
 
-        t = self.cfg.get("train", {})
-        self._seed.setValue(int(t.get("seed", 42)))
-        self._num_workers.setValue(int(t.get("num_workers", 0)))
-        self._scheduler.setCurrentText(t.get("scheduler", "cosine"))
-        self._grad_clip.setValue(float(t.get("gradient_clip", 1.0)))
+        train_cfg = self.cfg.get("train", {})
+        self._seed.setValue(int(train_cfg.get("seed", 42)))
+        self._num_workers.setValue(int(train_cfg.get("num_workers", 0)))
+        self._scheduler.setCurrentText(train_cfg.get("scheduler", "cosine"))
+        self._grad_clip.setValue(float(train_cfg.get("gradient_clip", 1.0)))
 
     def on_worker_finished(self, result: dict[str, Any]) -> None:
         """Settings 탭은 Worker를 사용하지 않음."""
@@ -139,10 +136,6 @@ class SettingsTab(BaseTab):
                 "labeled_dir": self._labeled_dir.text().strip(),
                 "models_dir":  self._models_dir.text().strip(),
                 "reports_dir": self._reports_dir.text().strip(),
-            })
-            src_cfg.setdefault("model", {}).update({
-                "backbone":        self._backbone.currentText(),
-                "frozen_backbone": self._frozen.isChecked(),
             })
             src_cfg.setdefault("phase2", {}).update({
                 "epochs":        self._p2_epochs.value(),
@@ -180,6 +173,8 @@ class SettingsTab(BaseTab):
                 json.dumps({
                     "labeled_dir":     self._labeled_dir.text().strip(),
                     "checkpoint_path": self._checkpoint_path.text().strip(),
+                    "theme":           self._theme_combo.currentData(),
+                    "lang":            self._lang_combo.currentData(),
                 }, indent=2, ensure_ascii=False),
                 encoding="utf-8",
             )
@@ -187,10 +182,51 @@ class SettingsTab(BaseTab):
         except Exception as exc:
             self.log_panel.append(f"❌ Save failed: {exc}")
 
+    # ── retranslate ───────────────────────────────────────────────────────────
+
+    def retranslate_ui(self, lang: str) -> None:
+        self._grp_appearance.setTitle(t("grp_appearance"))
+        self._grp_storage.setTitle(t("grp_storage"))
+        self._grp_phase2.setTitle(t("grp_phase2"))
+        self._grp_phase0.setTitle(t("grp_phase0"))
+        self._grp_train.setTitle(t("grp_train_cmn"))
+        self._save_btn.setText(t("btn_save_settings"))
+        self._reset_btn.setText(t("btn_reset"))
+
     # ── Section builders ──────────────────────────────────────────────────────
 
+    def _build_appearance_group(self) -> QGroupBox:
+        gui_cfg = self._load_gui_config()
+        self._grp_appearance = QGroupBox(t("grp_appearance"))
+        f = self._make_form(self._grp_appearance)
+
+        # 테마 콤보박스 / Theme combo
+        self._theme_combo = QComboBox()
+        self._theme_combo.addItem(t("theme_dark"),  userData="dark")
+        self._theme_combo.addItem(t("theme_light"), userData="light")
+        self._theme_combo.setMaximumWidth(_FIELD_W)
+        saved_theme = gui_cfg.get("theme", "dark")
+        idx = self._theme_combo.findData(saved_theme)
+        if idx >= 0:
+            self._theme_combo.setCurrentIndex(idx)
+
+        # 언어 콤보박스 / Language combo
+        self._lang_combo = QComboBox()
+        self._lang_combo.addItem("한국어", userData="ko")
+        self._lang_combo.addItem("English", userData="en")
+        self._lang_combo.setMaximumWidth(_FIELD_W)
+        saved_lang = gui_cfg.get("lang", "ko")
+        idx = self._lang_combo.findData(saved_lang)
+        if idx >= 0:
+            self._lang_combo.setCurrentIndex(idx)
+
+        f.addRow(t("lbl_theme"), self._theme_combo)
+        f.addRow(t("lbl_lang"),  self._lang_combo)
+        return self._grp_appearance
+
     def _build_storage_group(self) -> QGroupBox:
-        g = QGroupBox("Storage / Paths")
+        self._grp_storage = QGroupBox(t("grp_storage"))
+        g = self._grp_storage
         f = self._make_form(g)
 
         self._labeled_dir  = self._lineedit(
@@ -219,25 +255,9 @@ class SettingsTab(BaseTab):
         f.addRow("Checkpoint (.pt)",    ckpt_widget)
         return g
 
-    def _build_model_group(self) -> QGroupBox:
-        g = QGroupBox("Model")
-        f = self._make_form(g)
-        m = self.cfg.get("model", {})
-
-        self._backbone = QComboBox()
-        self._backbone.addItems(["efficientnet_b0", "resnet50"])
-        self._backbone.setCurrentText(m.get("backbone", "efficientnet_b0"))
-        self._backbone.setMaximumWidth(_FIELD_W)
-
-        self._frozen = QCheckBox("Frozen backbone")
-        self._frozen.setChecked(bool(m.get("frozen_backbone", False)))
-
-        f.addRow("Backbone", self._backbone)
-        f.addRow(self._frozen)          # full-span (라벨 없음)
-        return g
-
     def _build_phase2_group(self) -> QGroupBox:
-        g = QGroupBox("Phase 2 — Supervised Classification")
+        self._grp_phase2 = QGroupBox(t("grp_phase2"))
+        g = self._grp_phase2
         f = self._make_form(g)
         p2 = self.cfg.get("phase2", {})
         es = p2.get("early_stopping", {})
@@ -267,7 +287,8 @@ class SettingsTab(BaseTab):
         return g
 
     def _build_phase0_group(self) -> QGroupBox:
-        g = QGroupBox("Phase 0 — SimCLR Contrastive Learning")
+        self._grp_phase0 = QGroupBox(t("grp_phase0"))
+        g = self._grp_phase0
         f = self._make_form(g)
         p0 = self.cfg.get("phase0", {})
 
@@ -283,17 +304,18 @@ class SettingsTab(BaseTab):
         return g
 
     def _build_train_group(self) -> QGroupBox:
-        g = QGroupBox("Training (공통 / Common)")
+        self._grp_train = QGroupBox(t("grp_train_cmn"))
+        g = self._grp_train
         f = self._make_form(g)
-        t = self.cfg.get("train", {})
+        train_cfg = self.cfg.get("train", {})
 
-        self._seed        = self._spin(t.get("seed", 42), 0, 99999)
-        self._num_workers = self._spin(t.get("num_workers", 0), 0, 16)
+        self._seed        = self._spin(train_cfg.get("seed", 42), 0, 99999)
+        self._num_workers = self._spin(train_cfg.get("num_workers", 0), 0, 16)
         self._scheduler   = QComboBox()
         self._scheduler.addItems(["cosine", "step", "none"])
-        self._scheduler.setCurrentText(t.get("scheduler", "cosine"))
+        self._scheduler.setCurrentText(train_cfg.get("scheduler", "cosine"))
         self._scheduler.setMaximumWidth(_FIELD_W)
-        self._grad_clip   = self._dspin(t.get("gradient_clip", 1.0), 0.0, 10.0, 2)
+        self._grad_clip   = self._dspin(train_cfg.get("gradient_clip", 1.0), 0.0, 10.0, 2)
 
         f.addRow("Seed",          self._seed)
         f.addRow("Num Workers",   self._num_workers)

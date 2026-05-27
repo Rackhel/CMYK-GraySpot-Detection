@@ -15,3 +15,7 @@ class BaseTab(QWidget):
 
     def on_worker_finished(self, result: dict[str, Any]) -> None:
         """Handle a worker completion payload."""
+
+    def retranslate_ui(self, lang: str) -> None:
+        """언어가 바뀔 때 호출된다. 각 탭에서 오버라이드해 번역 적용.
+        Called when language changes. Override in each tab to apply translations."""

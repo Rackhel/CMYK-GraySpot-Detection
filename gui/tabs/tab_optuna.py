@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
@@ -78,7 +79,7 @@ class OptunaTab(BaseTab):
         self.best_card = MetricCard("Best Value", "-")
         self.progress  = ProgressPanel()
 
-        # ── 탐색 공간 편집기 / Search-space editor (scrollable) ────────────
+        # ── 탐색 공간 편집기 스크롤 / Search-space editor (scrollable) ────
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll_content = QWidget()
@@ -91,9 +92,11 @@ class OptunaTab(BaseTab):
         editor_layout.addWidget(self._build_phase2_res_group())
         editor_layout.addStretch()
         scroll.setWidget(scroll_content)
+        scroll.setMinimumHeight(300)
 
         # ── 저장 버튼 / Save / Reset ──────────────────────────────────────
         self.log_panel = LogPanel()
+        self.log_panel.setMaximumHeight(80)
         save_btn  = QPushButton("Save Search Space → config.json")
         reset_btn = QPushButton("Reset to Current Config")
         save_btn.clicked.connect(self.save_search_space)
@@ -103,15 +106,37 @@ class OptunaTab(BaseTab):
         btn_row.addWidget(save_btn)
         btn_row.addWidget(reset_btn)
 
+        # ── 탐색공간 편집기 패널 (스크롤 + 버튼 + 로그) / Editor panel ───
+        editor_panel = QWidget()
+        editor_v = QVBoxLayout(editor_panel)
+        editor_v.setContentsMargins(0, 0, 0, 0)
+        editor_v.setSpacing(4)
+        editor_v.addWidget(QLabel("  Search Space Editor"))
+        editor_v.addWidget(scroll, stretch=1)
+        editor_v.addLayout(btn_row)
+        editor_v.addWidget(self.log_panel)
+
+        # ── HPO 실행 패널 / HPO run panel ─────────────────────────────────
+        run_panel = QWidget()
+        run_v = QVBoxLayout(run_panel)
+        run_v.setContentsMargins(0, 0, 0, 0)
+        run_v.setSpacing(6)
+        run_v.addLayout(ctrl_row)
+        run_v.addWidget(self.best_card)
+        run_v.addWidget(self.progress, stretch=1)
+
+        # ── QSplitter: 위=HPO실행, 아래=탐색공간편집기 ────────────────────
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.addWidget(run_panel)
+        splitter.addWidget(editor_panel)
+        # 초기 비율 1:3 — 편집기에 공간을 크게 배정
+        splitter.setSizes([200, 600])
+        splitter.setChildrenCollapsible(False)
+
         # ── 최상위 레이아웃 / Top-level layout ───────────────────────────
         layout = QVBoxLayout(self)
-        layout.addLayout(ctrl_row)
-        layout.addWidget(self.best_card)
-        layout.addWidget(self.progress)
-        layout.addWidget(QLabel("── Search Space Editor ──────────────────────────────"))
-        layout.addWidget(scroll, stretch=1)
-        layout.addLayout(btn_row)
-        layout.addWidget(self.log_panel)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(splitter)
 
     # ── BaseTab interface ──────────────────────────────────────────────────────
 
