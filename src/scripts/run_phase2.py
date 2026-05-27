@@ -129,7 +129,7 @@ def _make_dataloader(dataset: CMYKDataset, cfg: dict, shuffle: bool) -> DataLoad
         pin_memory=bool(cfg["train"].get("pin_memory", False)),
         persistent_workers=persistent_workers,
         prefetch_factor=(
-            cfg["train"].get("prefetch_factor", 2) if num_workers > 0 else 2
+            cfg["train"].get("prefetch_factor", 2) if num_workers > 0 else None
         ),
     )
 
@@ -145,6 +145,7 @@ def run_phase2(
     device: torch.device,
     phase0_dir: Path,
     ckpt_dir: Path,
+    optuna_trial=None,
 ) -> dict:
     """
     단일 채널 Phase 2 학습을 실행한다.
@@ -233,7 +234,7 @@ def run_phase2(
 
     # ── Phase 2 학습 루프 / Phase 2 training loop ─────────────────────────────
     trainer = Phase2Trainer(model, p2cfg, channel, device, train_ds)
-    history = trainer.train(train_loader, val_loader)
+    history = trainer.train(train_loader, val_loader, optuna_trial=optuna_trial)
 
     # 학습 이력 CSV 저장 / Save training history CSV
     history_path = ckpt_dir / f"phase2_history_{channel}.csv"

@@ -3,18 +3,22 @@ data_set/*
 !data_set/images/
 data_set/images/*
 !data_set/images/.gitkeep
+# 모델 가중치 공유 — data_set/models/ 전체 추적 허용 / Allow model weights to be shared
+!data_set/models/
+!data_set/models/*.pt
 
 # 출력 폴더 - 파일은 무시하되 폴더 구조(.gitkeep)는 유지 / output folder
 outputs/*
 !outputs/reports
 !outputs/baseline
 !outputs/optuna
-outputs/reports/*
+!outputs/checkpoints
 outputs/baseline/*
-outputs/optuna/*
-!outputs/reports/.gitkeep
 !outputs/baseline/.gitkeep
-!outputs/optuna/.gitkeep
+# Optuna 파라미터 공유 — JSON만 추적, SQLite DB 제외 / Track JSON params only, exclude SQLite DB
+outputs/optuna/*.db
+# 체크포인트 공유 — outputs/checkpoints/ 전체 추적 허용 / Allow checkpoints to be shared
+# 리포트 산출물 공유 — outputs/reports/ 전체 추적 허용 / Allow reports to be shared
 
 
 # 압축 파일 / zip file
@@ -30,8 +34,10 @@ __pycache__/
 venv/
 env/
 
-# 학습 결과물 / train reports
+# 학습 결과물 / train reports — 공유 폴더 제외 / except shared folders
 *.pt
+!data_set/models/*.pt
+!outputs/checkpoints/*.pt
 *.onnx
 *.mlmodel
 

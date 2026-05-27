@@ -96,10 +96,10 @@
 
   "train": {
     "seed":               42,
-    "num_workers":        4,
-    "pin_memory":         true,
+    "num_workers":        0,
+    "pin_memory":         false,
     "prefetch_factor":    2,
-    "persistent_workers": true,
+    "persistent_workers": false,
     "drop_last":          false,
     "scheduler":          "cosine",
     "eta_min":            1.0e-6,
@@ -187,34 +187,49 @@
   },
 
   "optuna": {
-    "enabled":   false,
-    "direction": "maximize",
-    "n_trials":  30,
-    "n_jobs":    1,
+    "enabled":   true,
+    "n_trials":  50,
+    "n_jobs":         1,
+    "n_jobs_windows": 4,
+    "_n_jobs_note": "플랫폼별 자동 선택: macOS/Linux → n_jobs, Windows → n_jobs_windows. 모두 ThreadPoolExecutor 사용 (fork/spawn 없음). / Platform-auto: macOS/Linux uses n_jobs, Windows uses n_jobs_windows. Both use ThreadPoolExecutor (no fork/spawn).",
     "sampler":   "tpe",
     "pruner": {
       "type":           "median",
       "n_warmup_steps": 10
     },
-    "search_space": {
-      "resnet50": {
-        "_comment": "단계적 압축 head 전용 — regularization 강하게 / Heavy regularization for staged head",
-        "learning_rate": [1.0e-4, 5.0e-4],
-        "weight_decay":  [1.0e-3, 1.0e-2],
-        "dropout":       [0.3, 0.5],
-        "mid_dim":       [256, 512, 1024],
-        "hidden_dim":    [256, 512],
+    "phase2": {
+      "_comment": "Phase 2 Supervised Classification 하이퍼파라미터 탐색 / Phase 2 supervised HP search",
+      "direction": "maximize",
+      "search_space": {
+        "resnet50": {
+          "_comment": "단계적 압축 head 전용 — regularization 강하게 / Heavy regularization for staged head",
+          "learning_rate": [1.0e-4, 5.0e-4],
+          "weight_decay":  [1.0e-3, 1.0e-2],
+          "dropout":       [0.3, 0.5],
+          "mid_dim":       [256, 512, 1024],
+          "hidden_dim":    [256, 512],
+          "batch_size":    [16, 32, 64],
+          "epochs":        [10, 30]
+        },
+        "efficientnet_b0": {
+          "_comment": "직접 압축 head 전용 — SE 선별 이후 compact / Post-SE compact head",
+          "learning_rate": [5.0e-5, 3.0e-4],
+          "weight_decay":  [1.0e-4, 1.0e-3],
+          "dropout":       [0.1, 0.3],
+          "hidden_dim":    [128, 256],
+          "batch_size":    [16, 32, 64],
+          "epochs":        [10, 30]
+        }
+      }
+    },
+    "phase0": {
+      "_comment": "Phase 0 SimCLR Contrastive Learning 하이퍼파라미터 탐색 / Phase 0 contrastive HP search",
+      "direction": "minimize",
+      "search_space": {
+        "learning_rate": [1.0e-4, 1.0e-2],
+        "weight_decay":  [1.0e-6, 1.0e-4],
         "batch_size":    [16, 32, 64],
-        "epochs":        [10, 30]
-      },
-      "efficientnet_b0": {
-        "_comment": "직접 압축 head 전용 — SE 선별 이후 compact / Post-SE compact head",
-        "learning_rate": [5.0e-5, 3.0e-4],
-        "weight_decay":  [1.0e-4, 1.0e-3],
-        "dropout":       [0.1, 0.3],
-        "hidden_dim":    [128, 256],
-        "batch_size":    [16, 32, 64],
-        "epochs":        [10, 30]
+        "epochs":        [5, 15]
       }
     }
   },

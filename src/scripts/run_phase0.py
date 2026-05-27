@@ -97,7 +97,9 @@ CHANNELS = ["Y", "M", "C", "K"]
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def run_phase0(cfg: dict, channel: str, device: torch.device) -> dict:
+def run_phase0(
+    cfg: dict, channel: str, device: torch.device, optuna_trial=None
+) -> dict:
     """
     단일 채널에 대해 Phase 0 Contrastive Learning을 실행한다.
     Runs Phase 0 Contrastive Learning for a single channel.
@@ -171,7 +173,7 @@ def run_phase0(cfg: dict, channel: str, device: torch.device) -> dict:
         device=device,
     )
 
-    history = trainer.train(loader)
+    history = trainer.train(loader, optuna_trial=optuna_trial)
 
     # ── Backbone 저장 (data_set/models/) / Save backbone ─────────────────────
     backbone_path = trainer.save_backbone()

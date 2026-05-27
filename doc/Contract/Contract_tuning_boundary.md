@@ -46,7 +46,7 @@ run_optuna(n_trials: int | None = None, channel: str = "all") -> None
 
 **필수 cfg 키 / Required cfg Keys**: `optuna.n_trials`, `optuna.search_space.{backbone}.*`, `system.device`, `train.seed`
 
-> ⚠️ **역방향 의존성 경고 / Reverse Dependency Warning**: `optuna_tuner.py` 가 `src.scripts.run_baseline` 을 import 한다. 이는 `tuning → scripts` 방향으로 레이어 위반. 향후 리팩토링 필요. / `optuna_tuner.py` imports `src.scripts.run_baseline`. This is a `tuning → scripts` layer violation requiring future refactoring.
+> ⚠️ **역방향 의존성 경고 / Reverse Dependency Warning**: `optuna_tuner.py` 가 `src.scripts.run_phase2` 를 런타임 lazy import한다. 이는 `tuning → scripts` 방향으로 레이어 위반. 향후 리팩토링 필요. / `optuna_tuner.py` lazy-imports `src.scripts.run_phase2` at runtime. This is a `tuning → scripts` layer violation requiring future refactoring.
 
 ---
 
@@ -180,7 +180,7 @@ space = get_phase2_search_space(trial, cfg)  # config 기반 탐색 / config-bas
 - [x] `normalize_channel()` — 대소문자 무관 처리 / Case-insensitive handling
 - [x] `load_best_params()` — 파일 없으면 `FileNotFoundError` (SSOT-FF01) / `FileNotFoundError` if file missing
 - [x] `apply_phase2_params()` — backbone 불변식 보장 / Backbone invariant guaranteed
-- [ ] `tuning → scripts` 레이어 위반 리팩토링 / Refactor `tuning → scripts` layer violation
+- [ ] `tuning → scripts` 레이어 위반 리팩토링 (`run_phase2` lazy import) / Refactor `tuning → scripts` layer violation (`run_phase2` lazy import)
 
 ---
 

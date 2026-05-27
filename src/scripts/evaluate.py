@@ -31,6 +31,17 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+# evaluate.py 는 단독 실행(python -m src.scripts.evaluate)과
+# 모듈 임포트(from src.scripts.evaluate import ...) 양쪽을 모두 지원해야 한다.
+# src/ 를 sys.path 에 먼저 추가해 bare import(evaluation, utils)가
+# 어떤 경로로 불려오든 항상 동작하도록 보장한다.
+# evaluate.py must support both direct execution and module import.
+# Prepend src/ to sys.path so bare imports always resolve correctly.
+_EVAL_ROOT = Path(__file__).resolve().parents[2]
+for _p in (str(_EVAL_ROOT), str(_EVAL_ROOT / "src")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 import torch
 
 from evaluation.evaluator import Evaluator
@@ -196,29 +207,32 @@ def _build_model(
     In production, main()'s Fail-Fast check catches missing files before this runs.
     """
     try:
-        from models.grayspot_model import GrayspotModel
+        from utils.utils_model import build_model
 
         device_str = cfg.get("system", {}).get("device", "cpu")
-        models_dir = Path(storage.get("models_dir", "outputs/models"))
+        device = torch.device(device_str)
+        models_dir = _EVAL_ROOT / Path(storage.get("models_dir", "data_set/models"))
         model_path = (
-            checkpoint
+            Path(checkpoint)
             if checkpoint is not None
             else (models_dir / f"best_{channel}.pt")
         )
 
-        model = GrayspotModel(cfg, phase=2)
+        if not model_path.exists():
+            raise FileNotFoundError(f"Checkpoint not found: {model_path}")
 
-        if Path(model_path).exists():
-            ckpt = torch.load(str(model_path), map_location="cpu", weights_only=True)
-            if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
-                ckpt = ckpt["model_state_dict"]
-            model.load_state_dict(ckpt, strict=False)
+        # build_model 은 _cfg_for_ckpt 로 아키텍처를 자동 감지하므로
+        # Optuna 튜닝 후 hidden_dim 이 달라도 올바르게 로드된다.
+        # build_model uses _cfg_for_ckpt to auto-detect architecture,
+        # so Optuna-tuned hidden_dim values are handled correctly.
+        return build_model(cfg, model_path, device)
 
-        return model.to(torch.device(device_str)).eval()
-
-    except Exception:
+    except Exception as _e:
         # 테스트 환경에서 Evaluator가 모킹되면 model=None이 허용된다
         # When Evaluator is mocked in tests, model=None is acceptable
+        import traceback
+
+        traceback.print_exc()
         return None
 
 
@@ -271,6 +285,45 @@ def _write_json_summary(
     path.write_text(
         json.dumps(summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
+    )
+
+
+# ── Programmatic 진입점 / Programmatic entry point ───────────────────────────
+
+
+def run_evaluate(
+    channel: str,
+    cfg: dict,
+    checkpoint: Optional[Path] = None,
+    output_dir: Optional[Path] = None,
+) -> Path:
+    """
+    단일 채널 평가를 프로그래밍 방식으로 실행한다.
+    Runs single-channel evaluation programmatically (non-CLI).
+
+    Optuna final retrain 직후 best 가중치 검증 용도로 설계됐다.
+    Designed for post-Optuna best-weight verification after final retrain.
+
+    Args:
+        channel:    평가 대상 채널 (Y/M/C/K) / Target channel
+        cfg:        load_config() 결과 dict / Config dict
+        checkpoint: 모델 파일 경로. None 이면 models_dir/best_{channel}.pt 자동 탐색.
+                    Model path. None → auto-resolve models_dir/best_{channel}.pt
+        output_dir: 리포트 저장 경로. None 이면 config의 reports_dir 사용.
+                    Report output dir. None → config reports_dir
+
+    Returns:
+        Path — 생성된 JSON 리포트 파일 경로 / Path to generated JSON report
+    """
+    if output_dir is None:
+        output_dir = Path(cfg.get("storage", {}).get("reports_dir", "outputs/reports"))
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    return _run_channel_evaluation(
+        channel=channel,
+        output_dir=output_dir,
+        cfg=cfg,
+        checkpoint=checkpoint,
     )
 
 
