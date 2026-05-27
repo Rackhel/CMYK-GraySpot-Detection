@@ -142,14 +142,8 @@ def eval_cfg(tmp_path) -> dict:
 @pytest.fixture
 def minimal_labeled_dir(tmp_path, eval_cfg) -> Path:
     """
-    Y 채널 최소 labeled 디렉토리와 labels_v0.csv를 생성한다.
-    Creates minimal labeled directory for Y channel and labels_v0.csv.
-
-    구조 / Structure:
-        tmp_path/labeled/Y/0/ → 2 images
-        ...
-        tmp_path/labeled/Y/5/ → 2 images
-        tmp_path/labels_v0.csv  ← Evaluator가 읽는 CSV (data_root 위치)
+    Y 채널 최소 labeled 디렉토리와 labels_master.csv를 생성한다.
+    Creates minimal labeled directory for Y channel and labels_master.csv.
     """
     try:
         import cv2
@@ -169,15 +163,12 @@ def minimal_labeled_dir(tmp_path, eval_cfg) -> Path:
             filename = f"Y_{level}_{i:04d}.png"
             img = np.random.randint(0, 256, (image_size, image_size, 3), dtype=np.uint8)
             cv2.imwrite(str(level_dir / filename), img)
-            # CSV에 filename과 CMYK 레벨 기록
-            # Record filename and CMYK levels in CSV
             rows.append(
                 {"filename": filename, "Y": level, "M": level, "C": level, "K": level}
             )
 
-    # labels_v0.csv 생성 — data_root(tmp_path) 에 위치 (evaluate.py 경로 규칙과 일치)
-    # Create labels_v0.csv — placed at data_root (tmp_path) to match evaluate.py path logic
-    csv_path = tmp_path / "labels_v0.csv"
+    # Create labels_master.csv at data_root (tmp_path)
+    csv_path = tmp_path / "labels_master.csv"  # Changed from labels_v0.csv
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["filename", "Y", "M", "C", "K"])
         writer.writeheader()
