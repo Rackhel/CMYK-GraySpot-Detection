@@ -28,7 +28,6 @@ Python 3.11.5 | macOS & Windows compatible
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import sys
 from datetime import datetime
@@ -53,6 +52,7 @@ from evaluation.metrics import (
     compute_all_channels,
 )
 from src.utils import (
+    backbone_tag,
     build_model,
     create_directories,
     get_logger,
@@ -67,68 +67,6 @@ from src.utils import (
 # ---------------------------------------------------------------------------
 CKPT_DIR = ROOT / "outputs" / "checkpoints"
 REPORT_DIR = ROOT / "outputs" / "reports"
-
-
-# ---------------------------------------------------------------------------
-# Helper: auto-detect backbone / hidden_dim from checkpoint weights
-# ---------------------------------------------------------------------------
-
-
-def _cfg_for_ckpt(cfg: dict, ckpt: Path) -> dict:
-    """
-    체크포인트 weight shape에서 backbone과 hidden_dim을 역산해 cfg 복사본을 패치한다.
-    Auto-detects backbone and hidden_dim from checkpoint weight shapes.
-    """
-    import torch
-
-    _FEATURE_TO_BACKBONE: dict = {
-        2048: "resnet50",
-        1280: "efficientnet_b0",
-        1792: "efficientnet_b4",
-        1536: "efficientnet_b3",
-        1408: "efficientnet_b2",
-        512: "resnet18",
-        1024: "densenet121",
-    }
-
-    state = torch.load(str(ckpt), map_location="cpu", weights_only=True)
-    if isinstance(state, dict) and "model_state_dict" in state:
-        state = state["model_state_dict"]
-
-    w0 = state.get("head.net.0.weight")
-    if w0 is None:
-        return cfg
-
-    in_features = int(w0.shape[1])
-    first_out = int(w0.shape[0])
-
-    num_classes = cfg.get("data", {}).get("num_levels", 6)
-    w4 = state.get("head.net.4.weight")
-    if w4 is not None and int(w4.shape[0]) == num_classes:
-        mid_dim = None
-        hidden_dim = first_out
-    elif w4 is not None:
-        mid_dim = first_out
-        hidden_dim = int(w4.shape[1])
-    else:
-        mid_dim = None
-        hidden_dim = first_out
-
-    patched = copy.deepcopy(cfg)
-
-    detected_backbone = _FEATURE_TO_BACKBONE.get(in_features)
-    if detected_backbone is not None:
-        patched.setdefault("model", {})["backbone"] = detected_backbone
-        backbone = detected_backbone
-    else:
-        backbone = patched.get("model", {}).get("backbone", "efficientnet_b0")
-
-    heads = patched.setdefault("phase2", {}).setdefault("heads", {})
-    if backbone not in heads:
-        heads[backbone] = {"dropout": 0.3}
-    heads[backbone]["mid_dim"] = mid_dim
-    heads[backbone]["hidden_dim"] = hidden_dim
-    return patched
 
 
 # ---------------------------------------------------------------------------
@@ -210,12 +148,9 @@ def find_checkpoint(ch: str, backbone: str, tag: str) -> Path | None:
     2. outputs/checkpoints/best_{ch}.pt
     3. None (추론 skip)
     """
-    # Normalize backbone name: efficientnet_b0 -> effb0
-    short = (
-        backbone.replace("efficientnet_b", "effb")
-        .replace("resnet", "res")
-        .replace("_", "")
-    )
+    # backbone 이름 → 파일명 약어 (utils_model.backbone_tag SSOT)
+    # backbone name → filename abbreviation (SSOT: utils_model.backbone_tag)
+    short = backbone_tag(backbone)
     p1 = CKPT_DIR / f"phase2_{ch}_{short}_{tag}.pt"
     if p1.exists():
         return p1
@@ -1039,7 +974,7 @@ def main() -> None:
                 continue
             logger.info(f"[{ch}] Inference from: {ckpt}")
             try:
-                model = build_model(_cfg_for_ckpt(cfg, ckpt), ckpt, device)
+                model = build_model(cfg, ckpt, device)
                 ev = Evaluator(
                     model=model,
                     labeled_dir=labeled_dir,
@@ -1129,8 +1064,7 @@ def main() -> None:
         # Create ev_report instance for chart methods (model not used here)
         first_ckpt = find_checkpoint(available[0], backbone, tag)
         ev_report = Evaluator(
-            model=build_model(_cfg_for_ckpt(cfg, first_ckpt), first_ckpt, device)
-                  if first_ckpt else None,
+            model=build_model(cfg, first_ckpt, device) if first_ckpt else None,
             labeled_dir=labeled_dir,
             labels_csv=labels_csv,
             output_dir=REPORT_DIR,
