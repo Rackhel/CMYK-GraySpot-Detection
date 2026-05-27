@@ -12,9 +12,9 @@
     "mae": 0.5
   },
   "global": {
-    "accuracy": 0.9077,
-    "macro_f1": 0.8961,
-    "mae": 0.1324,
+    "accuracy": 0.9311,
+    "macro_f1": 0.9217,
+    "mae": 0.1035,
     "acc_pass": true,
     "f1_pass": true,
     "mae_pass": true,
@@ -22,30 +22,30 @@
   },
   "by_color": {
     "Y": {
-      "accuracy": 0.8645,
-      "macro_f1": 0.8695,
+      "accuracy": 0.873,
+      "macro_f1": 0.8729,
       "mae": 0.1816,
       "acc_pass": true,
       "all_pass": true
     },
     "M": {
-      "accuracy": 0.9158,
-      "macro_f1": 0.9001,
-      "mae": 0.1289,
+      "accuracy": 0.9599,
+      "macro_f1": 0.9493,
+      "mae": 0.0664,
       "acc_pass": true,
       "all_pass": true
     },
     "C": {
-      "accuracy": 0.9125,
-      "macro_f1": 0.8935,
-      "mae": 0.1099,
+      "accuracy": 0.9461,
+      "macro_f1": 0.9341,
+      "mae": 0.0678,
       "acc_pass": true,
       "all_pass": true
     },
     "K": {
-      "accuracy": 0.9382,
-      "macro_f1": 0.9248,
-      "mae": 0.1092,
+      "accuracy": 0.9454,
+      "macro_f1": 0.931,
+      "mae": 0.098,
       "acc_pass": true,
       "all_pass": true
     }
@@ -53,44 +53,44 @@
   "per_class_overall": [
     {
       "level": 0,
-      "precision": 0.9955,
-      "recall": 0.9977,
-      "f1": 0.9966,
+      "precision": 0.9977,
+      "recall": 0.9985,
+      "f1": 0.9981,
       "f1_pass": true
     },
     {
       "level": 1,
-      "precision": 0.9235,
-      "recall": 0.9515,
-      "f1": 0.9373,
+      "precision": 0.9418,
+      "recall": 0.9682,
+      "f1": 0.9548,
       "f1_pass": true
     },
     {
       "level": 2,
-      "precision": 0.8779,
-      "recall": 0.8773,
-      "f1": 0.8776,
+      "precision": 0.904,
+      "recall": 0.9061,
+      "f1": 0.905,
       "f1_pass": true
     },
     {
       "level": 3,
-      "precision": 0.8811,
-      "recall": 0.8038,
-      "f1": 0.8407,
+      "precision": 0.9024,
+      "recall": 0.8632,
+      "f1": 0.8824,
       "f1_pass": true
     },
     {
       "level": 4,
-      "precision": 0.8303,
-      "recall": 0.897,
-      "f1": 0.8623,
+      "precision": 0.8951,
+      "recall": 0.9182,
+      "f1": 0.9065,
       "f1_pass": true
     },
     {
       "level": 5,
-      "precision": 0.8643,
-      "recall": 0.86,
-      "f1": 0.8622,
+      "precision": 0.8969,
+      "recall": 0.87,
+      "f1": 0.8832,
       "f1_pass": true
     }
   ]
