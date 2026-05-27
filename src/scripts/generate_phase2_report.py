@@ -728,6 +728,7 @@ def build_phase2_html(
     mae_dist = figs.get("mae_dist", "")
     mismatch_div = figs.get("mismatch", "")
     import plotly.io as _pio
+
     if mismatch_div and hasattr(mismatch_div, "data"):
         mismatch_div = _pio.to_html(
             mismatch_div, full_html=False, include_plotlyjs=False, div_id="fig-mismatch"
@@ -1059,7 +1060,7 @@ def main() -> None:
     # Mismatch scatter + Confidence distribution (same charts as baseline)
     if all_results:
         labeled_dir = Path(cfg["storage"]["labeled_dir"])
-        labels_csv  = Path(cfg["storage"]["data_root"]) / "labels_master.csv"
+        labels_csv = Path(cfg["storage"]["data_root"]) / "labels_master.csv"
         # 첫 번째 체크포인트로 ev_report 인스턴스 생성 (차트 메서드 전용)
         # Create ev_report instance for chart methods (model not used here)
         first_ckpt = find_checkpoint(available[0], backbone, tag)
@@ -1075,7 +1076,7 @@ def main() -> None:
             cfg=cfg,
         )
         df_miss = ev_report.get_misclassified(all_results, list(all_results.keys()))
-        figs["mismatch"]  = ev_report._build_mismatch_scatter(df_miss)
+        figs["mismatch"] = ev_report._build_mismatch_scatter(df_miss)
         figs["conf_dist"] = ev_report._build_confidence_dist(
             all_results, list(all_results.keys())
         )
@@ -1083,22 +1084,23 @@ def main() -> None:
         # CSV / JSON 저장 (baseline과 동일)
         # Save CSV / JSON (same as baseline)
         ev_report.save_csv(
-            all_results, experiment_name=f"phase2_{tag}",
-            channels=list(all_results.keys())
+            all_results,
+            experiment_name=f"phase2_{tag}",
+            channels=list(all_results.keys()),
         )
         ev_report.save_json(
-            metrics, experiment_name=f"phase2_{tag}",
+            metrics,
+            experiment_name=f"phase2_{tag}",
             channels=list(all_results.keys()),
             checkpoint_path=", ".join(
-                str(find_checkpoint(ch, backbone, tag) or "")
-                for ch in available
+                str(find_checkpoint(ch, backbone, tag) or "") for ch in available
             ),
         )
         miss_csv = REPORT_DIR / f"misclassified_phase2_{tag}.csv"
         df_miss.to_csv(miss_csv, index=False, encoding="utf-8-sig")
         logger.info(f"Saved: {miss_csv}")
     else:
-        figs["mismatch"]  = ""
+        figs["mismatch"] = ""
         figs["conf_dist"] = ""
 
     # ── 6. Phase 3 feedback text ──────────────────────────────────────────

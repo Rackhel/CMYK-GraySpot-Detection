@@ -99,7 +99,9 @@ def main() -> None:
     channel = args.channel.upper()
     valid = {"Y", "M", "C", "K", "ALL"}
     if channel not in valid:
-        print(f"[ERROR] Unsupported channel: '{args.channel}'. Available: Y, M, C, K, all")
+        print(
+            f"[ERROR] Unsupported channel: '{args.channel}'. Available: Y, M, C, K, all"
+        )
         sys.exit(1)
 
     target_channels = _ALL_CHANNELS if channel == "ALL" else [channel]
@@ -157,6 +159,7 @@ def main() -> None:
 
     if args.open_browser and last_report is not None:
         import webbrowser
+
         # HTML 리포트 경로 추론: JSON 리포트와 같은 디렉토리
         html_path = last_report.parent / f"{target_channels[-1]}.html"
         target = html_path if html_path.exists() else last_report

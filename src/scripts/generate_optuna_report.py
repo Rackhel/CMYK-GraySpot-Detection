@@ -327,14 +327,18 @@ def _build_mae_heatmap(all_results: dict, channels: list) -> str:
         for lv in range(NUM_LEVELS):
             mask = yt == lv
             if mask.sum() > 0:
-                mae_matrix[ci, lv] = float(np.mean(np.abs(yt[mask].astype(float) - yp[mask].astype(float))))
+                mae_matrix[ci, lv] = float(
+                    np.mean(np.abs(yt[mask].astype(float) - yp[mask].astype(float)))
+                )
                 cnt_matrix[ci, lv] = int(mask.sum())
 
     annot = [
         [
-            f"{mae_matrix[r, c]:.2f}<br>(n={cnt_matrix[r, c]})"
-            if not np.isnan(mae_matrix[r, c])
-            else "N/A"
+            (
+                f"{mae_matrix[r, c]:.2f}<br>(n={cnt_matrix[r, c]})"
+                if not np.isnan(mae_matrix[r, c])
+                else "N/A"
+            )
             for c in range(NUM_LEVELS)
         ]
         for r in range(len(channels))
@@ -364,7 +368,9 @@ def _build_mae_heatmap(all_results: dict, channels: list) -> str:
         height=320,
         margin=dict(l=40, r=20, t=50, b=40),
     )
-    return pio.to_html(fig, full_html=False, include_plotlyjs=False, div_id="fig-mae-heat")
+    return pio.to_html(
+        fig, full_html=False, include_plotlyjs=False, div_id="fig-mae-heat"
+    )
 
 
 def _build_conf_dist(all_results: dict, channels: list) -> str:
@@ -418,25 +424,27 @@ def _ch_tab_panel(group_id: str, available: list, figs: dict, no_data_msg: str) 
     first = available[0] if available else ""
     tabs_html = "".join(
         f'<div class="ch-tab {"active" if ch == first else ""}" '
-        f'data-ch="{ch}" onclick="switchChTab(\'{group_id}\',\'{ch}\')">{ch}</div>'
+        f"data-ch=\"{ch}\" onclick=\"switchChTab('{group_id}','{ch}')\">{ch}</div>"
         for ch in available
     )
     panels_html = ""
     for ch in available:
         active = "active" if ch == first else ""
         content = figs.get(ch) or f'<div class="no-data">{no_data_msg} [{ch}]</div>'
-        panels_html += f'<div class="ch-panel {active}" id="{group_id}-panel-{ch}">{content}</div>'
+        panels_html += (
+            f'<div class="ch-panel {active}" id="{group_id}-panel-{ch}">{content}</div>'
+        )
     return f'<div class="ch-tabs" id="{group_id}">{tabs_html}</div>{panels_html}'
 
 
 def _build_sec_summary(metrics: dict, available: list) -> str:
     overall = metrics.get("overall", {})
     avg_acc = overall.get("accuracy", 0.0)
-    avg_f1  = overall.get("macro_f1", 0.0)
+    avg_f1 = overall.get("macro_f1", 0.0)
     avg_mae = overall.get("mae", 0.0)
 
     acc_cls = "pass-card" if avg_acc >= TARGET_OVERALL_ACC else "fail-card"
-    f1_cls  = "pass-card" if avg_f1 >= TARGET_PER_CLASS_F1 else "fail-card"
+    f1_cls = "pass-card" if avg_f1 >= TARGET_PER_CLASS_F1 else "fail-card"
     mae_cls = "pass-card" if avg_mae <= TARGET_MAE else "fail-card"
 
     kpi = f"""
@@ -461,12 +469,12 @@ def _build_sec_summary(metrics: dict, available: list) -> str:
     rows = ""
     for ch in available:
         m = metrics.get(ch, {})
-        acc  = m.get("accuracy", 0.0)
-        f1   = m.get("macro_f1", 0.0)
-        mae  = m.get("mae", 0.0)
+        acc = m.get("accuracy", 0.0)
+        f1 = m.get("macro_f1", 0.0)
+        mae = m.get("mae", 0.0)
         pass_acc = acc >= TARGET_PER_COLOR_ACC
         pass_mae = mae <= TARGET_MAE
-        pass_f1  = f1 >= TARGET_PER_CLASS_F1
+        pass_f1 = f1 >= TARGET_PER_CLASS_F1
         rows += f"""
         <tr>
           <td><span class="ch-badge ch-{ch}">{ch}</span></td>
@@ -503,16 +511,23 @@ def _build_sec_params(params_by_channel: dict, cfg: dict, available: list) -> st
     head_def = cfg.get("phase2", {}).get("heads", {}).get(backbone, {})
     defaults = {
         "learning_rate": p2.get("learning_rate"),
-        "weight_decay":  p2.get("weight_decay"),
-        "batch_size":    p2.get("batch_size"),
-        "epochs":        p2.get("epochs"),
-        "dropout":       head_def.get("dropout"),
-        "hidden_dim":    head_def.get("hidden_dim"),
-        "mid_dim":       head_def.get("mid_dim"),
+        "weight_decay": p2.get("weight_decay"),
+        "batch_size": p2.get("batch_size"),
+        "epochs": p2.get("epochs"),
+        "dropout": head_def.get("dropout"),
+        "hidden_dim": head_def.get("hidden_dim"),
+        "mid_dim": head_def.get("mid_dim"),
     }
 
-    all_keys = ["learning_rate", "weight_decay", "batch_size", "epochs",
-                "dropout", "hidden_dim", "mid_dim"]
+    all_keys = [
+        "learning_rate",
+        "weight_decay",
+        "batch_size",
+        "epochs",
+        "dropout",
+        "hidden_dim",
+        "mid_dim",
+    ]
 
     # 헤더행
     header = "<tr><th>Parameter</th><th>Default</th>"
@@ -564,7 +579,9 @@ def _build_sec_params(params_by_channel: dict, cfg: dict, available: list) -> st
     return table
 
 
-def _build_sec_trials(trial_figs: dict, trials_by_channel: dict, available: list) -> str:
+def _build_sec_trials(
+    trial_figs: dict, trials_by_channel: dict, available: list
+) -> str:
     """Trial History 탭 — 최적화 곡선 + 완료/Pruned 통계."""
     stats_rows = ""
     for ch in available:
@@ -572,13 +589,17 @@ def _build_sec_trials(trial_figs: dict, trials_by_channel: dict, available: list
         if not trials:
             stats_rows += f"<tr><td><span class='ch-badge ch-{ch}'>{ch}</span></td><td colspan='4' class='same'>데이터 없음</td></tr>"
             continue
-        total    = len(trials)
+        total = len(trials)
         complete = sum(1 for t in trials if t.get("state") == "TrialState.COMPLETE")
-        pruned   = sum(1 for t in trials if t.get("state") == "TrialState.PRUNED")
-        failed   = total - complete - pruned
+        pruned = sum(1 for t in trials if t.get("state") == "TrialState.PRUNED")
+        failed = total - complete - pruned
         best_val = max(
-            (t["value"] for t in trials
-             if t.get("state") == "TrialState.COMPLETE" and t.get("value") is not None),
+            (
+                t["value"]
+                for t in trials
+                if t.get("state") == "TrialState.COMPLETE"
+                and t.get("value") is not None
+            ),
             default=None,
         )
         best_str = f"{best_val:.4f}" if best_val is not None else "—"
@@ -601,9 +622,7 @@ def _build_sec_trials(trial_figs: dict, trials_by_channel: dict, available: list
       </table>
     </div>"""
 
-    curves_html = _ch_tab_panel(
-        "trials", available, trial_figs, "Trial history 없음"
-    )
+    curves_html = _ch_tab_panel("trials", available, trial_figs, "Trial history 없음")
     curves_card = f"""
     <div class="card">
       <h2>Optimization Curve (Trial # vs. Val Accuracy)</h2>
@@ -627,7 +646,9 @@ def _build_sec_cm(cm_figs: dict, available: list) -> str:
     </div>"""
 
 
-def _build_sec_f1mae(f1_figs: dict, mae_heat: str, metrics: dict, available: list) -> str:
+def _build_sec_f1mae(
+    f1_figs: dict, mae_heat: str, metrics: dict, available: list
+) -> str:
     f1_panels = _ch_tab_panel("f1tabs", available, f1_figs, "Per-class 데이터 없음")
     f1_card = f"""
     <div class="card">
@@ -677,25 +698,27 @@ def _build_sec_f1mae(f1_figs: dict, mae_heat: str, metrics: dict, available: lis
 
 def build_optuna_html(report_data: dict, output_path: Path) -> None:
     """6탭 Optuna 통합 HTML 리포트를 생성한다."""
-    meta              = report_data["meta"]
-    metrics           = report_data["metrics"]
-    figs              = report_data["figures"]
+    meta = report_data["meta"]
+    metrics = report_data["metrics"]
+    figs = report_data["figures"]
     params_by_channel = report_data["params_by_channel"]
     trials_by_channel = report_data["trials_by_channel"]
-    available         = report_data["available"]
-    cfg               = report_data["cfg"]
+    available = report_data["available"]
+    cfg = report_data["cfg"]
 
     sec_summary = _build_sec_summary(metrics, available)
-    sec_params  = _build_sec_params(params_by_channel, cfg, available)
-    sec_trials  = _build_sec_trials(figs.get("trial_history", {}), trials_by_channel, available)
-    sec_cm      = _build_sec_cm(figs.get("confusion", {}), available)
-    sec_f1mae   = _build_sec_f1mae(
+    sec_params = _build_sec_params(params_by_channel, cfg, available)
+    sec_trials = _build_sec_trials(
+        figs.get("trial_history", {}), trials_by_channel, available
+    )
+    sec_cm = _build_sec_cm(figs.get("confusion", {}), available)
+    sec_f1mae = _build_sec_f1mae(
         figs.get("per_class", {}),
         figs.get("mae_heatmap", ""),
         metrics,
         available,
     )
-    sec_conf    = f"""
+    sec_conf = f"""
     <div class="card">
       <h2>Prediction Confidence Distribution</h2>
       {figs.get('conf_dist') or '<div class="no-data">추론 결과 없음</div>'}
@@ -703,11 +726,11 @@ def build_optuna_html(report_data: dict, output_path: Path) -> None:
 
     tabs = [
         ("summary", "① Summary"),
-        ("params",  "② Optuna Params"),
-        ("trials",  "③ Trial History"),
-        ("cm",      "④ Confusion Matrix"),
-        ("f1mae",   "⑤ Per-Class F1 / MAE"),
-        ("conf",    "⑥ Confidence"),
+        ("params", "② Optuna Params"),
+        ("trials", "③ Trial History"),
+        ("cm", "④ Confusion Matrix"),
+        ("f1mae", "⑤ Per-Class F1 / MAE"),
+        ("conf", "⑥ Confidence"),
     ]
     tabs_html = "".join(
         f'<div class="nav-tab {"active" if i == 0 else ""}" '
@@ -717,11 +740,11 @@ def build_optuna_html(report_data: dict, output_path: Path) -> None:
 
     sections_map = {
         "summary": sec_summary,
-        "params":  sec_params,
-        "trials":  sec_trials,
-        "cm":      sec_cm,
-        "f1mae":   sec_f1mae,
-        "conf":    sec_conf,
+        "params": sec_params,
+        "trials": sec_trials,
+        "cm": sec_cm,
+        "f1mae": sec_f1mae,
+        "conf": sec_conf,
     }
     sections_html = "".join(
         f'<section id="sec-{tid}" class="section {"active" if i == 0 else ""}">'
@@ -730,7 +753,7 @@ def build_optuna_html(report_data: dict, output_path: Path) -> None:
     )
 
     generated_at = meta["generated_at"]
-    backbone     = meta["backbone"]
+    backbone = meta["backbone"]
     channels_str = ", ".join(available)
 
     html = f"""<!DOCTYPE html>
@@ -776,28 +799,41 @@ def main() -> None:
         description="Generate Optuna Phase 2 unified HTML report"
     )
     parser.add_argument(
-        "--channels", nargs="+", default=None,
+        "--channels",
+        nargs="+",
+        default=None,
         help="Channels to include (default: all with best_params file)",
     )
     parser.add_argument(
-        "--open-browser", action="store_true",
+        "--open-browser",
+        action="store_true",
         help="Open the generated HTML in the default browser",
     )
     parser.add_argument(
-        "--no-inference", action="store_true",
+        "--no-inference",
+        action="store_true",
         help="Skip model loading; show params/trial history only",
     )
     args = parser.parse_args()
 
     import torch
-    cfg    = load_config()
+
+    cfg = load_config()
     device = torch.device(cfg["system"]["device"])
 
     # ── 1. 사용 가능한 채널 결정 ───────────────────────────────────────────
     if args.channels:
-        available = [c.upper() for c in args.channels if (OPTUNA_DIR / f"best_params_phase2_{c.lower()}.json").exists()]
+        available = [
+            c.upper()
+            for c in args.channels
+            if (OPTUNA_DIR / f"best_params_phase2_{c.lower()}.json").exists()
+        ]
     else:
-        available = [c for c in _ALL_CHANNELS if (OPTUNA_DIR / f"best_params_phase2_{c.lower()}.json").exists()]
+        available = [
+            c
+            for c in _ALL_CHANNELS
+            if (OPTUNA_DIR / f"best_params_phase2_{c.lower()}.json").exists()
+        ]
 
     if not available:
         print(
@@ -823,8 +859,8 @@ def main() -> None:
 
     if not args.no_inference:
         labeled_dir = Path(cfg["storage"]["labeled_dir"])
-        labels_csv  = Path(cfg["storage"]["data_root"]) / "labels_master.csv"
-        tmp_dir     = REPORT_DIR / "tmp_optuna"
+        labels_csv = Path(cfg["storage"]["data_root"]) / "labels_master.csv"
+        tmp_dir = REPORT_DIR / "tmp_optuna"
 
         for ch in available:
             ckpt = find_best_checkpoint(ch)
@@ -867,16 +903,17 @@ def main() -> None:
     figs["trial_history"] = _build_trial_history_figs(trials_by_channel, available)
 
     if all_results:
-        figs["per_class"]   = _build_per_class_bars(metrics, list(all_results.keys()))
+        figs["per_class"] = _build_per_class_bars(metrics, list(all_results.keys()))
         figs["mae_heatmap"] = _build_mae_heatmap(all_results, list(all_results.keys()))
-        figs["conf_dist"]   = _build_conf_dist(all_results, list(all_results.keys()))
+        figs["conf_dist"] = _build_conf_dist(all_results, list(all_results.keys()))
 
         cm_figs: dict = {}
         for ch in all_results:
             yt, yp = all_results[ch]["y_true"], all_results[ch]["y_pred"]
             ch_acc = metrics.get(ch, {}).get("accuracy", 0.0)
             fig = plot_confusion_matrix(
-                yt, yp,
+                yt,
+                yp,
                 title=f"[{ch}] Confusion Matrix  Acc={ch_acc:.4f}",
                 normalize=True,
             )
@@ -887,7 +924,8 @@ def main() -> None:
         all_pred = np.concatenate([all_results[c]["y_pred"] for c in all_results])
         ov_acc = metrics.get("overall", {}).get("accuracy", 0.0)
         fig_ov = plot_confusion_matrix(
-            all_true, all_pred,
+            all_true,
+            all_pred,
             title=f"[Overall] Confusion Matrix  Acc={ov_acc:.4f}",
             normalize=True,
         )
@@ -896,10 +934,10 @@ def main() -> None:
         )
         figs["confusion"] = cm_figs
     else:
-        figs["per_class"]   = {ch: None for ch in available}
+        figs["per_class"] = {ch: None for ch in available}
         figs["mae_heatmap"] = ""
-        figs["conf_dist"]   = ""
-        figs["confusion"]   = {}
+        figs["conf_dist"] = ""
+        figs["confusion"] = {}
 
     # ── 5. HTML 출력 ──────────────────────────────────────────────────────
     output_path = REPORT_DIR / "optuna_phase2_report.html"
@@ -907,15 +945,15 @@ def main() -> None:
         report_data={
             "meta": {
                 "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "backbone":     cfg["model"]["backbone"],
-                "channels":     available,
+                "backbone": cfg["model"]["backbone"],
+                "channels": available,
             },
-            "metrics":           metrics,
-            "figures":           figs,
+            "metrics": metrics,
+            "figures": figs,
             "params_by_channel": params_by_channel,
             "trials_by_channel": trials_by_channel,
-            "available":         available,
-            "cfg":               cfg,
+            "available": available,
+            "cfg": cfg,
         },
         output_path=output_path,
     )
@@ -924,6 +962,7 @@ def main() -> None:
 
     if args.open_browser:
         import webbrowser
+
         webbrowser.open(output_path.resolve().as_uri())
 
 

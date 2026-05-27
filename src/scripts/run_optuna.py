@@ -126,7 +126,9 @@ def main():
     print("=" * 60)
     print(f"  Phase    : {args.phase}")
     print(f"  Channels : {' → '.join(target_channels)}")
-    print(f"  Trials   : {args.trials if args.trials else 'config-defined'} (채널별 / per-channel)")
+    print(
+        f"  Trials   : {args.trials if args.trials else 'config-defined'} (채널별 / per-channel)"
+    )
     print("=" * 60)
 
     # 채널별 독립 순차 실행 / Run independently per channel in sequence
@@ -142,7 +144,9 @@ def main():
             _evaluate_channel(ch)
 
     print("\n" + "=" * 60)
-    print(f" Phase {args.phase} Optuna Finished — All channels: {' → '.join(target_channels)}")
+    print(
+        f" Phase {args.phase} Optuna Finished — All channels: {' → '.join(target_channels)}"
+    )
     print("=" * 60)
 
     # Phase 2 완료 후 통합 HTML 리포트 자동 생성
@@ -150,8 +154,10 @@ def main():
     if args.phase == 2:
         print("\n[Report] 통합 Optuna HTML 리포트 생성 중...")
         try:
-            from src.scripts.generate_optuna_report import main as gen_report_main
             import sys as _sys
+
+            from src.scripts.generate_optuna_report import main as gen_report_main
+
             _argv_backup = _sys.argv
             _sys.argv = ["generate_optuna_report"]
             gen_report_main()

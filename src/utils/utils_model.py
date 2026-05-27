@@ -90,7 +90,7 @@ def _cfg_for_ckpt(cfg: dict, ckpt_path: Path) -> dict:
         1792: "efficientnet_b4",
         1536: "efficientnet_b3",
         1408: "efficientnet_b2",
-        512:  "resnet18",
+        512: "resnet18",
         1024: "densenet121",
     }
 
@@ -100,11 +100,13 @@ def _cfg_for_ckpt(cfg: dict, ckpt_path: Path) -> dict:
 
     w0 = state.get("head.net.0.weight")
     if w0 is None:
-        return cfg  # 구조를 알 수 없으면 원본 반환 / Return original if structure unknown
+        return (
+            cfg  # 구조를 알 수 없으면 원본 반환 / Return original if structure unknown
+        )
 
-    in_features  = int(w0.shape[1])
-    first_out    = int(w0.shape[0])
-    num_classes  = cfg.get("data", {}).get("num_levels", 6)
+    in_features = int(w0.shape[1])
+    first_out = int(w0.shape[0])
+    num_classes = cfg.get("data", {}).get("num_levels", 6)
 
     # head 구조 판별 / Head structure detection:
     #
@@ -120,15 +122,15 @@ def _cfg_for_ckpt(cfg: dict, ckpt_path: Path) -> dict:
     if w4 is None or int(w4.shape[0]) == num_classes:
         # 2-layer head: net.4 가 최종 분류기 → mid_dim 없음
         # 2-layer head: net.4 is the classifier → no mid_dim
-        mid_dim    = None
+        mid_dim = None
         hidden_dim = first_out
     else:
         # 3-layer head: net.4 가 중간 projection → mid_dim 존재
         # 3-layer head: net.4 is a projection → mid_dim exists
-        mid_dim    = first_out
+        mid_dim = first_out
         hidden_dim = int(w4.shape[0])
 
-    patched  = copy.deepcopy(cfg)
+    patched = copy.deepcopy(cfg)
     detected = _FEATURE_TO_BACKBONE.get(in_features)
     if detected:
         patched.setdefault("model", {})["backbone"] = detected
@@ -139,7 +141,7 @@ def _cfg_for_ckpt(cfg: dict, ckpt_path: Path) -> dict:
     heads = patched.setdefault("phase2", {}).setdefault("heads", {})
     if backbone not in heads:
         heads[backbone] = {}
-    heads[backbone]["mid_dim"]    = mid_dim
+    heads[backbone]["mid_dim"] = mid_dim
     heads[backbone]["hidden_dim"] = hidden_dim
 
     return patched
@@ -164,6 +166,7 @@ def build_model(cfg: dict, checkpoint: Path, device: torch.device) -> nn.Module:
         eval 모드로 설정된 GrayspotModel / GrayspotModel set to eval mode
     """
     import sys
+
     sys.path.insert(0, str(_SRC_DIR))
     from models.grayspot_model import GrayspotModel
 

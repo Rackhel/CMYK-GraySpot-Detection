@@ -256,5 +256,7 @@ def resolve_n_jobs(cfg: dict) -> int:
         label = f"{os_name} (n_jobs)"
 
     n_jobs = max(1, n_jobs)
-    print(f"[Optuna] platform={platform.system()}  effective n_jobs={n_jobs}  source={label}")
+    print(
+        f"[Optuna] platform={platform.system()}  effective n_jobs={n_jobs}  source={label}"
+    )
     return n_jobs

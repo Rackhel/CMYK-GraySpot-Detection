@@ -44,8 +44,8 @@ from pathlib import Path
 import optuna
 import torch
 
-from src.utils.optuna_utils import save_best_params, save_trials_summary, resolve_n_jobs
 from src.tuning.search_space import get_phase0_search_space, get_phase2_search_space
+from src.utils.optuna_utils import resolve_n_jobs, save_best_params, save_trials_summary
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
@@ -106,11 +106,17 @@ def _optimize_with_thread_pool(
         """1개의 trial을 실행하고 study에 기록. / Run one trial and record to study."""
         with _TRIAL_SUBMIT_LOCK:
             # 이미 n_trials 채워졌으면 제출 생략 / Skip if quota already met
-            done = len([t for t in study.trials
-                        if t.state in (
-                            optuna.trial.TrialState.COMPLETE,
-                            optuna.trial.TrialState.PRUNED,
-                        )])
+            done = len(
+                [
+                    t
+                    for t in study.trials
+                    if t.state
+                    in (
+                        optuna.trial.TrialState.COMPLETE,
+                        optuna.trial.TrialState.PRUNED,
+                    )
+                ]
+            )
             if done >= n_trials:
                 return
         # 락 밖에서 실제 학습 실행 (병렬성 확보)
@@ -157,7 +163,9 @@ def objective_phase0(
     device = torch.device(cfg["system"]["device"])
 
     if channel != "all":
-        result = run_phase0(cfg, channel=channel.upper(), device=device, optuna_trial=trial)
+        result = run_phase0(
+            cfg, channel=channel.upper(), device=device, optuna_trial=trial
+        )
         if result.get("skipped", False):
             raise optuna.exceptions.TrialPruned()
         return float(result["final_loss"])
@@ -273,7 +281,9 @@ def _retrain_phase0_best(best_params: dict, channel: str, cfg: dict) -> None:
         if result.get("skipped", False):
             print(f"  [{ch}] skipped (no data)")
         else:
-            print(f"  [{ch}] final_loss={result['final_loss']:.4f}  backbone → {result['backbone_path']}")
+            print(
+                f"  [{ch}] final_loss={result['final_loss']:.4f}  backbone → {result['backbone_path']}"
+            )
 
 
 def _retrain_phase2_best(
@@ -333,7 +343,9 @@ def run_phase0_optuna(n_trials: int | None = None, channel: str = "all") -> None
     cfg = load_config()
 
     if not cfg.get("optuna", {}).get("enabled", True):
-        print("[Optuna] optuna.enabled=false — 튜닝이 비활성화되어 있습니다 / Tuning is disabled.")
+        print(
+            "[Optuna] optuna.enabled=false — 튜닝이 비활성화되어 있습니다 / Tuning is disabled."
+        )
         print("         config.json의 optuna.enabled를 true로 설정 후 실행하세요.")
         sys.exit(0)
 
@@ -407,14 +419,18 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     최적화 완료 후 best params로 최종 재학습하여 best_{ch}.pt를 갱신한다.
     After optimization, retrains with best params to update best_{ch}.pt.
     """
-    from src.scripts.run_phase2 import run_phase2  # noqa: F401 (lazy — keep tuning→scripts boundary)
+    from src.scripts.run_phase2 import (  # noqa: F401 (lazy — keep tuning→scripts boundary)
+        run_phase2,
+    )
     from src.utils import load_config
 
     channel = channel.lower()
     cfg = load_config()
 
     if not cfg.get("optuna", {}).get("enabled", True):
-        print("[Optuna] optuna.enabled=false — 튜닝이 비활성화되어 있습니다 / Tuning is disabled.")
+        print(
+            "[Optuna] optuna.enabled=false — 튜닝이 비활성화되어 있습니다 / Tuning is disabled."
+        )
         print("         config.json의 optuna.enabled를 true로 설정 후 실행하세요.")
         sys.exit(0)
 
@@ -426,12 +442,14 @@ def run_optuna(n_trials: int | None = None, channel: str = "all") -> None:
     target_channels = ["Y", "M", "C", "K"] if channel == "all" else [channel.upper()]
     try:
         from src.utils.utils_model import backbone_tag
+
         _tag = backbone_tag(cfg["model"]["backbone"])
     except Exception:
         _tag = cfg["model"]["backbone"].replace("_", "").replace("-", "")[:6]
 
     missing = [
-        ch for ch in target_channels
+        ch
+        for ch in target_channels
         if not (phase0_dir / f"phase0_backbone_{ch}_{_tag}.pt").exists()
     ]
     if missing:

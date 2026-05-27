@@ -55,7 +55,7 @@ from src.utils import (
     validate_config,
 )
 
-CKPT_DIR   = ROOT / "outputs" / "checkpoints"
+CKPT_DIR = ROOT / "outputs" / "checkpoints"
 REPORT_DIR = ROOT / "outputs" / "reports"
 
 logger = get_logger(__name__)
@@ -68,7 +68,7 @@ _FEATURE_TO_BACKBONE: dict = {
     1792: "efficientnet_b4",
     1536: "efficientnet_b3",
     1408: "efficientnet_b2",
-    512:  "resnet18",
+    512: "resnet18",
     1024: "densenet121",
 }
 
@@ -136,12 +136,12 @@ function switchChTab(groupId, ch) {
 
 # ── 데이터 로더 / Data loaders ────────────────────────────────────────────────
 
+
 def load_phase0_summary() -> dict:
     path = CKPT_DIR / "phase0_summary.json"
     if not path.exists():
         raise FileNotFoundError(
-            f"phase0_summary.json not found: {path}\n"
-            "Run run_phase0.py first."
+            f"phase0_summary.json not found: {path}\n" "Run run_phase0.py first."
         )
     with open(path, encoding="utf-8") as f:
         return json.load(f)
@@ -154,16 +154,21 @@ def load_history(ch: str) -> list[dict]:
     rows = []
     with open(path, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            rows.append({k: float(v) if k != "epoch" else int(float(v))
-                         for k, v in row.items()})
+            rows.append(
+                {k: float(v) if k != "epoch" else int(float(v)) for k, v in row.items()}
+            )
     return rows
 
 
 def find_backbone(ch: str, backbone_name: str) -> Path | None:
     from src.utils.utils_model import backbone_tag
+
     tag = backbone_tag(backbone_name)
     candidates = [
-        CKPT_DIR.parent.parent / "data_set" / "models" / f"phase0_backbone_{ch}_{tag}.pt",
+        CKPT_DIR.parent.parent
+        / "data_set"
+        / "models"
+        / f"phase0_backbone_{ch}_{tag}.pt",
         ROOT / "data_set" / "models" / f"phase0_backbone_{ch}_{tag}.pt",
     ]
     for p in candidates:
@@ -173,6 +178,7 @@ def find_backbone(ch: str, backbone_name: str) -> Path | None:
 
 
 # ── 차트 빌더 / Figure builders ───────────────────────────────────────────────
+
 
 def _build_loss_curves(channels: list[str]) -> dict[str, str]:
     """채널별 loss + lr 곡선 / Per-channel loss + LR curves."""
@@ -189,30 +195,44 @@ def _build_loss_curves(channels: list[str]) -> dict[str, str]:
 
         epochs = [r["epoch"] for r in history]
         losses = [r["loss"] for r in history]
-        lrs    = [r.get("lr", 0) for r in history]
+        lrs = [r.get("lr", 0) for r in history]
 
         fig = make_subplots(
-            rows=1, cols=2,
+            rows=1,
+            cols=2,
             subplot_titles=[f"[{ch}] InfoNCE Loss", f"[{ch}] Learning Rate"],
         )
 
         fig.add_trace(
-            go.Scatter(x=epochs, y=losses, name="Loss", mode="lines+markers",
-                       line=dict(color="#3b82f6", width=2),
-                       marker=dict(size=5)),
-            row=1, col=1,
+            go.Scatter(
+                x=epochs,
+                y=losses,
+                name="Loss",
+                mode="lines+markers",
+                line=dict(color="#3b82f6", width=2),
+                marker=dict(size=5),
+            ),
+            row=1,
+            col=1,
         )
         fig.add_trace(
-            go.Scatter(x=epochs, y=lrs, name="LR", mode="lines",
-                       line=dict(color="#f59e0b", width=1.5, dash="dot")),
-            row=1, col=2,
+            go.Scatter(
+                x=epochs,
+                y=lrs,
+                name="LR",
+                mode="lines",
+                line=dict(color="#f59e0b", width=1.5, dash="dot"),
+            ),
+            row=1,
+            col=2,
         )
 
         fig.update_layout(
             template="plotly_dark",
             plot_bgcolor="rgba(11,18,32,0.6)",
             paper_bgcolor="rgba(11,18,32,0)",
-            height=340, margin=dict(l=40, r=20, t=40, b=30),
+            height=340,
+            margin=dict(l=40, r=20, t=40, b=30),
             showlegend=False,
         )
         figs[ch] = pio.to_html(
@@ -234,18 +254,25 @@ def _build_all_channels_loss(channels: list[str]) -> str:
             continue
         epochs = [r["epoch"] for r in history]
         losses = [r["loss"] for r in history]
-        fig.add_trace(go.Scatter(
-            x=epochs, y=losses, name=f"Channel {ch}", mode="lines+markers",
-            line=dict(color=CH_COLORS.get(ch, "#888"), width=2),
-            marker=dict(size=4),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=epochs,
+                y=losses,
+                name=f"Channel {ch}",
+                mode="lines+markers",
+                line=dict(color=CH_COLORS.get(ch, "#888"), width=2),
+                marker=dict(size=4),
+            )
+        )
 
     fig.update_layout(
         template="plotly_dark",
         plot_bgcolor="rgba(11,18,32,0.6)",
         paper_bgcolor="rgba(11,18,32,0)",
-        xaxis_title="Epoch", yaxis_title="InfoNCE Loss",
-        height=380, margin=dict(l=50, r=20, t=30, b=40),
+        xaxis_title="Epoch",
+        yaxis_title="InfoNCE Loss",
+        height=380,
+        margin=dict(l=50, r=20, t=30, b=40),
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
     )
     return pio.to_html(
@@ -270,25 +297,27 @@ def _build_tsne(channels: list[str], cfg: dict, device: torch.device) -> str:
     import plotly.io as pio
     from plotly.subplots import make_subplots
     from torch.utils.data import DataLoader
+
     from data.dataset import CMYKDataset
 
     backbone_name = cfg["model"]["backbone"]
-    image_size    = cfg["data"]["image_size"]
-    LEVEL_COLORS  = [
-        "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"
-    ]
+    image_size = cfg["data"]["image_size"]
+    LEVEL_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"]
 
     all_embeds: list[np.ndarray] = []
-    all_levels: list[int]        = []
-    all_chs:    list[str]        = []
+    all_levels: list[int] = []
+    all_chs: list[str] = []
 
     for ch in channels:
         ckpt_path = find_backbone(ch, backbone_name)
         if ckpt_path is None:
-            logger.warning(f"[{ch}] backbone not found — skipping t-SNE for this channel")
+            logger.warning(
+                f"[{ch}] backbone not found — skipping t-SNE for this channel"
+            )
             continue
         try:
             import copy
+
             from models.grayspot_model import GrayspotModel
 
             ch_cfg = copy.deepcopy(cfg)
@@ -330,16 +359,17 @@ def _build_tsne(channels: list[str], cfg: dict, device: torch.device) -> str:
     MAX_SAMPLES = 3000
     if len(X) > MAX_SAMPLES:
         idx = np.random.choice(len(X), MAX_SAMPLES, replace=False)
-        X          = X[idx]
+        X = X[idx]
         all_levels = [all_levels[i] for i in idx]
-        all_chs    = [all_chs[i]    for i in idx]
+        all_chs = [all_chs[i] for i in idx]
 
     tsne = TSNE(n_components=2, perplexity=40, random_state=42, max_iter=1000)
-    X2d  = tsne.fit_transform(X)
+    X2d = tsne.fit_transform(X)
 
     # ── 서브플롯: 레벨별 색상 + 채널별 색상 ──────────────────────────────
     fig = make_subplots(
-        rows=1, cols=2,
+        rows=1,
+        cols=2,
         subplot_titles=["Colored by Grayspot Level", "Colored by Channel"],
     )
 
@@ -348,49 +378,61 @@ def _build_tsne(channels: list[str], cfg: dict, device: torch.device) -> str:
         mask = [i for i, l in enumerate(all_levels) if l == lv]
         if not mask:
             continue
-        fig.add_trace(go.Scatter(
-            x=X2d[mask, 0], y=X2d[mask, 1],
-            mode="markers", name=f"Level {lv}",
-            marker=dict(size=4, color=LEVEL_COLORS[lv], opacity=0.7),
-        ), row=1, col=1)
+        fig.add_trace(
+            go.Scatter(
+                x=X2d[mask, 0],
+                y=X2d[mask, 1],
+                mode="markers",
+                name=f"Level {lv}",
+                marker=dict(size=4, color=LEVEL_COLORS[lv], opacity=0.7),
+            ),
+            row=1,
+            col=1,
+        )
 
     # 채널별
     CH_COLORS = {"Y": "#f5e642", "M": "#e91e8c", "C": "#00b4d8", "K": "#aaaaaa"}
     for ch in set(all_chs):
         mask = [i for i, c in enumerate(all_chs) if c == ch]
-        fig.add_trace(go.Scatter(
-            x=X2d[mask, 0], y=X2d[mask, 1],
-            mode="markers", name=f"Ch {ch}",
-            marker=dict(size=4, color=CH_COLORS.get(ch, "#888"), opacity=0.7),
-            showlegend=True,
-        ), row=1, col=2)
+        fig.add_trace(
+            go.Scatter(
+                x=X2d[mask, 0],
+                y=X2d[mask, 1],
+                mode="markers",
+                name=f"Ch {ch}",
+                marker=dict(size=4, color=CH_COLORS.get(ch, "#888"), opacity=0.7),
+                showlegend=True,
+            ),
+            row=1,
+            col=2,
+        )
 
     fig.update_layout(
         template="plotly_dark",
         plot_bgcolor="rgba(11,18,32,0.6)",
         paper_bgcolor="rgba(11,18,32,0)",
-        height=500, margin=dict(l=40, r=20, t=50, b=30),
+        height=500,
+        margin=dict(l=40, r=20, t=50, b=30),
     )
     fig.update_xaxes(showticklabels=False)
     fig.update_yaxes(showticklabels=False)
 
-    return pio.to_html(
-        fig, full_html=False, include_plotlyjs=False, div_id="fig-tsne"
-    )
+    return pio.to_html(fig, full_html=False, include_plotlyjs=False, div_id="fig-tsne")
 
 
 # ── HTML 빌더 / HTML builder ──────────────────────────────────────────────────
 
+
 def build_phase0_html(report_data: dict, output_path: Path) -> None:
     """Phase 0 통합 HTML 리포트를 생성한다."""
-    meta       = report_data["meta"]
-    summary    = report_data["summary"]
-    available  = report_data["available"]
-    figs       = report_data["figures"]
+    meta = report_data["meta"]
+    summary = report_data["summary"]
+    available = report_data["available"]
+    figs = report_data["figures"]
 
     generated_at = meta["generated_at"]
-    backbone     = meta["backbone"]
-    epochs       = meta["epochs"]
+    backbone = meta["backbone"]
+    epochs = meta["epochs"]
 
     # ── Tab 1: Summary ──────────────────────────────────────────────────────
     rows = ""
@@ -398,12 +440,14 @@ def build_phase0_html(report_data: dict, output_path: Path) -> None:
     for r in summary["results"]:
         if r.get("skipped"):
             continue
-        ch  = r["channel"]
+        ch = r["channel"]
         history = load_history(ch)
         elapsed = sum(row.get("elapsed", 0) for row in history)
         total_time += elapsed
-        init_loss  = history[0]["loss"]  if history else float("nan")
-        final_loss = history[-1]["loss"] if history else r.get("final_loss", float("nan"))
+        init_loss = history[0]["loss"] if history else float("nan")
+        final_loss = (
+            history[-1]["loss"] if history else r.get("final_loss", float("nan"))
+        )
         improvement = init_loss - final_loss if history else 0.0
         rows += f"""
         <tr>
@@ -417,7 +461,7 @@ def build_phase0_html(report_data: dict, output_path: Path) -> None:
         </tr>"""
 
     n_channels = len([r for r in summary["results"] if not r.get("skipped")])
-    avg_loss   = sum(
+    avg_loss = sum(
         r["final_loss"] for r in summary["results"] if not r.get("skipped")
     ) / max(n_channels, 1)
 
@@ -445,8 +489,8 @@ def build_phase0_html(report_data: dict, output_path: Path) -> None:
 
     # ── Tab 2: Loss Curves ──────────────────────────────────────────────────
     all_ch_loss = figs.get("all_channels_loss", "")
-    curve_figs  = figs.get("loss_curves", {})
-    first_ch    = available[0] if available else "Y"
+    curve_figs = figs.get("loss_curves", {})
+    first_ch = available[0] if available else "Y"
 
     ch_tabs = "".join(
         f'<div class="ch-tab{"active" if ch == first_ch else ""}" '
@@ -456,8 +500,13 @@ def build_phase0_html(report_data: dict, output_path: Path) -> None:
     ch_panels = ""
     for ch in available:
         active = "active" if ch == first_ch else ""
-        content = curve_figs.get(ch) or f'<div class="no-data">No history data for {ch}.</div>'
-        ch_panels += f'<div class="ch-panel {active}" id="loss-panel-{ch}">{content}</div>'
+        content = (
+            curve_figs.get(ch)
+            or f'<div class="no-data">No history data for {ch}.</div>'
+        )
+        ch_panels += (
+            f'<div class="ch-panel {active}" id="loss-panel-{ch}">{content}</div>'
+        )
 
     sec_curves = f"""
     <div class="card">
@@ -517,9 +566,9 @@ def build_phase0_html(report_data: dict, output_path: Path) -> None:
     # ── 탭 조립 / Assemble tabs ─────────────────────────────────────────────
     tabs = [
         ("summary", "① Summary"),
-        ("curves",  "② Loss Curves"),
-        ("tsne",    "③ t-SNE Embeddings"),
-        ("conv",    "④ Convergence"),
+        ("curves", "② Loss Curves"),
+        ("tsne", "③ t-SNE Embeddings"),
+        ("conv", "④ Convergence"),
     ]
     tabs_html = "".join(
         f'<div class="nav-tab{"active" if i == 0 else ""}" '
@@ -528,9 +577,9 @@ def build_phase0_html(report_data: dict, output_path: Path) -> None:
     )
     sections_map = {
         "summary": sec_summary,
-        "curves":  sec_curves,
-        "tsne":    sec_tsne,
-        "conv":    sec_conv,
+        "curves": sec_curves,
+        "tsne": sec_tsne,
+        "conv": sec_conv,
     }
     sections_html = "".join(
         f'<section id="sec-{tid}" class="section{"active" if i == 0 else ""}">'
@@ -571,21 +620,24 @@ def build_phase0_html(report_data: dict, output_path: Path) -> None:
 
 # ── 메인 / Main ───────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Phase 0 Contrastive Learning 결과 시각화 리포트 생성"
     )
     parser.add_argument(
-        "--no-tsne", action="store_true",
-        help="t-SNE 임베딩 시각화 생략 (빠른 실행 / skip for speed)"
+        "--no-tsne",
+        action="store_true",
+        help="t-SNE 임베딩 시각화 생략 (빠른 실행 / skip for speed)",
     )
     parser.add_argument(
-        "--channels", nargs="+", default=None,
+        "--channels",
+        nargs="+",
+        default=None,
         help="처리할 채널 (기본: summary에서 자동 감지)",
     )
     parser.add_argument(
-        "--open-browser", action="store_true",
-        help="완료 후 브라우저 자동 열기"
+        "--open-browser", action="store_true", help="완료 후 브라우저 자동 열기"
     )
     args = parser.parse_args()
 
@@ -610,11 +662,15 @@ def main() -> None:
     logger.info("=" * 60)
 
     # ── 1. Summary 로드 ───────────────────────────────────────────────────
-    summary  = load_phase0_summary()
+    summary = load_phase0_summary()
     backbone = summary.get("backbone", cfg["model"]["backbone"])
-    epochs   = summary.get(
+    epochs = summary.get(
         "epochs",
-        summary["results"][0]["epochs"] if summary.get("results") else cfg["phase0"]["epochs"]
+        (
+            summary["results"][0]["epochs"]
+            if summary.get("results")
+            else cfg["phase0"]["epochs"]
+        ),
     )
 
     available = args.channels or [
@@ -630,7 +686,7 @@ def main() -> None:
     figs: dict = {}
 
     figs["all_channels_loss"] = _build_all_channels_loss(available)
-    figs["loss_curves"]       = _build_loss_curves(available)
+    figs["loss_curves"] = _build_loss_curves(available)
 
     if args.no_tsne:
         logger.info("--no-tsne: skipping t-SNE")
@@ -642,18 +698,18 @@ def main() -> None:
     # ── 3. HTML 생성 ──────────────────────────────────────────────────────
     meta = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "backbone":     backbone,
-        "epochs":       epochs,
-        "channels":     available,
+        "backbone": backbone,
+        "epochs": epochs,
+        "channels": available,
     }
 
     output_path = REPORT_DIR / "phase0.html"
     build_phase0_html(
         report_data={
-            "meta":      meta,
-            "summary":   summary,
+            "meta": meta,
+            "summary": summary,
             "available": available,
-            "figures":   figs,
+            "figures": figs,
         },
         output_path=output_path,
     )
@@ -665,6 +721,7 @@ def main() -> None:
 
     if args.open_browser:
         import webbrowser
+
         webbrowser.open(output_path.resolve().as_uri())
 
 

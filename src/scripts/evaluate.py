@@ -210,7 +210,7 @@ def _build_model(
         from utils.utils_model import build_model
 
         device_str = cfg.get("system", {}).get("device", "cpu")
-        device     = torch.device(device_str)
+        device = torch.device(device_str)
         models_dir = _EVAL_ROOT / Path(storage.get("models_dir", "data_set/models"))
         model_path = (
             Path(checkpoint)
@@ -231,6 +231,7 @@ def _build_model(
         # 테스트 환경에서 Evaluator가 모킹되면 model=None이 허용된다
         # When Evaluator is mocked in tests, model=None is acceptable
         import traceback
+
         traceback.print_exc()
         return None
 
@@ -315,9 +316,7 @@ def run_evaluate(
         Path — 생성된 JSON 리포트 파일 경로 / Path to generated JSON report
     """
     if output_dir is None:
-        output_dir = Path(
-            cfg.get("storage", {}).get("reports_dir", "outputs/reports")
-        )
+        output_dir = Path(cfg.get("storage", {}).get("reports_dir", "outputs/reports"))
     output_dir.mkdir(parents=True, exist_ok=True)
 
     return _run_channel_evaluation(

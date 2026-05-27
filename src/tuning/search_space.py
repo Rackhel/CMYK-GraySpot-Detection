@@ -67,8 +67,10 @@ def get_phase2_search_space(trial: optuna.Trial, cfg: dict = None) -> dict:
     backbone_name = cfg.get("model", {}).get("backbone", "efficientnet_b0")
     # optuna.phase2.search_space 우선, 하위 호환을 위해 optuna.search_space fallback
     # Prefer optuna.phase2.search_space; fall back to optuna.search_space for backward compat
-    ss_root = cfg.get("optuna", {}).get("phase2", {}).get(
-        "search_space", cfg.get("optuna", {}).get("search_space", {})
+    ss_root = (
+        cfg.get("optuna", {})
+        .get("phase2", {})
+        .get("search_space", cfg.get("optuna", {}).get("search_space", {}))
     )
 
     # backbone별 탐색 공간 우선, 없으면 최상위 fallback
