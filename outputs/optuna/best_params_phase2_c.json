@@ -1,0 +1,8 @@
+{
+  "learning_rate": 0.0002687694630781627,
+  "batch_size": 64,
+  "weight_decay": 0.00014531539112113358,
+  "epochs": 11,
+  "dropout": 0.28947430324570467,
+  "hidden_dim": 128
+}
