@@ -20,7 +20,7 @@ owner: CMYK WooSong Team
 ## 1. 진입점 계약 / Entry Point Contract
 
 ```python
-# gui/app.py
+# gui/main.py
 from gui.main_window import MainWindow
 import sys
 from PyQt6.QtWidgets import QApplication
@@ -34,7 +34,7 @@ def main():
 
 | 항목 / Item | 값 / Value |
 | --- | --- |
-| 진입점 / Entry point | `python -m gui.app` 또는 / or `python gui/app.py` |
+| 진입점 / Entry point | `python -m gui.main` 또는 / or `python gui/main.py` |
 | QApplication | 단일 인스턴스 / Single instance |
 | 탭 컨테이너 / Tab container | `QTabWidget` (6탭 / 6 tabs) |
 

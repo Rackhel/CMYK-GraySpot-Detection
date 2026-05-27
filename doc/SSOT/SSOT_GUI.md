@@ -2,7 +2,7 @@
 type: ssot
 domain: gui
 status: Active
-last_updated: 2026-05-18
+last_updated: 2026-05-27
 owner: CMYK WooSong Team
 related_docs:
   - "SSOT_Core.md"
@@ -25,7 +25,7 @@ related_docs:
 | 탭 수 / Tab Count | 6개 / 6 tabs |
 | 스레드 모델 / Thread Model | QThread 기반 Worker (UI-Non-blocking) / QThread-based Worker (UI-Non-blocking) |
 | 차트 렌더링 / Chart Rendering | Plotly (QWebEngineView 임베드 / embedded) |
-| 진입점 / Entry Point | `gui/app.py` |
+| 진입점 / Entry Point | `gui/main.py` (`python -m gui.main` 또는 `python gui/main.py`) |
 
 ---
 
@@ -77,27 +77,42 @@ related_docs:
 
 ```
 gui/
-├── app.py                  # QApplication 진입점 / QApplication entry point
+├── main.py                  # QApplication 진입점 (SSOT 공식) / QApplication entry point (canonical)
 ├── main_window.py           # QMainWindow + QTabWidget (6탭 / 6 tabs)
 ├── workers/
 │   ├── __init__.py
+│   ├── base_worker.py       # BaseWorker(QThread) — 공통 시그널 / common signals
 │   ├── training_worker.py   # TrainingWorker(QThread)
 │   ├── evaluation_worker.py # EvaluationWorker(QThread)
+│   ├── inference_worker.py  # InferenceWorker(QThread) — 단일 이미지 추론 / single-image inference
 │   ├── tuning_worker.py     # TuningWorker(QThread)
 │   └── embedding_worker.py  # EmbeddingWorker(QThread)
 ├── tabs/
 │   ├── __init__.py
+│   ├── base_tab.py          # BaseTab(QWidget) — 공통 인터페이스 / common interface
 │   ├── tab_data.py          # Tab 1: DataTab(QWidget)
 │   ├── tab_training.py      # Tab 2: TrainingTab(QWidget)
 │   ├── tab_evaluation.py    # Tab 3: EvaluationTab(QWidget)
 │   ├── tab_settings.py      # Tab 4: SettingsTab(QWidget)
 │   ├── tab_optuna.py        # Tab 5: OptunaTab(QWidget)
 │   └── tab_embedding.py     # Tab 6: EmbeddingTab(QWidget)
-└── components/
-    ├── __init__.py
-    ├── plotly_widget.py     # QWebEngineView Plotly 래퍼 / Plotly wrapper
-    ├── image_viewer.py      # 이미지 미리보기 위젯 / Image preview widget
-    └── log_panel.py         # 로그 출력 패널 / Log output panel
+├── components/
+│   ├── __init__.py
+│   ├── plotly_widget.py     # QWebEngineView Plotly 래퍼 / Plotly wrapper
+│   ├── image_viewer.py      # 이미지 미리보기 위젯 / Image preview widget
+│   ├── log_panel.py         # 로그 출력 패널 / Log output panel
+│   ├── metric_card.py       # 지표 카드 위젯 / Metric card widget
+│   └── progress_panel.py    # 진행률 바 + 로그 패널 / Progress bar + log panel
+├── services/
+│   ├── __init__.py
+│   ├── training_service.py  # TrainingWorker 생명주기 관리 / lifecycle manager
+│   ├── evaluation_service.py
+│   ├── tuning_service.py
+│   └── embedding_service.py
+├── styles/
+│   └── dark_theme.qss       # 다크 테마 QSS / Dark theme stylesheet
+└── tests/
+    └── test_gui_contracts.py # GUI Contract 테스트 / GUI contract tests
 ```
 
 ---

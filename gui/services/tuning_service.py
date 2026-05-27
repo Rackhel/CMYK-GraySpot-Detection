@@ -13,10 +13,16 @@ class TuningService:
     def __init__(self) -> None:
         self._worker: TuningWorker | None = None
 
-    def start_tuning(self, cfg: dict[str, Any], channel: str, n_trials: int) -> TuningWorker:
+    def start_tuning(
+        self,
+        cfg: dict[str, Any],
+        channel: str,
+        n_trials: int,
+        phase: int = 2,
+    ) -> TuningWorker:
         """Create a tuning worker."""
 
-        self._worker = TuningWorker(cfg, channel, n_trials)
+        self._worker = TuningWorker(cfg, channel, n_trials, phase)
         return self._worker
 
     def stop_tuning(self) -> None:
