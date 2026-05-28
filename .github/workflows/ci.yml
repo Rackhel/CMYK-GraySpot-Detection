@@ -2,13 +2,13 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ 'main', 'Optimization(Rackhel)', 'master' ]
+    branches: [ 'main' ]
     paths:
       - 'src/**'
       - 'requirements.txt'
       - 'gui/**'
   pull_request:
-    branches: [ 'main', 'Optimization(Rackhel)', 'master' ]
+    branches: [ 'main' ]
     paths:
       - 'src/**'
       - 'requirements.txt'
