@@ -1,6 +1,6 @@
 {
   "labeled_dir": "data_set/labeled",
-  "checkpoint_path": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/best_C.pt",
+  "checkpoint_path": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/data_set/models/best_Y.pt",
   "theme": "dark",
   "lang": "ko"
 }

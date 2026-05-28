@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 
 from gui.components.log_panel import LogPanel
 from gui.components.metric_card import MetricCard
+from gui.components.plotly_widget import PlotlyWidget
 from gui.components.progress_panel import ProgressPanel
 from gui.services.tuning_service import TuningService
 from gui.tabs.base_tab import BaseTab
@@ -76,7 +77,44 @@ class OptunaTab(BaseTab):
         ctrl_row.addWidget(stop_btn)
         ctrl_row.addStretch()
 
-        self.best_card = MetricCard("Best Value", "-")
+        # ── 결과 메트릭 카드 행 / Result metric cards ─────────────────────
+        self.best_card  = MetricCard("Best Value",  "—")
+        self.f1_card    = MetricCard("Macro F1",    "—")
+        self.mae_card   = MetricCard("MAE",         "—")
+        self.vacc_card  = MetricCard("Val Acc",     "—")
+        self.tacc_card  = MetricCard("Test Acc",    "—")
+
+        cards_row = QHBoxLayout()
+        for c in (self.best_card, self.f1_card, self.mae_card, self.vacc_card, self.tacc_card):
+            cards_row.addWidget(c)
+        cards_row.addStretch()
+
+        # ── Before / After 비교 패널 / Before-After comparison ────────────
+        self._before_snapshot: dict[str, Any] = {}
+        self._before_lbl = QLabel("(HPO 실행 전 스냅샷 없음)")
+        self._after_lbl  = QLabel("(결과 대기 중)")
+        self._before_lbl.setWordWrap(True)
+        self._after_lbl.setWordWrap(True)
+
+        snap_btn = QPushButton("📸  현재 설정 스냅샷 저장")
+        snap_btn.clicked.connect(self._take_snapshot)
+
+        compare_box = QGroupBox("Before / After 비교")
+        c_h = QHBoxLayout(compare_box)
+        left_w = QWidget(); left_v = QVBoxLayout(left_w)
+        left_v.addWidget(QLabel("<b>수정 전 (Before)</b>"))
+        left_v.addWidget(self._before_lbl)
+        left_v.addWidget(snap_btn)
+        right_w = QWidget(); right_v = QVBoxLayout(right_w)
+        right_v.addWidget(QLabel("<b>수정 후 / HPO 결과 (After)</b>"))
+        right_v.addWidget(self._after_lbl)
+        c_h.addWidget(left_w)
+        c_h.addWidget(right_w)
+
+        # ── 비교 차트 / Comparison chart ──────────────────────────────────
+        self._compare_chart = PlotlyWidget()
+        self._compare_chart.setMinimumHeight(200)
+
         self.progress  = ProgressPanel()
 
         # ── 탐색 공간 편집기 스크롤 / Search-space editor (scrollable) ────
@@ -122,15 +160,16 @@ class OptunaTab(BaseTab):
         run_v.setContentsMargins(0, 0, 0, 0)
         run_v.setSpacing(6)
         run_v.addLayout(ctrl_row)
-        run_v.addWidget(self.best_card)
+        run_v.addLayout(cards_row)
+        run_v.addWidget(compare_box)
+        run_v.addWidget(self._compare_chart)
         run_v.addWidget(self.progress, stretch=1)
 
         # ── QSplitter: 위=HPO실행, 아래=탐색공간편집기 ────────────────────
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.addWidget(run_panel)
         splitter.addWidget(editor_panel)
-        # 초기 비율 1:3 — 편집기에 공간을 크게 배정
-        splitter.setSizes([200, 600])
+        splitter.setSizes([400, 600])
         splitter.setChildrenCollapsible(False)
 
         # ── 최상위 레이아웃 / Top-level layout ───────────────────────────
@@ -187,10 +226,67 @@ class OptunaTab(BaseTab):
         self.trials_spin.setValue(int(opt.get("n_trials", 10)))
 
     def on_worker_finished(self, result: dict[str, Any]) -> None:
-        self.best_card.set_value(f"{result.get('best_value', 0):.4f}")
-        self.progress.append_log(f"Best params: {result.get('best_params', {})}")
+        bv = result.get("best_value", 0)
+        bp = result.get("best_params", {})
+        self.best_card.set_value(f"{bv:.4f}")
+        self.f1_card.set_value(f"{result.get('macro_f1', 0):.3f}")
+        self.mae_card.set_value(f"{result.get('mae', 0):.3f}")
+        self.vacc_card.set_value(f"{result.get('val_acc', 0):.3f}")
+        self.tacc_card.set_value(f"{result.get('test_acc', 0):.3f}")
+        self.progress.append_log(f"Best params: {bp}")
+        self._after_lbl.setText(
+            f"Best Value: {bv:.4f}\n"
+            f"Val Acc:    {result.get('val_acc', 0):.3f}\n"
+            f"Test Acc:   {result.get('test_acc', 0):.3f}\n"
+            f"Macro F1:   {result.get('macro_f1', 0):.3f}\n"
+            f"MAE:        {result.get('mae', 0):.3f}\n"
+            f"Params:     {bp}"
+        )
+        self._render_compare_chart(result)
 
     # ── Public API ────────────────────────────────────────────────────────────
+
+    def _take_snapshot(self) -> None:
+        """현재 config를 'Before' 스냅샷으로 저장."""
+        p2 = self.cfg.get("phase2", {})
+        p0 = self.cfg.get("phase0", {})
+        self._before_snapshot = {
+            "p2_lr":  p2.get("learning_rate", 0),
+            "p2_wd":  p2.get("weight_decay", 0),
+            "p2_ep":  p2.get("epochs", 0),
+            "p0_lr":  p0.get("learning_rate", 0),
+            "p0_ep":  p0.get("epochs", 0),
+        }
+        self._before_lbl.setText(
+            f"Phase2 LR:    {self._before_snapshot['p2_lr']}\n"
+            f"Phase2 WD:    {self._before_snapshot['p2_wd']}\n"
+            f"Phase2 Epoch: {self._before_snapshot['p2_ep']}\n"
+            f"Phase0 LR:    {self._before_snapshot['p0_lr']}\n"
+            f"Phase0 Epoch: {self._before_snapshot['p0_ep']}"
+        )
+
+    def _render_compare_chart(self, after: dict) -> None:
+        if not self._before_snapshot:
+            return
+        try:
+            import plotly.graph_objects as go
+            keys   = ["p2_lr", "p2_wd", "p2_ep"]
+            labels = ["Phase2 LR", "Phase2 WD", "Phase2 Epochs"]
+            before_vals = [float(self._before_snapshot.get(k, 0)) for k in keys]
+            after_vals  = [float(after.get("best_params", {}).get(k.replace("p2_", ""), 0)) for k in keys]
+
+            fig = go.Figure(data=[
+                go.Bar(name="Before", x=labels, y=before_vals, marker_color="#94a3b8"),
+                go.Bar(name="After",  x=labels, y=after_vals,  marker_color="#60a5fa"),
+            ])
+            fig.update_layout(
+                barmode="group", title="파라미터 Before / After",
+                template="plotly_dark", height=200,
+                margin={"t": 40, "b": 40},
+            )
+            self._compare_chart.set_figure(fig)
+        except Exception:
+            pass
 
     def start_tuning(self) -> None:
         if self.worker is not None and self.worker.isRunning():

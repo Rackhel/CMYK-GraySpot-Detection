@@ -35,13 +35,13 @@ related_docs:
 
 | 탭 번호 / Tab # | 이름 / Name | 역할 / Role | 연결 src 모듈 / Connected src Module |
 | --- | --- | --- | --- |
-| Tab 1 | Data | 데이터 스캔, 채널×레벨 샘플 수, 이미지 미리보기 / Data scan, channel×level sample count, image preview | `src/data/` |
-| Tab 2 | Training | 모델 설정(backbone/frozen), Phase 0/2 학습 실행, 결과 카드 / Model config, Phase 0/2 training run, result cards | `src/training/trainer.py` |
-| Tab 3 | Evaluation | Confusion Matrix, 단일 이미지 추론 미리보기 / Confusion Matrix, single-image inference preview | `src/evaluation/evaluator.py` |
-| Tab 4 | Settings | 외관 설정(테마·언어), 저장 경로, Phase 0/2 하이퍼파라미터 / Appearance (theme·lang), storage paths, Phase 0/2 hyperparameters | `src/config/config.json` |
-| Tab 5 | Optuna HPO | HPO 탐색 진행, 탐색 공간 전체 편집, best params / HPO run, full search-space editor, best params | `src/tuning/optuna_tuner.py` |
-| Tab 6 | Embedding | t-SNE scatter, 클러스터링 지표, 라벨 수정 UI / t-SNE scatter, clustering metrics, label correction UI | `src/evaluation/`, `src/data/label_refiner.py` |
-| Tab 7 | Inference | 단일 이미지 추론 + 배치 폴더 추론, CSV 내보내기 / Single-image inference + batch-folder inference, CSV export | `src/utils/utils_model.py`, `src/data/normalize.py` |
+| Tab 1 | Data | 데이터셋 스캔·샘플 수·이미지 미리보기·전처리 파라미터 편집 / Dataset scan, sample count, image preview, preprocessing params editor | `src/data/` |
+| Tab 2 | Training | Backbone·Head·Phase별 하이퍼파라미터 편집, Phase 0/2 학습 실행, 학습 곡선 / Backbone·Head·phase hyperparams, Phase 0/2 training, learning curves | `src/training/trainer.py` |
+| Tab 3 | Evaluation | Accuracy·F1·MAE, 채널별/전체 평가, Confusion Matrix, 채널 비교 테이블 / Accuracy·F1·MAE per channel, Confusion Matrix, channel comparison table | `src/evaluation/evaluator.py` |
+| Tab 4 | Optuna HPO | HPO 실행, 탐색 공간 전체 편집, Before/After 비교, 다중 메트릭 카드 / HPO run, full search-space editor, before/after comparison, multi-metric cards | `src/tuning/optuna_tuner.py` |
+| Tab 5 | Embedding | t-SNE 다채널 비교, 레벨 순도 분석, 유사 이미지 탐색, 라벨 교정 / Multi-channel t-SNE, level purity, similar-image finder, label correction | `src/evaluation/`, `src/data/label_refiner.py` |
+| Tab 6 | Inference | 단일 이미지 추론+GradCAM, 배치 폴더 추론, 레벨별 정확도, CSV 내보내기 / Single inference+GradCAM, batch inference, per-level accuracy, CSV export | `src/utils/utils_model.py`, `src/data/normalize.py` |
+| Tab 7 | Settings | 외관(테마·언어), 저장 경로, Worker 설정, Phase 0/2 하이퍼파라미터 / Appearance, storage paths, Worker settings, Phase 0/2 hyperparameters | `src/config/config.json` |
 
 ---
 
@@ -49,12 +49,13 @@ related_docs:
 
 | Worker | 역할 / Role | 신호 / Signals (4개) | 생성자 인수 / Constructor Args |
 | --- | --- | --- | --- |
-| `TrainingWorker(QThread)` | Phase 0 / Phase 2 학습 실행 / Phase 0 / Phase 2 training execution | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `phase`, `channel` |
-| `EvaluationWorker(QThread)` | 평가 실행 및 리포트 생성 / Evaluation execution and report generation | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `channel`, `checkpoint_path` |
-| `TuningWorker(QThread)` | Optuna HPO 실행 / Optuna HPO execution | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `channel`, `n_trials`, `phase` |
-| `EmbeddingWorker(QThread)` | t-SNE 임베딩 추출 / t-SNE embedding extraction | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `channel`, `checkpoint_path` |
-| `InferenceWorker(QThread)` | 단일 이미지 추론 / Single-image inference | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `image_path`, `checkpoint_path` |
-| `BatchInferenceWorker(QThread)` | 폴더 일괄 추론 / Batch-folder inference | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `folder_path`, `checkpoint_path` |
+| `TrainingWorker(QThread)` | Phase 0 / Phase 2 학습 실행 | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `phase`, `channel` |
+| `EvaluationWorker(QThread)` | 평가 실행 — accuracy, F1, MAE 리포트 생성 | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `channel`, `checkpoint_path` |
+| `TuningWorker(QThread)` | Optuna HPO 실행 | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `channel`, `n_trials`, `phase` |
+| `EmbeddingWorker(QThread)` | t-SNE 임베딩 추출 | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `channel`, `checkpoint_path` |
+| `InferenceWorker(QThread)` | 단일 이미지 추론 (단일 채널 또는 4채널 앙상블) | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `image_path`, `checkpoint_path`, `channel` |
+| `BatchInferenceWorker(QThread)` | 폴더 일괄 추론 (단일 채널 또는 앙상블) | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `folder_path`, `checkpoint_path`, `channel` |
+| `GradCAMWorker(QThread)` | GradCAM 히트맵 계산 (순수 PyTorch 훅) | `progress_updated`, `log_emitted`, `finished`, `error_occurred` | `cfg`, `image_path`, `checkpoint_path`, `channel`, `target_level` |
 
 ### 3.1 시그널 규격 / Signal Specification
 
@@ -65,16 +66,21 @@ related_docs:
 | `finished` | `dict` | 완료 결과 / Completion result |
 | `error_occurred` | `str` | 오류 메시지 / Error message |
 
+### 3.2 shared 헬퍼 / Shared Helpers
+
+`gui/workers/_ckpt_utils.py` — `auto_find_checkpoint(cfg, channel)`, `auto_find_all_checkpoints(cfg)`, `run_ensemble(cfg, tensor, ckpt_paths, device)` 를 InferenceWorker, BatchInferenceWorker, GradCAMWorker가 공유한다.
+
 ---
 
 ## 4. GUI ↔ src 경계 원칙 / GUI ↔ src Boundary Principles
 
 | 원칙 / Principle | 내용 / Detail |
 | --- | --- |
-| 단방향 의존 / Unidirectional dependency | GUI → src (역방향 금지 / reverse direction prohibited) |
-| UI 직접 수정 금지 / No direct UI modification | Worker는 시그널로만 UI 업데이트 / Worker updates UI via signals only |
-| 로직 위임 / Logic delegation | GUI는 학습/평가 로직을 직접 구현하지 않는다 / GUI does not implement training/evaluation logic directly |
-| Config 경유 / Config pass-through | Worker에 파라미터 전달 시 cfg dict 사용 / Use cfg dict when passing parameters to Worker |
+| 단방향 의존 / Unidirectional dependency | GUI → src (역방향 금지) |
+| UI 직접 수정 금지 / No direct UI modification | Worker는 시그널로만 UI 업데이트 |
+| 로직 위임 / Logic delegation | GUI는 학습/평가 로직을 직접 구현하지 않는다 |
+| Config 경유 / Config pass-through | Worker에 파라미터 전달 시 cfg dict 사용 |
+| SSOT-NM01 준수 | 모든 이미지 전처리에서 `_IMAGENET_NORMALIZE` 사용 |
 
 ---
 
@@ -82,37 +88,39 @@ related_docs:
 
 ```
 gui/
-├── main.py                       # QApplication 진입점 — 폰트 감지·테마·언어 초기 적용
-│                                 # QApplication entry point — font detection, theme & lang init
-├── main_window.py                # QMainWindow + QTabWidget (7탭 / 7 tabs)
-├── i18n.py                       # 다국어 지원: t(key), set_lang("ko"|"en")
-│                                 # Internationalization: t(key), set_lang("ko"|"en")
+├── main.py
+├── main_window.py                # QMainWindow + QTabWidget (7탭)
+├── i18n.py                       # t(key), set_lang("ko"|"en")
 ├── workers/
 │   ├── __init__.py
-│   ├── base_worker.py            # BaseWorker(QThread) — 공통 시그널 / common signals
-│   ├── training_worker.py        # TrainingWorker(QThread)
-│   ├── evaluation_worker.py      # EvaluationWorker(QThread)
-│   ├── inference_worker.py       # InferenceWorker(QThread) — 단일 이미지 추론
-│   ├── batch_inference_worker.py # BatchInferenceWorker(QThread) — 폴더 일괄 추론
-│   ├── tuning_worker.py          # TuningWorker(QThread)
-│   └── embedding_worker.py       # EmbeddingWorker(QThread)
+│   ├── base_worker.py            # BaseWorker(QThread) — 공통 시그널
+│   ├── _ckpt_utils.py            # auto_find_checkpoint, run_ensemble 공유 헬퍼
+│   ├── training_worker.py        # TrainingWorker
+│   ├── evaluation_worker.py      # EvaluationWorker — accuracy, macro_f1, mae 반환
+│   ├── inference_worker.py       # InferenceWorker — channel, ensemble 지원
+│   ├── batch_inference_worker.py # BatchInferenceWorker — channel, ensemble 지원
+│   ├── gradcam_worker.py         # GradCAMWorker — 순수 PyTorch 훅 GradCAM
+│   ├── tuning_worker.py          # TuningWorker
+│   └── embedding_worker.py       # EmbeddingWorker
 ├── tabs/
 │   ├── __init__.py
-│   ├── base_tab.py               # BaseTab(QWidget) — 공통 인터페이스 / common interface
-│   ├── tab_data.py               # Tab 1: DataTab
-│   ├── tab_training.py           # Tab 2: TrainingTab (모델 설정 포함 / incl. model config)
-│   ├── tab_evaluation.py         # Tab 3: EvaluationTab
-│   ├── tab_settings.py           # Tab 4: SettingsTab (외관·경로·하이퍼파라미터)
-│   ├── tab_optuna.py             # Tab 5: OptunaTab
-│   ├── tab_embedding.py          # Tab 6: EmbeddingTab
-│   └── tab_inference.py          # Tab 7: InferenceTab (단일+배치 추론)
+│   ├── base_tab.py               # BaseTab(QWidget)
+│   ├── tab_data.py               # Tab 1: DataTab — 전처리 파라미터 편집 포함
+│   ├── tab_training.py           # Tab 2: TrainingTab — head·phase 설정·학습 곡선
+│   ├── tab_evaluation.py         # Tab 3: EvaluationTab — F1·MAE·채널 비교
+│   ├── tab_optuna.py             # Tab 4: OptunaTab — Before/After 비교
+│   ├── tab_embedding.py          # Tab 5: EmbeddingTab — 4개 내부 탭
+│   ├── tab_inference.py          # Tab 6: InferenceTab — GradCAM·레벨 정확도
+│   └── tab_settings.py           # Tab 7: SettingsTab — Worker 설정 포함
 ├── components/
 │   ├── __init__.py
 │   ├── plotly_widget.py          # QWebEngineView Plotly 래퍼
-│   ├── image_viewer.py           # 이미지 미리보기 위젯
-│   ├── log_panel.py              # 로그 출력 패널
-│   ├── metric_card.py            # 지표 카드 위젯
-│   └── progress_panel.py         # 진행률 바 + 로그 패널
+│   ├── image_viewer.py
+│   ├── log_panel.py
+│   ├── metric_card.py
+│   ├── progress_panel.py
+│   ├── training_chart.py         # 실시간 학습 곡선 위젯 (Plotly 라인 차트)
+│   └── level_accuracy_table.py   # 레벨별 정확도 테이블 위젯
 ├── services/
 │   ├── __init__.py
 │   ├── training_service.py
@@ -120,15 +128,11 @@ gui/
 │   ├── tuning_service.py
 │   └── embedding_service.py
 ├── assets/
-│   ├── config.json               # GUI 영속 설정 (theme, lang, checkpoint_path, labeled_dir)
-│   ├── arrow_down.svg            # 다크 테마 화살표 아이콘
-│   ├── arrow_up.svg
-│   ├── arrow_down_dark.svg       # 라이트 테마 화살표 아이콘
-│   ├── arrow_up_dark.svg
-│   └── check.svg                 # 체크박스 체크 아이콘
+│   ├── config.json               # GUI 영속 설정 (theme, lang, checkpoint_path)
+│   └── *.svg / *.qss
 ├── styles/
-│   ├── dark_theme.qss            # 다크 테마 QSS (%FONT%, %ASSETS% 플레이스홀더)
-│   └── light_theme.qss           # 라이트 테마 QSS
+│   ├── dark_theme.qss
+│   └── light_theme.qss
 └── tests/
     └── test_gui_contracts.py
 ```
@@ -138,57 +142,65 @@ gui/
 ## 6. 탭별 상세 정의 / Per-Tab Detail Definitions
 
 ### 6.1 Tab 1: Data
-- 데이터셋 디렉토리 스캔: 채널(C/M/Y/K) × 레벨(1~6) 샘플 수 표시 / Dataset directory scan: display sample count per channel (C/M/Y/K) × level (1–6)
-- 이미지 미리보기: 선택 샘플 표시 / Image preview: display selected sample
+- 채널(Y/M/C/K) × 레벨(0~N-1) 샘플 수 테이블, 스캔 버튼, 타임스탬프·경로 상태 레이블
+- 이미지 미리보기: 셀 클릭 또는 Browse로 선택
+- **전처리 파라미터 편집 (신규)**: `image_size`, normalize `mean`/`std`, `split_ratios(train/val/test)`, `labeled_dir` 편집 → `src/config/config.json` 저장
 
 ### 6.2 Tab 2: Training
-- Phase 선택: Phase 0 (SimCLR) / Phase 2 (Supervised) / Baseline 전체 / Phase selection: Phase 0 (SimCLR) / Phase 2 (Supervised) / Full Baseline
-- 채널 선택: Y / M / C / K / All / Channel selection: Y / M / C / K / All
-- 진행 표시: epoch progress bar, 실시간 loss/acc 그래프 / Progress display: epoch progress bar, real-time loss/acc graph
-- 학습 로그 패널 (ScrollArea) / Training log panel (ScrollArea)
-- 학습 시작/중지 버튼 / Start/Stop training buttons
+- **Backbone 설정**: efficientnet_b0 / resnet50, frozen 체크박스
+- **Head 설정 (신규)**: `num_levels` (클래스 수), `dropout_rate`
+- **Phase별 파라미터 패널 (신규)**: Phase 2 파라미터(epochs, lr, bs, wd) + Phase 0 파라미터(epochs, lr, bs, temperature, projection_dim) 분리 표시
+- **학습 실행**: Phase·채널 선택 → 시작/중지
+- **학습 곡선 차트 (신규)**: Plotly 라인 차트 — 로그 파싱 또는 완료 후 결과 막대 차트
+- 결과 카드: Best Val Acc, Test Acc, MAE
 
 ### 6.3 Tab 3: Evaluation
-- 채널별 Confusion Matrix (Plotly heatmap) / Per-channel Confusion Matrix (Plotly heatmap)
-- 오분류 샘플 뷰어: predicted level vs true level 이미지 비교 / Misclassified sample viewer: predicted level vs true level image comparison
-- 메트릭 요약 테이블 (Overall Acc, Per-class F1, MAE) / Metric summary table (Overall Acc, Per-class F1, MAE)
-- Swing Efficiency 지표 표시 / Swing Efficiency metric display
+- **채널 선택**: Y / M / C / K / 전체(All) — 전체 선택 시 4채널 순차 평가 후 평균
+- **메트릭 카드 (확장)**: Accuracy, Macro F1, MAE, Samples
+- **채널별 비교 테이블 (신규)**: Channel | Accuracy | Macro F1 | MAE 4행 테이블
+- Confusion Matrix (Plotly heatmap)
+- 단일 이미지 추론 섹션 제거됨 (Tab 6 Inference로 통합)
 
-### 6.4 Tab 4: Settings
-- 외관 설정: 테마(다크/라이트) 콤보박스, 언어(한국어/English) 콤보박스 / Appearance: theme (dark/light) combo, language (ko/en) combo
-- 저장 경로 편집: labeled_dir, models_dir, reports_dir / Storage paths: labeled_dir, models_dir, reports_dir
-- 체크포인트 경로 선택 (QFileDialog) / Checkpoint path selection (QFileDialog)
-- Phase 2 하이퍼파라미터 폼 / Phase 2 hyperparameter form
-- Phase 0 하이퍼파라미터 폼 / Phase 0 hyperparameter form
-- 공통 학습 설정 폼 (seed, scheduler, gradient_clip) / Common training config form
-- 설정 저장 → `src/config/config.json` + `gui/assets/config.json` / Save settings → both config files
-- 저장 / 초기화 버튼 / Save / Reset buttons
+### 6.4 Tab 4: Optuna HPO
+- HPO 실행 컨트롤: 채널·Phase·Trials
+- **메트릭 카드 (확장)**: Best Value, Macro F1, MAE, Val Acc, Test Acc
+- **Before/After 비교 패널 (신규)**: 📸 스냅샷 저장 버튼 → Before 수치 기록, HPO 완료 후 After 수치 표시, Plotly 막대 비교 차트
+- 탐색 공간 편집기 (기존 유지): Global, Phase 0 SS, Phase 2 EfficientNet SS, Phase 2 ResNet SS
 
-### 6.5 Tab 5: Optuna HPO
-- HPO 실행 컨트롤: 채널·Phase·Trials 선택, 시작/중지 버튼 / HPO run controls: channel, phase, trials, start/stop
-- Best trial 결과 카드 / Best trial result card
-- 탐색 공간 편집기 (QSplitter 1:3 분할): Global, Phase 0 SS, Phase 2 EfficientNet SS, Phase 2 ResNet SS / Search-space editor (QSplitter 1:3): global, phase 0, phase 2 per-backbone
-- 탐색 공간 저장 → `src/config/config.json` / Save search space → config.json
+### 6.5 Tab 5: Embedding
+4개 내부 탭으로 재구성:
+- **t-SNE 산점도**: 단일 채널 또는 전체 비교 모드(4채널 오버레이, 채널별 색)
+- **레벨 순도 (신규)**: 레벨별 intra-cluster distance 막대 차트 — 낮을수록 응집
+- **유사 이미지 탐색 (신규)**: 포인트 선택 후 K-nearest 썸네일 그리드 표시
+- **라벨 교정**: 기존 유지 — `labels_vN.csv` 버전 증가 저장
 
-### 6.6 Tab 6: Embedding
-- t-SNE scatter plot (채널 선택, 색상=레벨 / channel selection, color=level)
-- 샘플 클릭 → 레벨 재지정 → `labels_vN.csv` 저장 / Click sample → reassign level → save `labels_vN.csv`
-- 선택된 샘플 없으면 파일 다이얼로그로 이미지 직접 선택 / If no sample selected, open file dialog
+### 6.6 Tab 6: Inference
+- **데이터 소스 선택기 (신규)**: raw / roi / labeled — 파일/폴더 다이얼로그 시작 디렉토리 변경
+- **채널 선택**: Y / M / C / K / 전체 앙상블(All)
+- **체크포인트**: 수동 선택 또는 🔍 자동 탐지
+- 단일 이미지 추론: 레벨 배지, 신뢰도 바, Top-3
+- **GradCAM 시각화 (신규)**: 🔥 버튼 → GradCAMWorker → 활성화 히트맵 오버레이 표시
+- 배치 폴더 추론: 실시간 결과 테이블, CSV 내보내기
+- **레벨별 정확도 테이블 (신규)**: 배치 완료 후 Level | Y | M | C | K | Overall 테이블 업데이트
 
-### 6.7 Tab 7: Inference
-- 공유 체크포인트 행 (상단): `.pt/.pth` 파일 선택, `gui/assets/config.json` 자동 저장 / Shared checkpoint row (top): select .pt/.pth, auto-saved to config.json
-- 좌측 패널 — 단일 이미지 추론: 이미지 선택 → 미리보기 → 추론 실행 → 레벨 배지 + 신뢰도 바 + Top-3 / Left panel — single-image: browse → preview → run → level badge + confidence bar + top-3
-- 우측 패널 — 배치 폴더 추론: 폴더 선택 → 일괄 추론 → 실시간 테이블 → CSV 내보내기 / Right panel — batch-folder: select folder → batch run → live table → export CSV
-- 중지 버튼으로 추론 취소 가능 (cancel 지원) / Cancellable via Stop button
+### 6.7 Tab 7: Settings
+- 외관: 테마(다크/라이트), 언어(한국어/English)
+- 저장 경로: labeled_dir, models_dir, reports_dir, checkpoint
+- **Worker 설정 (신규)**: device(auto/cpu/cuda/mps), DataLoader workers, Inference batch size, Training timeout(min)
+- Phase 2 하이퍼파라미터 폼
+- Phase 0 하이퍼파라미터 폼
+- 공통 학습 설정 (seed, scheduler, gradient_clip)
+- 저장 → `src/config/config.json` + `gui/assets/config.json`
 
 ---
 
 ## 7. 체크리스트 / Checklist
 
-- [ ] 새 탭 추가 시 §2 테이블 업데이트 / Update §2 table when adding a new tab
-- [ ] Worker 추가 시 §3 테이블 및 workers/ 디렉토리 반영 / Reflect in §3 table and workers/ directory when adding a Worker
-- [ ] GUI에서 새 src 모듈 사용 시 Contract_gui.md §3 의존성 갱신 / Update Contract_gui.md §3 dependencies when using a new src module from GUI
-- [ ] Worker에서 UI 직접 수정 여부 코드 리뷰 시 확인 / Verify during code review that Worker does not directly modify UI
+- [ ] 새 탭 추가 시 §2 테이블 업데이트
+- [ ] Worker 추가 시 §3 테이블 및 workers/ 디렉토리 반영
+- [ ] GUI에서 새 src 모듈 사용 시 Contract_gui.md §4 의존성 갱신
+- [ ] Worker에서 UI 직접 수정 여부 코드 리뷰 시 확인
+- [ ] 모든 이미지 전처리에서 SSOT-NM01 (`_IMAGENET_NORMALIZE`) 사용 확인
 
 ---
 
@@ -196,7 +208,7 @@ gui/
 
 | 문서 / Document | 관계 / Relationship |
 | --- | --- |
-| [SSOT_Core.md](SSOT_Core.md) | 최상위 원칙 / Top-level principles |
-| [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | TrainingWorker 호출 API / TrainingWorker call API |
-| [SSOT_Evaluation_Reporting.md](SSOT_Evaluation_Reporting.md) | EvaluationWorker 호출 API / EvaluationWorker call API |
-| [SSOT_ROI_Pipeline.md](SSOT_ROI_Pipeline.md) | Tab 6 라벨 정제 연동 / Tab 6 label refinement integration |
+| [SSOT_Core.md](SSOT_Core.md) | 최상위 원칙 |
+| [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md) | TrainingWorker 호출 API |
+| [SSOT_Evaluation_Reporting.md](SSOT_Evaluation_Reporting.md) | EvaluationWorker 호출 API |
+| [SSOT_ROI_Pipeline.md](SSOT_ROI_Pipeline.md) | Tab 5 라벨 정제 연동 |
