@@ -52,6 +52,7 @@ _T: dict[str, dict[str, str]] = {
     "btn_extract_emb":    {"ko": "▶  임베딩 추출",          "en": "▶  Extract Embeddings"},
     "btn_save_correction":{"ko": "💾  라벨 교정 저장",      "en": "💾  Save Label Correction"},
     "btn_browse_ckpt":    {"ko": "📂  체크포인트 선택…",    "en": "📂  Browse Checkpoint…"},
+    "btn_auto_detect":    {"ko": "🔍  자동 탐지",           "en": "🔍  Auto-detect"},
     "btn_browse_folder":  {"ko": "📂  폴더 선택…",          "en": "📂  Browse Folder…"},
     "btn_run_batch":      {"ko": "▶  배치 추론",            "en": "▶  Run Batch Inference"},
     "btn_export_csv":     {"ko": "💾  CSV 내보내기",        "en": "💾  Export CSV"},

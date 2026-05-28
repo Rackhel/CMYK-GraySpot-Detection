@@ -1,7 +1,7 @@
 """InferenceTab — 학습된 모델로 이미지 추론 (단일 / 배치).
 Test images with a trained model: single-image and batch-folder modes.
 
-Contract: Contract_gui.md §3.6  /  SSOT_GUI.md §6.6
+Contract: Contract_gui.md §3.6  /  SSOT_GUI.md §6.7
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from typing import Any
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -34,40 +35,37 @@ from gui.i18n import t
 from gui.tabs.base_tab import BaseTab
 from gui.workers.batch_inference_worker import BatchInferenceWorker
 from gui.workers.inference_worker import InferenceWorker
+from gui.workers._ckpt_utils import auto_find_checkpoint, auto_find_all_checkpoints
 
-
-# ── 공통 상수 ──────────────────────────────────────────────────────────────────
-_IMG_FILTER = "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.webp)"
+_IMG_FILTER  = "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.webp)"
 _CKPT_FILTER = "Checkpoint (*.pt *.pth)"
+_CHANNELS    = ["Y", "M", "C", "K"]
 
 
 class InferenceTab(BaseTab):
     """단일 이미지 + 배치 폴더 추론 탭.
-    Provides single-image and batch-folder inference with a trained model.
 
-    Left  panel : single image — browse → preview → run → result badge + top-K
-    Right panel : batch folder — select folder → run → results table → export CSV
-    Both panels share a checkpoint browser at the top.
+    상단: 채널 선택 + 체크포인트 행 (수동 or 자동 탐지)
+    좌측: 단일 이미지 — 선택 → 미리보기 → 추론 → 레벨 배지 + Top-3
+    우측: 배치 폴더 — 선택 → 일괄 추론 → 실시간 테이블 → CSV 내보내기
     """
 
     def __init__(self, cfg: dict[str, Any] | None = None) -> None:
         super().__init__(cfg)
-        self._selected_image: str = ""
+        self._selected_image: str  = ""
         self._selected_folder: str = ""
         self._checkpoint_path: str = self._load_saved_checkpoint()
         self._batch_results: list[dict] = []
 
-        self.infer_worker: InferenceWorker | None = None
+        self.infer_worker: InferenceWorker | None  = None
         self.batch_worker: BatchInferenceWorker | None = None
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(8, 8, 8, 8)
-        root_layout.setSpacing(8)
+        root_layout.setSpacing(6)
 
-        # ── 체크포인트 행 / Checkpoint row (shared) ────────────────────────────
         root_layout.addWidget(self._build_checkpoint_group())
 
-        # ── 메인 QSplitter: 단일(좌) / 배치(우) ───────────────────────────────
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
         splitter.addWidget(self._build_single_panel())
@@ -77,7 +75,7 @@ class InferenceTab(BaseTab):
         root_layout.addWidget(splitter, stretch=1)
 
     # ══════════════════════════════════════════════════════════════════════════
-    # Build helpers
+    # Build — 공유 체크포인트 + 채널 행
     # ══════════════════════════════════════════════════════════════════════════
 
     def _build_checkpoint_group(self) -> QGroupBox:
@@ -86,22 +84,41 @@ class InferenceTab(BaseTab):
         row.setContentsMargins(8, 6, 8, 6)
         row.setSpacing(8)
 
+        # 채널 선택 / Channel selector
+        ch_lbl = QLabel("Channel:")
+        self._channel_combo = QComboBox()
+        self._channel_combo.addItem("Y",             userData="Y")
+        self._channel_combo.addItem("M",             userData="M")
+        self._channel_combo.addItem("C",             userData="C")
+        self._channel_combo.addItem("K",             userData="K")
+        self._channel_combo.addItem("전체 앙상블 (All Channels)", userData="all")
+        self._channel_combo.setFixedWidth(180)
+        self._channel_combo.currentIndexChanged.connect(self._on_channel_changed)
+
+        # 체크포인트 경로 필드
         self._ckpt_edit = QLineEdit()
         self._ckpt_edit.setPlaceholderText(t("lbl_no_ckpt"))
         self._ckpt_edit.setReadOnly(True)
         if self._checkpoint_path:
             self._ckpt_edit.setText(self._checkpoint_path)
 
+        # 버튼
+        auto_btn   = QPushButton(t("btn_auto_detect"))
+        auto_btn.setFixedWidth(110)
+        auto_btn.clicked.connect(self._auto_detect_checkpoint)
+
         browse_btn = QPushButton(t("btn_browse_ckpt"))
-        browse_btn.setFixedWidth(180)
+        browse_btn.setFixedWidth(160)
         browse_btn.clicked.connect(self._browse_checkpoint)
 
-        row.addWidget(QLabel("Checkpoint:"))
+        row.addWidget(ch_lbl)
+        row.addWidget(self._channel_combo)
         row.addWidget(self._ckpt_edit, stretch=1)
+        row.addWidget(auto_btn)
         row.addWidget(browse_btn)
         return self._grp_ckpt
 
-    # ── Single image panel ────────────────────────────────────────────────────
+    # ── 단일 이미지 패널 ──────────────────────────────────────────────────────
 
     def _build_single_panel(self) -> QWidget:
         panel = QWidget()
@@ -109,7 +126,6 @@ class InferenceTab(BaseTab):
         layout.setContentsMargins(0, 0, 4, 0)
         layout.setSpacing(6)
 
-        # Controls
         self._grp_single = QGroupBox(t("grp_single_infer"))
         ctrl_layout = QVBoxLayout(self._grp_single)
         ctrl_layout.setContentsMargins(8, 8, 8, 8)
@@ -128,7 +144,6 @@ class InferenceTab(BaseTab):
         self._img_name_lbl = QLabel(t("lbl_selected"))
         self._img_name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Image preview
         self._img_preview = QLabel()
         self._img_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._img_preview.setMinimumHeight(220)
@@ -140,11 +155,9 @@ class InferenceTab(BaseTab):
         )
         self._img_preview.setText("이미지를 선택하세요\nSelect an image")
 
-        # Progress
         self._infer_progress = QProgressBar()
         self._infer_progress.setRange(0, 100)
         self._infer_progress.setValue(0)
-        self._infer_progress.setTextVisible(True)
         self._infer_progress.setMaximumHeight(16)
 
         ctrl_layout.addLayout(btn_row)
@@ -152,7 +165,7 @@ class InferenceTab(BaseTab):
         ctrl_layout.addWidget(self._img_preview, stretch=1)
         ctrl_layout.addWidget(self._infer_progress)
 
-        # Result card
+        # 결과 카드 / Result card
         self._grp_result = QGroupBox(t("grp_result"))
         res_layout = QVBoxLayout(self._grp_result)
         res_layout.setContentsMargins(8, 8, 8, 8)
@@ -179,6 +192,12 @@ class InferenceTab(BaseTab):
         self._top3_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._top3_lbl.setStyleSheet("font-size: 10pt; background: transparent;")
 
+        # 앙상블 채널별 결과 레이블
+        self._per_ch_lbl = QLabel("")
+        self._per_ch_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._per_ch_lbl.setStyleSheet("font-size: 9pt; background: transparent;")
+        self._per_ch_lbl.setWordWrap(True)
+
         self._infer_log = LogPanel()
         self._infer_log.setMaximumHeight(90)
 
@@ -186,19 +205,18 @@ class InferenceTab(BaseTab):
         res_layout.addWidget(self._conf_bar_lbl)
         res_layout.addWidget(self._conf_bar)
         res_layout.addWidget(self._top3_lbl)
+        res_layout.addWidget(self._per_ch_lbl)
         res_layout.addWidget(self._infer_log)
 
         layout.addWidget(self._grp_single, stretch=3)
         layout.addWidget(self._grp_result, stretch=2)
 
-        # Connect signals
         self._browse_img_btn.clicked.connect(self._browse_image)
         self._run_infer_btn.clicked.connect(self.start_single_inference)
         self._stop_infer_btn.clicked.connect(self._stop_single)
-
         return panel
 
-    # ── Batch panel ───────────────────────────────────────────────────────────
+    # ── 배치 패널 ─────────────────────────────────────────────────────────────
 
     def _build_batch_panel(self) -> QWidget:
         panel = QWidget()
@@ -211,7 +229,6 @@ class InferenceTab(BaseTab):
         batch_layout.setContentsMargins(8, 8, 8, 8)
         batch_layout.setSpacing(6)
 
-        # Folder row
         folder_row = QHBoxLayout()
         self._folder_edit = QLineEdit()
         self._folder_edit.setPlaceholderText(t("lbl_no_folder"))
@@ -221,7 +238,6 @@ class InferenceTab(BaseTab):
         folder_row.addWidget(self._folder_edit, stretch=1)
         folder_row.addWidget(self._browse_folder_btn)
 
-        # Batch controls
         ctrl_row = QHBoxLayout()
         self._run_batch_btn  = QPushButton(t("btn_run_batch"))
         self._stop_batch_btn = QPushButton(t("btn_stop"))
@@ -233,16 +249,13 @@ class InferenceTab(BaseTab):
         ctrl_row.addStretch()
         ctrl_row.addWidget(self._export_csv_btn)
 
-        # Batch progress
         self._batch_status_lbl = QLabel("")
         self._batch_status_lbl.setStyleSheet("background: transparent;")
         self._batch_progress = QProgressBar()
         self._batch_progress.setRange(0, 100)
         self._batch_progress.setValue(0)
-        self._batch_progress.setTextVisible(True)
         self._batch_progress.setMaximumHeight(16)
 
-        # Results table
         self._result_table = QTableWidget(0, 4)
         self._result_table.setHorizontalHeaderLabels([
             t("col_filename"), t("col_pred_level"), t("col_confidence"), "Top-3",
@@ -252,12 +265,10 @@ class InferenceTab(BaseTab):
         self._result_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._result_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._result_table.verticalHeader().setVisible(False)
-        # Column widths
         self._result_table.setColumnWidth(0, 200)
         self._result_table.setColumnWidth(1, 90)
         self._result_table.setColumnWidth(2, 90)
 
-        # Summary log
         self._batch_log = LogPanel()
         self._batch_log.setMaximumHeight(80)
 
@@ -270,22 +281,68 @@ class InferenceTab(BaseTab):
 
         layout.addWidget(self._grp_batch, stretch=1)
 
-        # Connect
         self._browse_folder_btn.clicked.connect(self._browse_folder)
         self._run_batch_btn.clicked.connect(self.start_batch_inference)
         self._stop_batch_btn.clicked.connect(self._stop_batch)
         self._export_csv_btn.clicked.connect(self._export_csv)
-
         return panel
 
     # ══════════════════════════════════════════════════════════════════════════
-    # Single-image inference
+    # 체크포인트 + 채널
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _current_channel(self) -> str:
+        return self._channel_combo.currentData() or "Y"
+
+    def _on_channel_changed(self) -> None:
+        ch = self._current_channel()
+        if ch == "all":
+            self._ckpt_edit.setPlaceholderText("전체 앙상블 — 자동 탐지 (Auto-detect all 4 best_*.pt)")
+            self._ckpt_edit.clear()
+        else:
+            self._ckpt_edit.setPlaceholderText(t("lbl_no_ckpt"))
+
+    def _auto_detect_checkpoint(self) -> None:
+        """models_dir 에서 채널에 맞는 best_*.pt를 자동 탐지한다."""
+        ch = self._current_channel()
+        if ch == "all":
+            paths = auto_find_all_checkpoints(self.cfg)
+            found = {c: p for c, p in paths.items() if p}
+            missing = [c for c, p in paths.items() if not p]
+            if found:
+                summary = "  |  ".join(f"{c}: {Path(p).name}" for c, p in found.items())
+                self._ckpt_edit.setText(summary)
+                self._infer_log.append(f"✅ 자동 탐지 / Found: {summary}")
+            if missing:
+                self._infer_log.append(f"⚠️  미발견 / Not found: {missing}")
+        else:
+            path = auto_find_checkpoint(self.cfg, ch)
+            if path:
+                self._checkpoint_path = path
+                self._ckpt_edit.setText(path)
+                self._save_checkpoint(path)
+                self._infer_log.append(f"✅ 자동 탐지 / Found: {Path(path).name}")
+            else:
+                self._infer_log.append(
+                    f"⚠️  {ch} 채널 체크포인트를 찾을 수 없습니다 / Not found for channel {ch}"
+                )
+
+    def _browse_checkpoint(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Checkpoint", "", _CKPT_FILTER
+        )
+        if not path:
+            return
+        self._checkpoint_path = path
+        self._ckpt_edit.setText(path)
+        self._save_checkpoint(path)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # 단일 이미지 추론
     # ══════════════════════════════════════════════════════════════════════════
 
     def _browse_image(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select Image", "", _IMG_FILTER
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", _IMG_FILTER)
         if not path:
             return
         self._selected_image = path
@@ -293,7 +350,6 @@ class InferenceTab(BaseTab):
         self._reset_result()
         self._infer_log.append(f"Selected: {Path(path).name}")
 
-        # Preview
         px = QPixmap(path)
         if not px.isNull():
             self._img_preview.setPixmap(
@@ -309,23 +365,21 @@ class InferenceTab(BaseTab):
 
     def start_single_inference(self) -> None:
         if not self._selected_image:
-            self._infer_log.append("⚠️  먼저 이미지를 선택하세요 / Select an image first")
+            self._infer_log.append("⚠️  이미지를 먼저 선택하세요 / Select an image first")
             return
         if self.infer_worker is not None and self.infer_worker.isRunning():
             self._infer_log.append("⚠️  추론 중입니다 / Already running")
             return
 
-        ckpt = self._ckpt_edit.text().strip()
-        if not ckpt:
-            self._infer_log.append("⚠️  체크포인트를 먼저 선택하세요 / Select a checkpoint first")
-            return
+        ch   = self._current_channel()
+        ckpt = "" if ch == "all" else self._checkpoint_path
 
         self._reset_result()
         self._run_infer_btn.setEnabled(False)
         self._stop_infer_btn.setEnabled(True)
         self._infer_progress.setValue(0)
 
-        self.infer_worker = InferenceWorker(self.cfg, self._selected_image, ckpt)
+        self.infer_worker = InferenceWorker(self.cfg, self._selected_image, ckpt, channel=ch)
         self.infer_worker.progress_updated.connect(self._infer_progress.setValue)
         self.infer_worker.log_emitted.connect(self._infer_log.append)
         self.infer_worker.finished.connect(self._on_single_finished)
@@ -340,23 +394,29 @@ class InferenceTab(BaseTab):
         self._stop_infer_btn.setEnabled(False)
 
     def _on_single_finished(self, result: dict) -> None:
-        pred   = result.get("pred_level", "?")
-        conf   = result.get("confidence", 0.0)
-        top3   = result.get("top3", [])
+        pred = result.get("pred_level", "?")
+        conf = result.get("confidence", 0.0)
+        top3 = result.get("top3", [])
 
         self._level_badge.setText(f"Level {pred}")
-        pct = int(conf * 100)
-        self._conf_bar.setValue(pct)
-        self._conf_bar_lbl.setText(
-            t("lbl_conf_val").replace("{v}", f"{conf:.1%}")
-        )
+        self._conf_bar.setValue(int(conf * 100))
+        self._conf_bar_lbl.setText(t("lbl_conf_val").replace("{v}", f"{conf:.1%}"))
         if top3:
-            top3_str = "  |  ".join(f"L{lvl}: {p:.1%}" for lvl, p in top3)
-            self._top3_lbl.setText(f"Top-3: {top3_str}")
+            self._top3_lbl.setText(
+                "Top-3: " + "  |  ".join(f"L{lvl}: {p:.1%}" for lvl, p in top3)
+            )
 
-        # Accent color based on level
+        # 앙상블이면 채널별 결과 표시
+        per_ch = result.get("per_channel")
+        if per_ch:
+            ch_str = "  ".join(f"[{c}] L{v['pred']} {v['conf']:.0%}" for c, v in per_ch.items())
+            self._per_ch_lbl.setText(ch_str)
+        else:
+            ckpt_name = result.get("checkpoint", "")
+            self._per_ch_lbl.setText(f"Channel: {result.get('channel', '')}  |  {ckpt_name}")
+
         colors = ["#22c55e", "#84cc16", "#eab308", "#f97316", "#ef4444", "#7c3aed"]
-        color = colors[pred % len(colors)] if isinstance(pred, int) else "#3b82f6"
+        color  = colors[pred % len(colors)] if isinstance(pred, int) else "#3b82f6"
         self._level_badge.setStyleSheet(
             f"font-size: 36pt; font-weight: 700; color: {color}; background: transparent;"
         )
@@ -380,9 +440,10 @@ class InferenceTab(BaseTab):
         self._conf_bar.setValue(0)
         self._conf_bar_lbl.setText(t("lbl_conf_val").replace("{v}", "—"))
         self._top3_lbl.setText("Top-3: —")
+        self._per_ch_lbl.setText("")
 
     # ══════════════════════════════════════════════════════════════════════════
-    # Batch inference
+    # 배치 추론
     # ══════════════════════════════════════════════════════════════════════════
 
     def _browse_folder(self) -> None:
@@ -392,7 +453,6 @@ class InferenceTab(BaseTab):
         self._selected_folder = folder
         self._folder_edit.setText(folder)
         self._batch_log.append(f"📁  {folder}")
-        # Clear previous table
         self._result_table.setRowCount(0)
         self._batch_results = []
         self._export_csv_btn.setEnabled(False)
@@ -405,12 +465,9 @@ class InferenceTab(BaseTab):
             self._batch_log.append("⚠️  배치 추론 중입니다 / Already running")
             return
 
-        ckpt = self._ckpt_edit.text().strip()
-        if not ckpt:
-            self._batch_log.append("⚠️  체크포인트를 먼저 선택하세요 / Select a checkpoint first")
-            return
+        ch   = self._current_channel()
+        ckpt = "" if ch == "all" else self._checkpoint_path
 
-        # Reset table
         self._result_table.setRowCount(0)
         self._batch_results = []
         self._export_csv_btn.setEnabled(False)
@@ -418,7 +475,9 @@ class InferenceTab(BaseTab):
         self._stop_batch_btn.setEnabled(True)
         self._batch_progress.setValue(0)
 
-        self.batch_worker = BatchInferenceWorker(self.cfg, self._selected_folder, ckpt)
+        self.batch_worker = BatchInferenceWorker(
+            self.cfg, self._selected_folder, ckpt, channel=ch
+        )
         self.batch_worker.progress_updated.connect(self._batch_progress.setValue)
         self.batch_worker.log_emitted.connect(self._on_batch_log)
         self.batch_worker.finished.connect(self._on_batch_finished)
@@ -435,7 +494,6 @@ class InferenceTab(BaseTab):
             self._export_csv_btn.setEnabled(True)
 
     def _on_batch_log(self, msg: str) -> None:
-        """log_emitted 처리 — __ROW__ 접두사면 테이블 행으로 추가."""
         if msg.startswith("__ROW__"):
             try:
                 data = json.loads(msg[len("__ROW__"):])
@@ -447,25 +505,21 @@ class InferenceTab(BaseTab):
             self._batch_status_lbl.setText(msg)
 
     def _add_table_row(self, data: dict) -> None:
-        row = self._result_table.rowCount()
+        row        = self._result_table.rowCount()
         self._result_table.insertRow(row)
-
-        filename   = data.get("filename", "")
         pred_level = data.get("pred_level", -1)
         confidence = data.get("confidence", 0.0)
         top3       = data.get("top3", [])
+        top3_str   = "  ".join(f"L{lvl}:{p:.0%}" for lvl, p in top3)
 
-        top3_str = "  ".join(f"L{lvl}:{p:.0%}" for lvl, p in top3)
-
-        self._result_table.setItem(row, 0, QTableWidgetItem(filename))
-        lv_item = QTableWidgetItem(str(pred_level))
-        lv_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._result_table.setItem(row, 1, lv_item)
-        conf_item = QTableWidgetItem(f"{confidence:.1%}")
-        conf_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._result_table.setItem(row, 2, conf_item)
+        self._result_table.setItem(row, 0, QTableWidgetItem(data.get("filename", "")))
+        lv = QTableWidgetItem(str(pred_level))
+        lv.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._result_table.setItem(row, 1, lv)
+        cf = QTableWidgetItem(f"{confidence:.1%}")
+        cf.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._result_table.setItem(row, 2, cf)
         self._result_table.setItem(row, 3, QTableWidgetItem(top3_str))
-
         self._result_table.scrollToBottom()
 
     def _on_batch_finished(self, result: dict) -> None:
@@ -473,15 +527,12 @@ class InferenceTab(BaseTab):
         total     = result.get("total", 0)
         succeeded = result.get("succeeded", 0)
         failed    = result.get("failed", 0)
-
-        summary = (
-            f"✅ 완료 / Done — "
-            f"{succeeded}/{total} 성공 / succeeded"
-            f"{f',  {failed} 실패 / failed' if failed else ''}"
+        summary   = (
+            f"✅ 완료 / Done — {succeeded}/{total} 성공"
+            f"{f',  {failed} 실패' if failed else ''}"
         )
         self._batch_log.append(summary)
         self._batch_status_lbl.setText(summary)
-
         self._run_batch_btn.setEnabled(True)
         self._stop_batch_btn.setEnabled(False)
         if self._batch_results:
@@ -514,23 +565,13 @@ class InferenceTab(BaseTab):
                         "confidence": f"{row.get('confidence', 0):.4f}",
                         "error":      row.get("error") or "",
                     })
-            self._batch_log.append(f"💾  CSV 저장 완료 / Saved: {Path(path).name}")
+            self._batch_log.append(f"💾  저장 완료 / Saved: {Path(path).name}")
         except Exception as exc:
-            self._batch_log.append(f"❌  CSV 저장 실패 / Failed: {exc}")
+            self._batch_log.append(f"❌  저장 실패 / Failed: {exc}")
 
     # ══════════════════════════════════════════════════════════════════════════
-    # Checkpoint
+    # 체크포인트 영속 / Checkpoint persistence
     # ══════════════════════════════════════════════════════════════════════════
-
-    def _browse_checkpoint(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Select Checkpoint", "", _CKPT_FILTER
-        )
-        if not path:
-            return
-        self._checkpoint_path = path
-        self._ckpt_edit.setText(path)
-        self._save_checkpoint(path)
 
     @staticmethod
     def _load_saved_checkpoint() -> str:
@@ -559,7 +600,6 @@ class InferenceTab(BaseTab):
     # ══════════════════════════════════════════════════════════════════════════
 
     def refresh(self) -> None:
-        """탭 활성화 시 체크포인트 경로 갱신."""
         saved = self._load_saved_checkpoint()
         if saved and not self._ckpt_edit.text():
             self._checkpoint_path = saved
@@ -570,10 +610,8 @@ class InferenceTab(BaseTab):
         self._grp_single.setTitle(t("grp_single_infer"))
         self._grp_result.setTitle(t("grp_result"))
         self._grp_batch.setTitle(t("grp_batch_infer"))
-
         self._ckpt_edit.setPlaceholderText(t("lbl_no_ckpt"))
         self._folder_edit.setPlaceholderText(t("lbl_no_folder"))
-
         self._browse_img_btn.setText(t("btn_browse_img"))
         self._run_infer_btn.setText(t("btn_run_infer"))
         self._stop_infer_btn.setText(t("btn_stop"))
@@ -581,7 +619,6 @@ class InferenceTab(BaseTab):
         self._run_batch_btn.setText(t("btn_run_batch"))
         self._stop_batch_btn.setText(t("btn_stop"))
         self._export_csv_btn.setText(t("btn_export_csv"))
-
         self._result_table.setHorizontalHeaderLabels([
             t("col_filename"), t("col_pred_level"), t("col_confidence"), "Top-3",
         ])
