@@ -1,5 +1,6 @@
 {
-  "_comment": "GUI 전용 로컬 설정 (src/config/config.json이 학습·평가의 SSOT) / GUI-local overrides only. src/config/config.json is the SSOT for training & evaluation.",
   "labeled_dir": "data_set/labeled",
-  "checkpoint_path": ""
+  "checkpoint_path": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/best_C.pt",
+  "theme": "dark",
+  "lang": "ko"
 }

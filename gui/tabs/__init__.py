@@ -4,6 +4,7 @@ from gui.tabs.base_tab import BaseTab
 from gui.tabs.tab_data import DataTab
 from gui.tabs.tab_embedding import EmbeddingTab
 from gui.tabs.tab_evaluation import EvaluationTab
+from gui.tabs.tab_inference import InferenceTab
 from gui.tabs.tab_optuna import OptunaTab
 from gui.tabs.tab_settings import SettingsTab
 from gui.tabs.tab_training import TrainingTab
@@ -16,4 +17,5 @@ __all__ = [
     "SettingsTab",
     "OptunaTab",
     "EmbeddingTab",
+    "InferenceTab",
 ]

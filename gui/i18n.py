@@ -18,6 +18,7 @@ _T: dict[str, dict[str, str]] = {
     "tab_settings":   {"ko": "설정",        "en": "Settings"},
     "tab_optuna":     {"ko": "Optuna HPO",  "en": "Optuna HPO"},
     "tab_embedding":  {"ko": "임베딩",      "en": "Embedding"},
+    "tab_inference":  {"ko": "추론",        "en": "Inference"},
 
     # ── Group titles ──────────────────────────────────────────────────────
     "grp_storage":    {"ko": "저장 경로",                        "en": "Storage / Paths"},
@@ -30,6 +31,10 @@ _T: dict[str, dict[str, str]] = {
     "grp_eval":       {"ko": "데이터셋 평가",                    "en": "Dataset Evaluation"},
     "grp_infer":      {"ko": "단일 이미지 추론",                 "en": "Single Image Inference"},
     "grp_ss_editor":  {"ko": "── 탐색 공간 편집기 ──────────────────────", "en": "── Search Space Editor ──────────────────────"},
+    "grp_single_infer": {"ko": "단일 이미지 추론",  "en": "Single Image Inference"},
+    "grp_batch_infer":  {"ko": "배치 폴더 추론",    "en": "Batch Folder Inference"},
+    "grp_ckpt":         {"ko": "체크포인트",        "en": "Checkpoint"},
+    "grp_result":       {"ko": "추론 결과",         "en": "Inference Result"},
 
     # ── Buttons ───────────────────────────────────────────────────────────
     "btn_save_settings":  {"ko": "설정 저장",               "en": "Save Settings"},
@@ -46,6 +51,10 @@ _T: dict[str, dict[str, str]] = {
     "btn_save_ss":        {"ko": "탐색 공간 저장 → config.json", "en": "Save Search Space → config.json"},
     "btn_extract_emb":    {"ko": "▶  임베딩 추출",          "en": "▶  Extract Embeddings"},
     "btn_save_correction":{"ko": "💾  라벨 교정 저장",      "en": "💾  Save Label Correction"},
+    "btn_browse_ckpt":    {"ko": "📂  체크포인트 선택…",    "en": "📂  Browse Checkpoint…"},
+    "btn_browse_folder":  {"ko": "📂  폴더 선택…",          "en": "📂  Browse Folder…"},
+    "btn_run_batch":      {"ko": "▶  배치 추론",            "en": "▶  Run Batch Inference"},
+    "btn_export_csv":     {"ko": "💾  CSV 내보내기",        "en": "💾  Export CSV"},
 
     # ── Labels ────────────────────────────────────────────────────────────
     "lbl_theme":    {"ko": "테마",   "en": "Theme"},
@@ -63,6 +72,12 @@ _T: dict[str, dict[str, str]] = {
     "lbl_pred":        {"ko": "예측 레벨: —",   "en": "Predicted Level: —"},
     "lbl_conf":        {"ko": "신뢰도: —",       "en": "Confidence: —"},
     "lbl_top3":        {"ko": "Top-3: —",        "en": "Top-3: —"},
+    "lbl_no_ckpt":     {"ko": "체크포인트 미지정",   "en": "No checkpoint selected"},
+    "lbl_no_folder":   {"ko": "폴더 미지정",         "en": "No folder selected"},
+    "lbl_conf_val":    {"ko": "신뢰도: {v}",         "en": "Confidence: {v}"},
+    "col_filename":    {"ko": "파일명",              "en": "Filename"},
+    "col_pred_level":  {"ko": "예측 레벨",           "en": "Pred. Level"},
+    "col_confidence":  {"ko": "신뢰도",              "en": "Confidence"},
 
     # ── Theme names ───────────────────────────────────────────────────────
     "theme_dark":  {"ko": "🌙  다크",  "en": "🌙  Dark"},

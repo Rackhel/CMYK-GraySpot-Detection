@@ -9,7 +9,7 @@ from typing import Any
 from PyQt6.QtWidgets import QApplication, QMainWindow, QStatusBar, QTabWidget
 
 from gui.i18n import set_lang, t
-from gui.tabs import DataTab, EmbeddingTab, EvaluationTab, OptunaTab, SettingsTab, TrainingTab
+from gui.tabs import DataTab, EmbeddingTab, EvaluationTab, InferenceTab, OptunaTab, SettingsTab, TrainingTab
 
 _ROOT = Path(__file__).resolve().parents[1]
 for _p in (str(_ROOT), str(_ROOT / "src")):
@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):
             labels_dir=Path(self.cfg.get("storage", {}).get("data_root", "data_set")),
             settings_tab=self.settings_tab,
         )
+        self.inference_tab  = InferenceTab(self.cfg)
 
         self.tab_widget.addTab(self.data_tab,       t("tab_data"))
         self.tab_widget.addTab(self.training_tab,   t("tab_training"))
@@ -87,6 +88,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.settings_tab,   t("tab_settings"))
         self.tab_widget.addTab(self.optuna_tab,     t("tab_optuna"))
         self.tab_widget.addTab(self.embedding_tab,  t("tab_embedding"))
+        self.tab_widget.addTab(self.inference_tab,  t("tab_inference"))
 
     def _connect_appearance_signals(self) -> None:
         """Settings 탭의 테마·언어 콤보에 즉시 적용 슬롯 연결."""
@@ -130,6 +132,7 @@ class MainWindow(QMainWindow):
         keys = [
             "tab_data", "tab_training", "tab_evaluation",
             "tab_settings", "tab_optuna", "tab_embedding",
+            "tab_inference",
         ]
         for i, key in enumerate(keys):
             self.tab_widget.setTabText(i, t(key))
@@ -151,7 +154,7 @@ class MainWindow(QMainWindow):
     # ── Close ──────────────────────────────────────────────────────────────────
 
     def closeEvent(self, event) -> None:
-        worker_attrs = ("worker", "eval_worker", "infer_worker")
+        worker_attrs = ("worker", "eval_worker", "infer_worker", "batch_worker")
         for tab_index in range(self.tab_widget.count()):
             tab = self.tab_widget.widget(tab_index)
             for attr in worker_attrs:
