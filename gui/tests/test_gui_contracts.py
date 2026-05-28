@@ -13,8 +13,18 @@ def test_all_workers_have_required_signals() -> None:
     from gui.workers.training_worker import TrainingWorker
     from gui.workers.tuning_worker import TuningWorker
 
-    for worker_class in [TrainingWorker, EvaluationWorker, TuningWorker, EmbeddingWorker]:
-        for signal_name in ["progress_updated", "log_emitted", "finished", "error_occurred"]:
+    for worker_class in [
+        TrainingWorker,
+        EvaluationWorker,
+        TuningWorker,
+        EmbeddingWorker,
+    ]:
+        for signal_name in [
+            "progress_updated",
+            "log_emitted",
+            "finished",
+            "error_occurred",
+        ]:
             assert hasattr(worker_class, signal_name)
 
 
@@ -24,7 +34,14 @@ def test_training_worker_does_not_touch_ui_directly() -> None:
     from gui.workers.training_worker import TrainingWorker
 
     source = inspect.getsource(TrainingWorker.run)
-    for token in ["QWidget", "QLabel", "QProgressBar", "QLineEdit", "setText", "setValue"]:
+    for token in [
+        "QWidget",
+        "QLabel",
+        "QProgressBar",
+        "QLineEdit",
+        "setText",
+        "setValue",
+    ]:
         assert token not in source
 
 
@@ -41,9 +58,23 @@ def test_main_window_has_six_tabs(qtbot) -> None:
 def test_all_tabs_implement_interface(qtbot) -> None:
     """All tab widgets expose refresh and completion hooks."""
 
-    from gui.tabs import DataTab, EmbeddingTab, EvaluationTab, OptunaTab, SettingsTab, TrainingTab
+    from gui.tabs import (
+        DataTab,
+        EmbeddingTab,
+        EvaluationTab,
+        OptunaTab,
+        SettingsTab,
+        TrainingTab,
+    )
 
-    for tab_class in [DataTab, TrainingTab, EvaluationTab, SettingsTab, OptunaTab, EmbeddingTab]:
+    for tab_class in [
+        DataTab,
+        TrainingTab,
+        EvaluationTab,
+        SettingsTab,
+        OptunaTab,
+        EmbeddingTab,
+    ]:
         tab = tab_class()
         qtbot.addWidget(tab)
         assert hasattr(tab, "refresh")

@@ -66,6 +66,7 @@ class TuningWorker(BaseWorker):
             best_value: float = 0.0
             try:
                 from src.utils.optuna_utils import load_best_params
+
                 output_dir = Path("outputs/optuna")
                 best_params = load_best_params(channel=ch_lower, output_dir=output_dir)
                 best_value = float(best_params.pop("_best_value", 0.0))
@@ -73,12 +74,15 @@ class TuningWorker(BaseWorker):
                 self.log_emitted.emit(f"[WARN] best params 로드 실패: {e}")
 
             self.emit_progress(100, f"[{self.channel}] HPO 완료")
-            self.finished.emit({
-                "best_params": best_params,
-                "best_value":  best_value,
-                "channel":     self.channel,
-            })
+            self.finished.emit(
+                {
+                    "best_params": best_params,
+                    "best_value": best_value,
+                    "channel": self.channel,
+                }
+            )
 
         except Exception as exc:
             import traceback
+
             self.error_occurred.emit(f"{exc}\n{traceback.format_exc()}")

@@ -34,6 +34,7 @@ class TrainingWorker(BaseWorker):
     def run(self) -> None:
         try:
             import torch
+
             device = self._resolve_device()
             self.emit_progress(0, f"[{self.channel}] Phase {self.phase} 학습 시작")
 
@@ -41,32 +42,39 @@ class TrainingWorker(BaseWorker):
                 self.log_emitted.emit("Training cancelled before start")
                 return
 
-            result = self._run_phase0(device) if self.phase == 0 else self._run_phase2(device)
+            result = (
+                self._run_phase0(device)
+                if self.phase == 0
+                else self._run_phase2(device)
+            )
             self.emit_progress(100, f"[{self.channel}] 학습 완료")
             self.finished.emit(result)
 
         except Exception as exc:
             import traceback
+
             self.error_occurred.emit(f"{exc}\n{traceback.format_exc()}")
 
     def _resolve_device(self):
         import torch
+
         d = self.cfg.get("system", {}).get("device", "cpu")
         if d == "auto":
             return torch.device(
-                "cuda" if torch.cuda.is_available()
-                else "mps" if torch.backends.mps.is_available()
-                else "cpu"
+                "cuda"
+                if torch.cuda.is_available()
+                else "mps" if torch.backends.mps.is_available() else "cpu"
             )
         return torch.device(d)
 
     def _run_phase0(self, device) -> dict[str, Any]:
         from src.scripts.run_phase0 import run_phase0
+
         self.emit_progress(10, f"[{self.channel}] Phase 0 SimCLR 시작")
         # run_phase0 시그니처: (cfg, channel, device, optuna_trial=None)
         result = run_phase0(cfg=self.cfg, channel=self.channel, device=device)
         return {
-            "val_acc":    float(result.get("final_loss", 0.0)),   # Phase 0은 loss
+            "val_acc": float(result.get("final_loss", 0.0)),  # Phase 0은 loss
             "checkpoint": str(result.get("backbone_path", "")),
             "phase": 0,
             "channel": self.channel,
@@ -75,9 +83,10 @@ class TrainingWorker(BaseWorker):
 
     def _run_phase2(self, device) -> dict[str, Any]:
         from src.scripts.run_phase2 import run_phase2
-        storage   = self.cfg.get("storage", {})
+
+        storage = self.cfg.get("storage", {})
         phase0_dir = Path(storage.get("models_dir", "data_set/models"))
-        ckpt_dir   = Path("outputs/checkpoints")
+        ckpt_dir = Path("outputs/checkpoints")
         self.emit_progress(10, f"[{self.channel}] Phase 2 Supervised 시작")
         result = run_phase2(
             cfg=self.cfg,
@@ -87,9 +96,9 @@ class TrainingWorker(BaseWorker):
             ckpt_dir=ckpt_dir,
         )
         return {
-            "val_acc":    float(result.get("best_val_acc", 0.0)),
-            "test_acc":   float(result.get("test_acc", 0.0)),
-            "mae":        float(result.get("mae", 0.0)),
+            "val_acc": float(result.get("best_val_acc", 0.0)),
+            "test_acc": float(result.get("test_acc", 0.0)),
+            "mae": float(result.get("mae", 0.0)),
             "checkpoint": str(result.get("checkpoint_path", "")),
             "phase": 2,
             "channel": self.channel,

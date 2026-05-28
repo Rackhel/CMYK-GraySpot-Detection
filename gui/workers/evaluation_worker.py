@@ -64,30 +64,36 @@ class EvaluationWorker(BaseWorker):
                 output_dir=reports_dir,
             )
 
-            self.emit_progress(100, f"[{self.channel}] 평가 완료 / Evaluation finished → {report_path}")
+            self.emit_progress(
+                100, f"[{self.channel}] 평가 완료 / Evaluation finished → {report_path}"
+            )
 
             # JSON 리포트에서 메트릭 읽기 / Read metrics from JSON report
             accuracy = macro_f1 = mae = 0.0
             n_samples = 0
             try:
                 import json
+
                 data = json.loads(Path(report_path).read_text(encoding="utf-8"))
-                accuracy  = float(data.get("accuracy", 0.0))
-                macro_f1  = float(data.get("macro_f1", 0.0))
-                mae       = float(data.get("mae", 0.0))
+                accuracy = float(data.get("accuracy", 0.0))
+                macro_f1 = float(data.get("macro_f1", 0.0))
+                mae = float(data.get("mae", 0.0))
                 n_samples = int(data.get("n_samples", 0))
             except Exception:
                 pass
 
-            self.finished.emit({
-                "accuracy":    accuracy,
-                "macro_f1":    macro_f1,
-                "mae":         mae,
-                "n_samples":   n_samples,
-                "report_path": str(report_path),
-                "channel":     self.channel,
-            })
+            self.finished.emit(
+                {
+                    "accuracy": accuracy,
+                    "macro_f1": macro_f1,
+                    "mae": mae,
+                    "n_samples": n_samples,
+                    "report_path": str(report_path),
+                    "channel": self.channel,
+                }
+            )
 
         except Exception as exc:
             import traceback
+
             self.error_occurred.emit(f"{exc}\n{traceback.format_exc()}")

@@ -31,9 +31,9 @@ from gui.components.image_viewer import ImageViewer
 from gui.components.log_panel import LogPanel
 from gui.tabs.base_tab import BaseTab
 
-_ROOT       = Path(__file__).resolve().parents[2]
+_ROOT = Path(__file__).resolve().parents[2]
 _SRC_CONFIG = _ROOT / "src" / "config" / "config.json"
-_IMG_EXTS   = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
+_IMG_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
 
 
 class DataTab(BaseTab):
@@ -52,7 +52,7 @@ class DataTab(BaseTab):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.cellClicked.connect(self._on_cell_clicked)
 
-        scan_btn   = QPushButton("🔍  데이터셋 스캔 / Scan Dataset")
+        scan_btn = QPushButton("🔍  데이터셋 스캔 / Scan Dataset")
         browse_btn = QPushButton("📂  이미지 선택… / Browse Image…")
         scan_btn.clicked.connect(self.refresh)
         browse_btn.clicked.connect(self._browse_image)
@@ -103,8 +103,10 @@ class DataTab(BaseTab):
 
     def refresh(self) -> None:
         """채널×레벨 샘플 수 재스캔."""
-        channels   = self.cfg.get("data", {}).get("channels", ["Y", "M", "C", "K"])
-        data_root  = Path(self.cfg.get("storage", {}).get("labeled_dir", "data_set/labeled"))
+        channels = self.cfg.get("data", {}).get("channels", ["Y", "M", "C", "K"])
+        data_root = Path(
+            self.cfg.get("storage", {}).get("labeled_dir", "data_set/labeled")
+        )
         num_levels = self._num_levels
 
         self.table.setRowCount(len(channels))
@@ -115,7 +117,8 @@ class DataTab(BaseTab):
                 folder = data_root / channel / str(level)
                 count = (
                     len([p for p in folder.glob("*") if p.suffix.lower() in _IMG_EXTS])
-                    if folder.exists() else 0
+                    if folder.exists()
+                    else 0
                 )
                 total += count
                 item = QTableWidgetItem(str(count))
@@ -161,9 +164,9 @@ class DataTab(BaseTab):
 
         # normalization mean / std (comma-separated)
         mean_vals = norm.get("mean", [0.485, 0.456, 0.406])
-        std_vals  = norm.get("std",  [0.229, 0.224, 0.225])
+        std_vals = norm.get("std", [0.229, 0.224, 0.225])
         self._mean_edit = QLineEdit(", ".join(f"{v:.3f}" for v in mean_vals))
-        self._std_edit  = QLineEdit(", ".join(f"{v:.3f}" for v in std_vals))
+        self._std_edit = QLineEdit(", ".join(f"{v:.3f}" for v in std_vals))
         self._mean_edit.setMaximumWidth(200)
         self._std_edit.setMaximumWidth(200)
         self._mean_edit.setPlaceholderText("e.g. 0.485, 0.456, 0.406")
@@ -171,12 +174,12 @@ class DataTab(BaseTab):
 
         # split ratios
         self._train_split = QDoubleSpinBox()
-        self._val_split   = QDoubleSpinBox()
-        self._test_split  = QDoubleSpinBox()
+        self._val_split = QDoubleSpinBox()
+        self._test_split = QDoubleSpinBox()
         for sb, key, default in [
             (self._train_split, "train", 0.7),
-            (self._val_split,   "val",   0.15),
-            (self._test_split,  "test",  0.15),
+            (self._val_split, "val", 0.15),
+            (self._test_split, "test", 0.15),
         ]:
             sb.setRange(0.01, 0.98)
             sb.setSingleStep(0.05)
@@ -220,12 +223,14 @@ class DataTab(BaseTab):
     def _on_cell_clicked(self, row: int, col: int) -> None:
         if col == 0 or col > self._num_levels:
             return
-        channels  = self.cfg.get("data", {}).get("channels", ["Y", "M", "C", "K"])
-        data_root = Path(self.cfg.get("storage", {}).get("labeled_dir", "data_set/labeled"))
-        channel   = channels[row] if row < len(channels) else None
+        channels = self.cfg.get("data", {}).get("channels", ["Y", "M", "C", "K"])
+        data_root = Path(
+            self.cfg.get("storage", {}).get("labeled_dir", "data_set/labeled")
+        )
+        channel = channels[row] if row < len(channels) else None
         if channel is None:
             return
-        level  = col - 1
+        level = col - 1
         folder = data_root / channel / str(level)
         images = [p for p in folder.glob("*") if p.suffix.lower() in _IMG_EXTS]
         if images:
@@ -233,7 +238,10 @@ class DataTab(BaseTab):
 
     def _browse_image(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Image", "data_set/labeled", "Images (*.png *.jpg *.jpeg *.bmp)"
+            self,
+            "Select Image",
+            "data_set/labeled",
+            "Images (*.png *.jpg *.jpeg *.bmp)",
         )
         if path:
             self.image_viewer.load_image(path)
@@ -246,21 +254,27 @@ class DataTab(BaseTab):
     def _save_preprocess(self) -> None:
         try:
             mean = [float(x.strip()) for x in self._mean_edit.text().split(",")]
-            std  = [float(x.strip()) for x in self._std_edit.text().split(",")]
+            std = [float(x.strip()) for x in self._std_edit.text().split(",")]
             assert len(mean) == 3 and len(std) == 3, "mean/std must each have 3 values"
 
             src_cfg: dict = json.loads(_SRC_CONFIG.read_text(encoding="utf-8"))
-            src_cfg.setdefault("data", {}).update({
-                "image_size":    self._img_size.value(),
-                "split_ratios":  {
-                    "train": round(self._train_split.value(), 2),
-                    "val":   round(self._val_split.value(), 2),
-                    "test":  round(self._test_split.value(), 2),
-                },
-                "normalization": {"mean": mean, "std": std},
-            })
-            src_cfg.setdefault("storage", {})["labeled_dir"] = self._labeled_dir_edit.text()
-            _SRC_CONFIG.write_text(json.dumps(src_cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+            src_cfg.setdefault("data", {}).update(
+                {
+                    "image_size": self._img_size.value(),
+                    "split_ratios": {
+                        "train": round(self._train_split.value(), 2),
+                        "val": round(self._val_split.value(), 2),
+                        "test": round(self._test_split.value(), 2),
+                    },
+                    "normalization": {"mean": mean, "std": std},
+                }
+            )
+            src_cfg.setdefault("storage", {})[
+                "labeled_dir"
+            ] = self._labeled_dir_edit.text()
+            _SRC_CONFIG.write_text(
+                json.dumps(src_cfg, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
             self.cfg.update(src_cfg)
             self._log.append("✅ 전처리 파라미터 저장 완료 → src/config/config.json")
             self.refresh()

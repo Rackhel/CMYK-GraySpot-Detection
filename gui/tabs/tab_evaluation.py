@@ -28,8 +28,8 @@ from gui.components.plotly_widget import PlotlyWidget
 from gui.components.progress_panel import ProgressPanel
 from gui.services.evaluation_service import EvaluationService
 from gui.tabs.base_tab import BaseTab
-from gui.workers.evaluation_worker import EvaluationWorker
 from gui.workers._ckpt_utils import auto_find_checkpoint
+from gui.workers.evaluation_worker import EvaluationWorker
 
 _CHANNELS = ["Y", "M", "C", "K"]
 
@@ -41,7 +41,7 @@ class EvaluationTab(BaseTab):
         super().__init__(cfg)
         self.service = EvaluationService()
         self.eval_worker: EvaluationWorker | None = None
-        self._results: dict[str, dict] = {}   # channel → metrics dict
+        self._results: dict[str, dict] = {}  # channel → metrics dict
 
         # ── 상단 컨트롤 / Top controls ────────────────────────────────────
         ctrl_group = QGroupBox("평가 실행 / Run Evaluation")
@@ -51,7 +51,7 @@ class EvaluationTab(BaseTab):
         self.channel_box.addItems(["Y", "M", "C", "K", "전체 (All)"])
         self.channel_box.setMaximumWidth(180)
 
-        self._run_btn  = QPushButton("▶  평가 실행 / Run Evaluation")
+        self._run_btn = QPushButton("▶  평가 실행 / Run Evaluation")
         self._stop_btn = QPushButton("■  중지 / Stop")
         self._run_btn.clicked.connect(self.start_evaluation)
         self._stop_btn.clicked.connect(self.stop_evaluation)
@@ -67,17 +67,19 @@ class EvaluationTab(BaseTab):
 
         # ── 메트릭 카드 / Metric cards ────────────────────────────────────
         card_row = QHBoxLayout()
-        self.acc_card  = MetricCard("Accuracy", "—")
-        self.f1_card   = MetricCard("Macro F1",  "—")
-        self.mae_card  = MetricCard("MAE",       "—")
-        self.n_card    = MetricCard("Samples",   "—")
+        self.acc_card = MetricCard("Accuracy", "—")
+        self.f1_card = MetricCard("Macro F1", "—")
+        self.mae_card = MetricCard("MAE", "—")
+        self.n_card = MetricCard("Samples", "—")
         for c in (self.acc_card, self.f1_card, self.mae_card, self.n_card):
             card_row.addWidget(c)
         card_row.addStretch()
 
         # ── 채널별 비교 테이블 / Per-channel comparison table ─────────────
         self._ch_table = QTableWidget(len(_CHANNELS), 4)
-        self._ch_table.setHorizontalHeaderLabels(["Channel", "Accuracy", "Macro F1", "MAE"])
+        self._ch_table.setHorizontalHeaderLabels(
+            ["Channel", "Accuracy", "Macro F1", "MAE"]
+        )
         self._ch_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._ch_table.setMaximumHeight(160)
         for r, ch in enumerate(_CHANNELS):
@@ -94,7 +96,7 @@ class EvaluationTab(BaseTab):
 
         # ── 진행 / Progress ───────────────────────────────────────────────
         self.progress = ProgressPanel()
-        self.log      = LogPanel()
+        self.log = LogPanel()
         self.log.setMaximumHeight(70)
 
         # ── 스크롤 레이아웃 / Scroll layout ───────────────────────────────
@@ -158,7 +160,7 @@ class EvaluationTab(BaseTab):
                 self._show_overall_avg()
             return
 
-        ch   = self._pending.pop(0)
+        ch = self._pending.pop(0)
         ckpt = auto_find_checkpoint(self.cfg, ch)
         self.eval_worker = self.service.start_evaluation(self.cfg, ch, ckpt)
         self.eval_worker.progress_updated.connect(self.progress.set_progress)
@@ -200,12 +202,21 @@ class EvaluationTab(BaseTab):
             self._ch_table.setItem(row, col, item)
 
     def _show_overall_avg(self) -> None:
-        accs  = [v.get("accuracy", 0) for v in self._results.values()]
-        f1s   = [v.get("macro_f1",  0) for v in self._results.values()]
-        maes  = [v.get("mae",       0) for v in self._results.values()]
-        n     = len(accs)
-        avg   = {"accuracy": sum(accs)/n, "macro_f1": sum(f1s)/n, "mae": sum(maes)/n}
+        accs = [v.get("accuracy", 0) for v in self._results.values()]
+        f1s = [v.get("macro_f1", 0) for v in self._results.values()]
+        maes = [v.get("mae", 0) for v in self._results.values()]
+        n = len(accs)
+        avg = {
+            "accuracy": sum(accs) / n,
+            "macro_f1": sum(f1s) / n,
+            "mae": sum(maes) / n,
+        }
         self.log.append(
             f"📊 전체 평균 — Acc: {avg['accuracy']:.3f}  F1: {avg['macro_f1']:.3f}  MAE: {avg['mae']:.3f}"
         )
-        self._update_cards({**avg, "n_samples": sum(v.get("n_samples", 0) for v in self._results.values())})
+        self._update_cards(
+            {
+                **avg,
+                "n_samples": sum(v.get("n_samples", 0) for v in self._results.values()),
+            }
+        )

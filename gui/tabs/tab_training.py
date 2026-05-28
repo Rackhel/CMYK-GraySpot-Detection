@@ -33,7 +33,7 @@ from gui.services.training_service import TrainingService
 from gui.tabs.base_tab import BaseTab
 from gui.workers.training_worker import TrainingWorker
 
-_ROOT       = Path(__file__).resolve().parents[2]
+_ROOT = Path(__file__).resolve().parents[2]
 _SRC_CONFIG = _ROOT / "src" / "config" / "config.json"
 _FIELD_W = 180
 
@@ -67,17 +67,17 @@ class TrainingTab(BaseTab):
         right_v.addWidget(self._build_run_group())
 
         card_row = QHBoxLayout()
-        self.val_acc_card  = MetricCard("Best Val Acc", "—")
+        self.val_acc_card = MetricCard("Best Val Acc", "—")
         self.test_acc_card = MetricCard("Test Acc", "—")
-        self.mae_card      = MetricCard("MAE", "—")
+        self.mae_card = MetricCard("MAE", "—")
         for c in (self.val_acc_card, self.test_acc_card, self.mae_card):
             card_row.addWidget(c)
         card_row.addStretch()
         right_v.addLayout(card_row)
 
-        self.chart    = TrainingChart()
+        self.chart = TrainingChart()
         self.progress = ProgressPanel()
-        self.log      = LogPanel()
+        self.log = LogPanel()
         self.log.setMaximumHeight(80)
 
         right_v.addWidget(QLabel("<b>학습 곡선 / Learning Curves</b>"))
@@ -99,7 +99,7 @@ class TrainingTab(BaseTab):
     # ── BaseTab interface ──────────────────────────────────────────────────────
 
     def refresh(self) -> None:
-        m  = self.cfg.get("model", {})
+        m = self.cfg.get("model", {})
         p2 = self.cfg.get("phase2", {})
         p0 = self.cfg.get("phase0", {})
 
@@ -125,7 +125,9 @@ class TrainingTab(BaseTab):
         if phase == 0:
             self.val_acc_card.set_value(f"loss {result.get('val_acc', 0):.4f}")
         else:
-            self.val_acc_card.set_value(f"{result.get('best_val_acc', result.get('val_acc', 0)):.3f}")
+            self.val_acc_card.set_value(
+                f"{result.get('best_val_acc', result.get('val_acc', 0)):.3f}"
+            )
             self.test_acc_card.set_value(f"{result.get('test_acc', 0):.3f}")
             self.mae_card.set_value(f"{result.get('mae', 0):.3f}")
         self.chart.load_history_from_result(result)
@@ -141,10 +143,12 @@ class TrainingTab(BaseTab):
             self.progress.append_log("⚠️  이미 실행 중입니다.")
             return
         self._apply_cfg()
-        phase   = int(self._phase_box.currentData())
+        phase = int(self._phase_box.currentData())
         channel = self._channel_box.currentText()
         self.chart.reset()
-        self.worker = self.service.start_training(self.cfg, phase=phase, channel=channel)
+        self.worker = self.service.start_training(
+            self.cfg, phase=phase, channel=channel
+        )
         self.worker.progress_updated.connect(self.progress.set_progress)
         self.worker.log_emitted.connect(self._on_log)
         self.worker.finished.connect(self.on_worker_finished)
@@ -164,7 +168,9 @@ class TrainingTab(BaseTab):
             src_cfg: dict = json.loads(_SRC_CONFIG.read_text(encoding="utf-8"))
             for key in ("model", "phase2", "phase0", "data"):
                 src_cfg[key] = self.cfg.get(key, src_cfg.get(key, {}))
-            _SRC_CONFIG.write_text(json.dumps(src_cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+            _SRC_CONFIG.write_text(
+                json.dumps(src_cfg, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
             self.log.append("✅ 설정 저장 → src/config/config.json")
         except Exception as exc:
             self.log.append(f"❌ {exc}")
@@ -177,11 +183,15 @@ class TrainingTab(BaseTab):
 
         self._backbone = QComboBox()
         self._backbone.addItems(["efficientnet_b0", "resnet50"])
-        self._backbone.setCurrentText(self.cfg.get("model", {}).get("backbone", "efficientnet_b0"))
+        self._backbone.setCurrentText(
+            self.cfg.get("model", {}).get("backbone", "efficientnet_b0")
+        )
         self._backbone.setMaximumWidth(_FIELD_W)
 
         self._frozen = QCheckBox("Frozen (백본 가중치 고정)")
-        self._frozen.setChecked(bool(self.cfg.get("model", {}).get("frozen_backbone", False)))
+        self._frozen.setChecked(
+            bool(self.cfg.get("model", {}).get("frozen_backbone", False))
+        )
 
         save_btn = QPushButton("💾  설정 저장")
         save_btn.setMaximumWidth(140)
@@ -224,51 +234,73 @@ class TrainingTab(BaseTab):
         f2 = self._form(p2_box)
         p2 = self.cfg.get("phase2", {})
 
-        self._p2_epochs = QSpinBox();  self._p2_epochs.setRange(1, 500)
-        self._p2_epochs.setValue(int(p2.get("epochs", 30)));  self._p2_epochs.setMaximumWidth(100)
+        self._p2_epochs = QSpinBox()
+        self._p2_epochs.setRange(1, 500)
+        self._p2_epochs.setValue(int(p2.get("epochs", 30)))
+        self._p2_epochs.setMaximumWidth(100)
 
-        self._p2_lr = QDoubleSpinBox(); self._p2_lr.setRange(1e-6, 1.0)
-        self._p2_lr.setDecimals(6);     self._p2_lr.setSingleStep(1e-4)
-        self._p2_lr.setValue(float(p2.get("learning_rate", 1e-4))); self._p2_lr.setMaximumWidth(130)
+        self._p2_lr = QDoubleSpinBox()
+        self._p2_lr.setRange(1e-6, 1.0)
+        self._p2_lr.setDecimals(6)
+        self._p2_lr.setSingleStep(1e-4)
+        self._p2_lr.setValue(float(p2.get("learning_rate", 1e-4)))
+        self._p2_lr.setMaximumWidth(130)
 
-        self._p2_bs = QSpinBox();  self._p2_bs.setRange(1, 512)
-        self._p2_bs.setValue(int(p2.get("batch_size", 32))); self._p2_bs.setMaximumWidth(100)
+        self._p2_bs = QSpinBox()
+        self._p2_bs.setRange(1, 512)
+        self._p2_bs.setValue(int(p2.get("batch_size", 32)))
+        self._p2_bs.setMaximumWidth(100)
 
-        self._p2_wd = QDoubleSpinBox(); self._p2_wd.setRange(0, 1)
-        self._p2_wd.setDecimals(6);     self._p2_wd.setSingleStep(1e-5)
-        self._p2_wd.setValue(float(p2.get("weight_decay", 1e-4))); self._p2_wd.setMaximumWidth(130)
+        self._p2_wd = QDoubleSpinBox()
+        self._p2_wd.setRange(0, 1)
+        self._p2_wd.setDecimals(6)
+        self._p2_wd.setSingleStep(1e-5)
+        self._p2_wd.setValue(float(p2.get("weight_decay", 1e-4)))
+        self._p2_wd.setMaximumWidth(130)
 
-        f2.addRow("Epochs",        self._p2_epochs)
+        f2.addRow("Epochs", self._p2_epochs)
         f2.addRow("Learning Rate", self._p2_lr)
-        f2.addRow("Batch Size",    self._p2_bs)
-        f2.addRow("Weight Decay",  self._p2_wd)
+        f2.addRow("Batch Size", self._p2_bs)
+        f2.addRow("Weight Decay", self._p2_wd)
 
         # Phase 0 — SimCLR
         p0_box = QGroupBox("Phase 0 — SimCLR Contrastive")
         f0 = self._form(p0_box)
         p0 = self.cfg.get("phase0", {})
 
-        self._p0_epochs = QSpinBox(); self._p0_epochs.setRange(1, 500)
-        self._p0_epochs.setValue(int(p0.get("epochs", 10))); self._p0_epochs.setMaximumWidth(100)
+        self._p0_epochs = QSpinBox()
+        self._p0_epochs.setRange(1, 500)
+        self._p0_epochs.setValue(int(p0.get("epochs", 10)))
+        self._p0_epochs.setMaximumWidth(100)
 
-        self._p0_lr = QDoubleSpinBox(); self._p0_lr.setRange(1e-6, 1.0)
-        self._p0_lr.setDecimals(6);     self._p0_lr.setSingleStep(1e-4)
-        self._p0_lr.setValue(float(p0.get("learning_rate", 1e-3))); self._p0_lr.setMaximumWidth(130)
+        self._p0_lr = QDoubleSpinBox()
+        self._p0_lr.setRange(1e-6, 1.0)
+        self._p0_lr.setDecimals(6)
+        self._p0_lr.setSingleStep(1e-4)
+        self._p0_lr.setValue(float(p0.get("learning_rate", 1e-3)))
+        self._p0_lr.setMaximumWidth(130)
 
-        self._p0_bs = QSpinBox(); self._p0_bs.setRange(1, 512)
-        self._p0_bs.setValue(int(p0.get("batch_size", 16))); self._p0_bs.setMaximumWidth(100)
+        self._p0_bs = QSpinBox()
+        self._p0_bs.setRange(1, 512)
+        self._p0_bs.setValue(int(p0.get("batch_size", 16)))
+        self._p0_bs.setMaximumWidth(100)
 
-        self._p0_temp = QDoubleSpinBox(); self._p0_temp.setRange(0.01, 1.0)
-        self._p0_temp.setDecimals(3);     self._p0_temp.setSingleStep(0.01)
-        self._p0_temp.setValue(float(p0.get("temperature", 0.1))); self._p0_temp.setMaximumWidth(100)
+        self._p0_temp = QDoubleSpinBox()
+        self._p0_temp.setRange(0.01, 1.0)
+        self._p0_temp.setDecimals(3)
+        self._p0_temp.setSingleStep(0.01)
+        self._p0_temp.setValue(float(p0.get("temperature", 0.1)))
+        self._p0_temp.setMaximumWidth(100)
 
-        self._p0_proj = QSpinBox(); self._p0_proj.setRange(32, 1024)
-        self._p0_proj.setValue(int(p0.get("projection_dim", 128))); self._p0_proj.setMaximumWidth(100)
+        self._p0_proj = QSpinBox()
+        self._p0_proj.setRange(32, 1024)
+        self._p0_proj.setValue(int(p0.get("projection_dim", 128)))
+        self._p0_proj.setMaximumWidth(100)
 
-        f0.addRow("Epochs",         self._p0_epochs)
-        f0.addRow("Learning Rate",  self._p0_lr)
-        f0.addRow("Batch Size",     self._p0_bs)
-        f0.addRow("Temperature",    self._p0_temp)
+        f0.addRow("Epochs", self._p0_epochs)
+        f0.addRow("Learning Rate", self._p0_lr)
+        f0.addRow("Batch Size", self._p0_bs)
+        f0.addRow("Temperature", self._p0_temp)
         f0.addRow("Projection Dim", self._p0_proj)
 
         outer.addWidget(p2_box)
@@ -281,7 +313,7 @@ class TrainingTab(BaseTab):
 
         self._phase_box = QComboBox()
         self._phase_box.addItem("Phase 2 — Supervised", 2)
-        self._phase_box.addItem("Phase 0 — SimCLR",     0)
+        self._phase_box.addItem("Phase 0 — SimCLR", 0)
         self._phase_box.setMaximumWidth(200)
 
         self._channel_box = QComboBox()
@@ -289,14 +321,16 @@ class TrainingTab(BaseTab):
         self._channel_box.setMaximumWidth(80)
 
         self._start_btn = QPushButton("▶  학습 시작 / Start Training")
-        self._stop_btn  = QPushButton("■  중지 / Stop")
+        self._stop_btn = QPushButton("■  중지 / Stop")
         self._start_btn.clicked.connect(self.start_training)
         self._stop_btn.clicked.connect(self.stop_training)
         self._stop_btn.setEnabled(False)
 
         row = QHBoxLayout()
-        row.addWidget(QLabel("Phase"));   row.addWidget(self._phase_box)
-        row.addWidget(QLabel("Channel")); row.addWidget(self._channel_box)
+        row.addWidget(QLabel("Phase"))
+        row.addWidget(self._phase_box)
+        row.addWidget(QLabel("Channel"))
+        row.addWidget(self._channel_box)
         row.addWidget(self._start_btn)
         row.addWidget(self._stop_btn)
         row.addStretch()
@@ -306,25 +340,31 @@ class TrainingTab(BaseTab):
     # ── Private — helpers ─────────────────────────────────────────────────────
 
     def _apply_cfg(self) -> None:
-        self.cfg.setdefault("model", {}).update({
-            "backbone":        self._backbone.currentText(),
-            "frozen_backbone": self._frozen.isChecked(),
-        })
+        self.cfg.setdefault("model", {}).update(
+            {
+                "backbone": self._backbone.currentText(),
+                "frozen_backbone": self._frozen.isChecked(),
+            }
+        )
         self.cfg.setdefault("data", {})["num_levels"] = self._num_levels.value()
-        self.cfg.setdefault("phase2", {}).update({
-            "epochs":        self._p2_epochs.value(),
-            "learning_rate": self._p2_lr.value(),
-            "batch_size":    self._p2_bs.value(),
-            "weight_decay":  self._p2_wd.value(),
-            "dropout":       self._dropout.value(),
-        })
-        self.cfg.setdefault("phase0", {}).update({
-            "epochs":         self._p0_epochs.value(),
-            "learning_rate":  self._p0_lr.value(),
-            "batch_size":     self._p0_bs.value(),
-            "temperature":    self._p0_temp.value(),
-            "projection_dim": self._p0_proj.value(),
-        })
+        self.cfg.setdefault("phase2", {}).update(
+            {
+                "epochs": self._p2_epochs.value(),
+                "learning_rate": self._p2_lr.value(),
+                "batch_size": self._p2_bs.value(),
+                "weight_decay": self._p2_wd.value(),
+                "dropout": self._dropout.value(),
+            }
+        )
+        self.cfg.setdefault("phase0", {}).update(
+            {
+                "epochs": self._p0_epochs.value(),
+                "learning_rate": self._p0_lr.value(),
+                "batch_size": self._p0_bs.value(),
+                "temperature": self._p0_temp.value(),
+                "projection_dim": self._p0_proj.value(),
+            }
+        )
 
     def _set_running(self, running: bool) -> None:
         self._start_btn.setEnabled(not running)

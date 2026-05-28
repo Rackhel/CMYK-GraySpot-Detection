@@ -9,7 +9,15 @@ from typing import Any
 from PyQt6.QtWidgets import QApplication, QMainWindow, QStatusBar, QTabWidget
 
 from gui.i18n import set_lang, t
-from gui.tabs import DataTab, EmbeddingTab, EvaluationTab, InferenceTab, OptunaTab, SettingsTab, TrainingTab
+from gui.tabs import (
+    DataTab,
+    EmbeddingTab,
+    EvaluationTab,
+    InferenceTab,
+    OptunaTab,
+    SettingsTab,
+    TrainingTab,
+)
 
 _ROOT = Path(__file__).resolve().parents[1]
 for _p in (str(_ROOT), str(_ROOT / "src")):
@@ -23,14 +31,15 @@ _STYLES = Path(__file__).resolve().parent / "styles"
 def _load_cfg() -> dict[str, Any]:
     try:
         from src.utils.utils_config import load_config
+
         return load_config()
     except Exception:
         return {
-            "data":    {"channels": ["Y", "M", "C", "K"], "num_levels": 6},
+            "data": {"channels": ["Y", "M", "C", "K"], "num_levels": 6},
             "storage": {
                 "labeled_dir": "data_set/labeled",
-                "data_root":   "data_set",
-                "models_dir":  "data_set/models",
+                "data_root": "data_set",
+                "models_dir": "data_set/models",
                 "reports_dir": "outputs/reports",
             },
             "phase2": {"epochs": 50},
@@ -71,24 +80,24 @@ class MainWindow(QMainWindow):
     def _add_tabs(self) -> None:
         self.settings_tab = SettingsTab(self.cfg)
 
-        self.data_tab       = DataTab(self.cfg)
-        self.training_tab   = TrainingTab(self.cfg)
+        self.data_tab = DataTab(self.cfg)
+        self.training_tab = TrainingTab(self.cfg)
         self.evaluation_tab = EvaluationTab(self.cfg, settings_tab=self.settings_tab)
-        self.optuna_tab     = OptunaTab(self.cfg)
-        self.embedding_tab  = EmbeddingTab(
+        self.optuna_tab = OptunaTab(self.cfg)
+        self.embedding_tab = EmbeddingTab(
             self.cfg,
             labels_dir=Path(self.cfg.get("storage", {}).get("data_root", "data_set")),
             settings_tab=self.settings_tab,
         )
-        self.inference_tab  = InferenceTab(self.cfg)
+        self.inference_tab = InferenceTab(self.cfg)
 
-        self.tab_widget.addTab(self.data_tab,       t("tab_data"))
-        self.tab_widget.addTab(self.training_tab,   t("tab_training"))
+        self.tab_widget.addTab(self.data_tab, t("tab_data"))
+        self.tab_widget.addTab(self.training_tab, t("tab_training"))
         self.tab_widget.addTab(self.evaluation_tab, t("tab_evaluation"))
-        self.tab_widget.addTab(self.settings_tab,   t("tab_settings"))
-        self.tab_widget.addTab(self.optuna_tab,     t("tab_optuna"))
-        self.tab_widget.addTab(self.embedding_tab,  t("tab_embedding"))
-        self.tab_widget.addTab(self.inference_tab,  t("tab_inference"))
+        self.tab_widget.addTab(self.settings_tab, t("tab_settings"))
+        self.tab_widget.addTab(self.optuna_tab, t("tab_optuna"))
+        self.tab_widget.addTab(self.embedding_tab, t("tab_embedding"))
+        self.tab_widget.addTab(self.inference_tab, t("tab_inference"))
 
     def _connect_appearance_signals(self) -> None:
         """Settings 탭의 테마·언어 콤보에 즉시 적용 슬롯 연결."""
@@ -107,8 +116,10 @@ class MainWindow(QMainWindow):
 
     def _apply_theme(self, name: str) -> None:
         """'dark' | 'light' 테마를 즉시 적용한다."""
-        from gui.main import _detect_font, _load_qss as _mload_qss
-        qss_file  = "dark_theme.qss" if name == "dark" else "light_theme.qss"
+        from gui.main import _detect_font
+        from gui.main import _load_qss as _mload_qss
+
+        qss_file = "dark_theme.qss" if name == "dark" else "light_theme.qss"
         font_name = _detect_font()
         qss = _mload_qss(qss_file, font=font_name)
         if qss:
@@ -130,8 +141,12 @@ class MainWindow(QMainWindow):
 
     def _retranslate_tab_labels(self) -> None:
         keys = [
-            "tab_data", "tab_training", "tab_evaluation",
-            "tab_settings", "tab_optuna", "tab_embedding",
+            "tab_data",
+            "tab_training",
+            "tab_evaluation",
+            "tab_settings",
+            "tab_optuna",
+            "tab_embedding",
             "tab_inference",
         ]
         for i, key in enumerate(keys):
