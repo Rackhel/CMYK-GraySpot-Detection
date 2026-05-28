@@ -1,22 +1,20 @@
 #!/bin/bash
-# Run Grayspot GUI in Docker with Streamlit
+# Run the CMYK PyQt6 GUI in Docker with host display forwarding.
+# This helper is intended for Linux/X11-style environments.
 
 CONTAINER_NAME="grayspot-gui"
-PORT=8501
 
-echo "🚀 Starting Grayspot GUI..."
-echo "   Container: $CONTAINER_NAME"
-echo "   Port: http://localhost:$PORT"
-echo ""
+echo "Starting CMYK PyQt6 GUI..."
+echo "Container: $CONTAINER_NAME"
 
-docker run --rm \
+docker run --rm -it \
   --name "$CONTAINER_NAME" \
-  -p $PORT:8501 \
+  -e DISPLAY="$DISPLAY" \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v "${PWD}/data_set:/app/data_set" \
   -v "${PWD}/outputs:/app/outputs" \
   -v "${PWD}/src/config:/app/src/config" \
   grayspot:latest \
-  streamlit run gui/app.py --server.port=$PORT --server.address=0.0.0.0
+  python -m gui.main
 
-echo ""
-echo "🛑 Container stopped."
+echo "Container stopped."

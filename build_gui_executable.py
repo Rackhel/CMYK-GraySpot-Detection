@@ -53,7 +53,7 @@ def build_executable():
         f"{root}/src:src",
         "--add-data",
         f"{root}/gui:gui",
-        str(root / "gui/app.py"),
+        str(root / "gui/main.py"),
     ]
 
     print(f"\n📦 Running: {' '.join(cmd)}\n")

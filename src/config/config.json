@@ -1,13 +1,16 @@
 {
   "_comment": "Grayspot Detection System — Configuration / 설정 파일",
   "_project": "CMYK Printer Defect Classification Pipeline",
-
   "system": {
     "device": "auto"
   },
-
   "data": {
-    "channels": ["Y", "M", "C", "K"],
+    "channels": [
+      "Y",
+      "M",
+      "C",
+      "K"
+    ],
     "num_levels": 6,
     "image_size": 128,
     "split_ratios": {
@@ -16,131 +19,137 @@
       "test": 0.15
     },
     "normalization": {
-      "mean": [0.485, 0.456, 0.406],
-      "std":  [0.229, 0.224, 0.225],
+      "mean": [
+        0.485,
+        0.456,
+        0.406
+      ],
+      "std": [
+        0.229,
+        0.224,
+        0.225
+      ],
       "note": "ImageNet stats applied after /255.0 — required for pretrained EfficientNet-B0/ResNet50"
     }
   },
-
   "storage": {
-    "data_root":   "data_set",
+    "data_root": "data_set",
     "labeled_dir": "data_set/labeled",
-    "models_dir":  "data_set/models",
-    "reports_dir": "data_set/reports",
-    "logs_dir":    "outputs/logs"
+    "models_dir": "data_set/models",
+    "reports_dir": "outputs/reports",
+    "logs_dir": "outputs/logs"
   },
-
   "model": {
-    "backbone":        "efficientnet_b0",
+    "backbone": "efficientnet_b0",
     "frozen_backbone": false
   },
-
   "phase0": {
-    "epochs":         10,
-    "batch_size":     16,
-    "learning_rate":  1.0e-3,
-    "weight_decay":   1.0e-5,
-    "warmup_epochs":  2,
-    "temperature":    0.1,
+    "epochs": 10,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "warmup_epochs": 2,
+    "temperature": 0.1,
     "projection_dim": 128,
-    "hidden_dim":     256,
+    "hidden_dim": 256,
     "augmentation": {
-      "color_jitter":       0.4,
-      "blur_prob":          0.5,
-      "flip_prob":          0.5,
-      "crop_prob":          0.5,
-      "crop_scale_min":     0.6,
-      "crop_scale_max":     1.0,
+      "color_jitter": 0.4,
+      "blur_prob": 0.5,
+      "flip_prob": 0.5,
+      "crop_prob": 0.5,
+      "crop_scale_min": 0.6,
+      "crop_scale_max": 1.0,
       "contrast_scale_min": 0.8,
       "contrast_scale_max": 1.2,
-      "blur_kernels":       [3, 5]
+      "blur_kernels": [
+        3,
+        5
+      ]
     }
   },
-
   "phase2": {
-    "epochs":        50,
-    "batch_size":    16,
+    "epochs": 50,
+    "batch_size": 16,
     "warmup_epochs": 3,
-    "learning_rate": 1.0e-4,
-    "weight_decay":  1.0e-4,
-    "dropout":       0.3,
-    "hidden_dim":    256,
-    "oversample":    true,
+    "learning_rate": 0.0001,
+    "weight_decay": 0.0001,
+    "dropout": 0.3,
+    "hidden_dim": 256,
+    "oversample": true,
     "early_stopping": {
-      "enabled":   true,
-      "patience":  10,
-      "min_delta": 1.0e-4
+      "enabled": true,
+      "patience": 10,
+      "min_delta": 0.0001
     },
     "augmentation": {
-      "flip_prob":        0.5,
-      "brightness_prob":  0.5,
+      "flip_prob": 0.5,
+      "brightness_prob": 0.5,
       "brightness_range": 30,
-      "noise_prob":       0.5,
-      "noise_range":      10
+      "noise_prob": 0.5,
+      "noise_range": 10
     },
     "heads": {
       "resnet50": {
         "_comment": "단계적 압축 — 2048 → mid_dim → hidden_dim → 6 / Staged compression",
-        "mid_dim":    512,
+        "mid_dim": 512,
         "hidden_dim": 256,
-        "dropout":    0.4
+        "dropout": 0.4
       },
       "efficientnet_b0": {
         "_comment": "직접 압축 — SE가 이미 채널 선택 완료 / Direct compression — SE already selects channels",
-        "mid_dim":    null,
+        "mid_dim": null,
         "hidden_dim": 256,
-        "dropout":    0.2
+        "dropout": 0.2
       }
     }
   },
-
   "train": {
-    "seed":               42,
-    "num_workers":        0,
-    "pin_memory":         false,
-    "prefetch_factor":    2,
+    "seed": 42,
+    "num_workers": 0,
+    "pin_memory": false,
+    "prefetch_factor": 2,
     "persistent_workers": false,
-    "drop_last":          false,
-    "scheduler":          "cosine",
-    "eta_min":            1.0e-6,
-    "gamma":              0.1,
-    "optimizer":          "adamw",
-    "momentum":           0.9,
-    "betas":              [0.9, 0.999],
-    "gradient_clip":           1.0,
-    "mixed_precision":         false,
+    "drop_last": false,
+    "scheduler": "cosine",
+    "eta_min": 1e-06,
+    "gamma": 0.1,
+    "optimizer": "adamw",
+    "momentum": 0.9,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "gradient_clip": 1.0,
+    "mixed_precision": false,
     "grad_accumulation_steps": 1
   },
-
   "evaluation": {
     "targets": {
-      "overall_accuracy":   0.90,
+      "overall_accuracy": 0.9,
       "per_color_accuracy": 0.85,
-      "per_class_f1":       0.80,
-      "mae":                0.50
+      "per_class_f1": 0.8,
+      "mae": 0.5
     },
     "swing_thresholds": {
-      "acc_retry": 0.80,
-      "f1_retry":  0.70,
-      "mae_retry": 0.80
+      "acc_retry": 0.8,
+      "f1_retry": 0.7,
+      "mae_retry": 0.8
     }
   },
-
   "logging": {
-    "level":          "INFO",
-    "format":         "detailed",
+    "level": "INFO",
+    "format": "detailed",
     "console_output": true,
-    "file_output":    true
+    "file_output": true
   },
-
   "reporting": {
     "enabled": true,
-    "format":  "html",
+    "format": "html",
     "html": {
-      "output_file":         "baseline.html",
-      "open_browser":        false,
+      "output_file": "baseline.html",
+      "open_browser": false,
       "include_interactive": true,
-      "plotly_cdn":          "https://cdn.plot.ly/plotly-2.35.2.min.js"
+      "plotly_cdn": "https://cdn.plot.ly/plotly-2.35.2.min.js"
     },
     "tabs": [
       "summary",
@@ -154,47 +163,45 @@
       "pass": "#2ecc71",
       "fail": "#e74c3c",
       "warn": "#f39c12",
-      "bg":   "#0b1220",
-      "fg":   "#e6eef8"
+      "bg": "#0b1220",
+      "fg": "#e6eef8"
     }
   },
-
   "inference": {
-    "enabled":    true,
+    "enabled": true,
     "batch_size": 32,
-    "device":     "auto",
+    "device": "auto",
     "model_loading": {
       "cache_models": true,
-      "device_map":   "auto",
-      "dtype":        "float32"
+      "device_map": "auto",
+      "dtype": "float32"
     },
     "outputs": {
-      "return_logits":        true,
+      "return_logits": true,
       "return_probabilities": true,
-      "return_confidences":   true
+      "return_confidences": true
     },
     "confidence_thresholds": {
-      "auto_accept":    0.8,
+      "auto_accept": 0.8,
       "warn_threshold": 0.5,
-      "manual_review":  0.3
+      "manual_review": 0.3
     },
     "optimizations": {
       "use_half_precision": false,
-      "use_quantization":   false,
-      "num_workers":        4,
-      "pin_memory":         true
+      "use_quantization": false,
+      "num_workers": 4,
+      "pin_memory": true
     }
   },
-
   "optuna": {
-    "enabled":   true,
-    "n_trials":  50,
-    "n_jobs":         1,
+    "enabled": true,
+    "n_trials": 50,
+    "n_jobs": 1,
     "n_jobs_windows": 4,
     "_n_jobs_note": "플랫폼별 자동 선택: macOS/Linux → n_jobs, Windows → n_jobs_windows. 모두 ThreadPoolExecutor 사용 (fork/spawn 없음). / Platform-auto: macOS/Linux uses n_jobs, Windows uses n_jobs_windows. Both use ThreadPoolExecutor (no fork/spawn).",
-    "sampler":   "tpe",
+    "sampler": "tpe",
     "pruner": {
-      "type":           "median",
+      "type": "median",
       "n_warmup_steps": 10
     },
     "phase2": {
@@ -203,22 +210,64 @@
       "search_space": {
         "resnet50": {
           "_comment": "단계적 압축 head 전용 — regularization 강하게 / Heavy regularization for staged head",
-          "learning_rate": [1.0e-4, 5.0e-4],
-          "weight_decay":  [1.0e-3, 1.0e-2],
-          "dropout":       [0.3, 0.5],
-          "mid_dim":       [256, 512, 1024],
-          "hidden_dim":    [256, 512],
-          "batch_size":    [16, 32, 64],
-          "epochs":        [10, 30]
+          "learning_rate": [
+            0.0001,
+            0.0005
+          ],
+          "weight_decay": [
+            0.001,
+            0.01
+          ],
+          "dropout": [
+            0.3,
+            0.5
+          ],
+          "mid_dim": [
+            256,
+            512,
+            1024
+          ],
+          "hidden_dim": [
+            256,
+            512
+          ],
+          "batch_size": [
+            16,
+            32,
+            64
+          ],
+          "epochs": [
+            10,
+            30
+          ]
         },
         "efficientnet_b0": {
           "_comment": "직접 압축 head 전용 — SE 선별 이후 compact / Post-SE compact head",
-          "learning_rate": [5.0e-5, 3.0e-4],
-          "weight_decay":  [1.0e-4, 1.0e-3],
-          "dropout":       [0.1, 0.3],
-          "hidden_dim":    [128, 256],
-          "batch_size":    [16, 32, 64],
-          "epochs":        [10, 30]
+          "learning_rate": [
+            5e-05,
+            0.0003
+          ],
+          "weight_decay": [
+            0.0001,
+            0.001
+          ],
+          "dropout": [
+            0.1,
+            0.3
+          ],
+          "hidden_dim": [
+            128,
+            256
+          ],
+          "batch_size": [
+            16,
+            32,
+            64
+          ],
+          "epochs": [
+            10,
+            30
+          ]
         }
       }
     },
@@ -226,137 +275,143 @@
       "_comment": "Phase 0 SimCLR Contrastive Learning 하이퍼파라미터 탐색 / Phase 0 contrastive HP search",
       "direction": "minimize",
       "search_space": {
-        "learning_rate": [1.0e-4, 1.0e-2],
-        "weight_decay":  [1.0e-6, 1.0e-4],
-        "batch_size":    [16, 32, 64],
-        "epochs":        [5, 15]
+        "learning_rate": [
+          0.0001,
+          0.01
+        ],
+        "weight_decay": [
+          1e-06,
+          0.0001
+        ],
+        "batch_size": [
+          16,
+          32,
+          64
+        ],
+        "epochs": [
+          5,
+          15
+        ]
       }
     }
   },
-
   "cuda": {
     "deterministic": true,
-    "benchmark":     true
+    "benchmark": true
   },
-
   "misc": {
-    "save_config":        true,
+    "save_config": true,
     "save_code_snapshot": true,
-    "verbose":            true,
-    "random_seed_all":    true
+    "verbose": true,
+    "random_seed_all": true
   },
-
   "key_objects": {
     "_comment": "프로젝트 핵심 객체 목록 / Key objects registry — SSOT reference",
-
     "models": {
       "GrayspotModel": {
-        "module":      "models.grayspot_model",
+        "module": "models.grayspot_model",
         "description": "Phase 0/2 전환 지원 메인 모델 / Main model supporting Phase 0/2 mode switching",
-        "phases":      [0, 2]
+        "phases": [
+          0,
+          2
+        ]
       },
       "ClassifierHead": {
-        "module":      "models.classifier",
+        "module": "models.classifier",
         "description": "Phase 2 Supervised Classification Head",
-        "input_dim":   "auto (backbone feature_dim)",
-        "output_dim":  "num_levels (6)"
+        "input_dim": "auto (backbone feature_dim)",
+        "output_dim": "num_levels (6)"
       },
       "ProjectionHead": {
-        "module":      "models.projection_head",
+        "module": "models.projection_head",
         "description": "Phase 0 Contrastive Learning Projection Head",
-        "input_dim":   "auto (backbone feature_dim)",
-        "output_dim":  "phase0.projection_dim (128)"
+        "input_dim": "auto (backbone feature_dim)",
+        "output_dim": "phase0.projection_dim (128)"
       }
     },
-
     "backbones": {
       "efficientnet_b0": {
-        "module":      "models.backbone",
-        "function":    "build_backbone",
+        "module": "models.backbone",
+        "function": "build_backbone",
         "feature_dim": 1280,
-        "tag":         "effb0"
+        "tag": "effb0"
       },
       "resnet50": {
-        "module":      "models.backbone",
-        "function":    "build_backbone",
+        "module": "models.backbone",
+        "function": "build_backbone",
         "feature_dim": 2048,
-        "tag":         "res50"
+        "tag": "res50"
       }
     },
-
     "datasets": {
       "CMYKDataset": {
-        "module":       "data.dataset",
-        "description":  "Phase 2 Supervised 학습용 폴더 기반 Dataset / Folder-based dataset for Phase 2",
+        "module": "data.dataset",
+        "description": "Phase 2 Supervised 학습용 폴더 기반 Dataset / Folder-based dataset for Phase 2",
         "path_pattern": "data_set/labeled/{channel}/{level}/*.png"
       },
       "ContrastiveDataset": {
-        "module":       "data.dataset",
-        "description":  "Phase 0 Contrastive Learning용 Positive Pair Dataset",
+        "module": "data.dataset",
+        "description": "Phase 0 Contrastive Learning용 Positive Pair Dataset",
         "path_pattern": "data_set/labeled/{channel}/{level}/*.png"
       }
     },
-
     "trainers": {
       "Phase0Trainer": {
-        "module":      "training.trainer",
+        "module": "training.trainer",
         "description": "SimCLR InfoNCE Loss 기반 Contrastive Learning 학습기",
-        "loss":        "InfoNCELoss"
+        "loss": "InfoNCELoss"
       },
       "Phase2Trainer": {
-        "module":      "training.trainer",
+        "module": "training.trainer",
         "description": "CrossEntropyLoss 기반 Supervised Classification 학습기",
-        "loss":        "CrossEntropyLoss (class_weights=balanced)"
+        "loss": "CrossEntropyLoss (class_weights=balanced)"
       }
     },
-
     "losses": {
       "InfoNCELoss": {
-        "module":      "training.contrastive_loss",
+        "module": "training.contrastive_loss",
         "description": "SimCLR 기반 Contrastive Loss / SimCLR-based contrastive loss",
-        "param":       "temperature=phase0.temperature"
+        "param": "temperature=phase0.temperature"
       },
       "CrossEntropyLoss": {
-        "module":      "torch.nn",
+        "module": "torch.nn",
         "description": "Supervised Classification Loss (Softmax 내장)",
-        "note":        "class_weights=balanced 시 자동 계산 / Auto-computed when balanced"
+        "note": "class_weights=balanced 시 자동 계산 / Auto-computed when balanced"
       }
     },
-
     "pipeline": {
       "ConfigManager": {
-        "module":      "config.config_manager",
+        "module": "config.config_manager",
         "description": "JSON 설정 로드 / 검증 / 경로 해석 / 디바이스 감지"
       },
       "GrayspotPredictor": {
-        "module":      "inference.predictor",
+        "module": "inference.predictor",
         "description": "채널별 모델 캐싱 + 배치 추론 엔진"
       },
       "Evaluator": {
-        "module":      "evaluation.evaluator",
+        "module": "evaluation.evaluator",
         "description": "모델 추론 → 지표 계산 → HTML 리포트 생성 파이프라인"
       }
     },
-
     "utilities": {
       "backbone_tag": {
-        "module":      "training.trainer",
+        "module": "training.trainer",
         "description": "backbone 이름 → 파일명 약어 변환 / Backbone name to filename abbreviation",
         "examples": {
           "efficientnet_b0": "effb0",
-          "resnet50":        "res50"
+          "resnet50": "res50"
         }
       },
       "preprocess": {
-        "module":      "data.preprocessing",
+        "module": "data.preprocessing",
         "description": "cv2 imread → resize → /255.0 (MinMax) float32 변환"
       },
       "augment_supervised": {
-        "module":      "data.augmentation",
+        "module": "data.augmentation",
         "description": "Phase 2용 증강: flip + brightness + noise"
       },
       "augment_contrastive": {
-        "module":      "data.augmentation",
+        "module": "data.augmentation",
         "description": "Phase 0용 증강: flip + crop + brightness + contrast + blur"
       }
     }

@@ -2,7 +2,7 @@
 type: contract
 domain: gui
 status: Active
-last_updated: 2026-05-18
+last_updated: 2026-05-28
 owner: CMYK WooSong Team
 ---
 
@@ -20,13 +20,18 @@ owner: CMYK WooSong Team
 ## 1. 진입점 계약 / Entry Point Contract
 
 ```python
-# gui/app.py
-from gui.main_window import MainWindow
-import sys
-from PyQt6.QtWidgets import QApplication
-
+# gui/main.py  (요약 / summary)
 def main():
-    app = QApplication(sys.argv)
+    app = QApplication.instance() or QApplication(sys.argv)
+    font_name = _detect_font()          # QFontDatabase에서 플랫폼별 폰트 탐색
+    app.setFont(QFont(font_name, 10))
+    gui_cfg = _load_gui_cfg()           # gui/assets/config.json
+    theme = gui_cfg.get("theme", "dark")
+    lang  = gui_cfg.get("lang",  "ko")
+    set_lang(lang)                      # i18n 전역 설정
+    qss = _load_qss(f"{theme}_theme.qss", font=font_name)   # %FONT%/%ASSETS% 치환
+    if qss:
+        app.setStyleSheet(qss)
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
@@ -34,9 +39,11 @@ def main():
 
 | 항목 / Item | 값 / Value |
 | --- | --- |
-| 진입점 / Entry point | `python -m gui.app` 또는 / or `python gui/app.py` |
+| 진입점 / Entry point | `python -m gui.main` 또는 / or `python gui/main.py` |
 | QApplication | 단일 인스턴스 / Single instance |
-| 탭 컨테이너 / Tab container | `QTabWidget` (6탭 / 6 tabs) |
+| 탭 컨테이너 / Tab container | `QTabWidget` (7탭 / 7 tabs) |
+| 폰트 / Font | `_detect_font()` — `QFontDatabase.families()` 로 플랫폼별 실존 폰트 탐색 |
+| 테마·언어 초기화 / Theme & lang init | `gui/assets/config.json` 에서 읽어 시작 전 적용 |
 
 ---
 
@@ -84,12 +91,16 @@ class EvaluationWorker(BaseWorker):
 
 ```python
 class TuningWorker(BaseWorker):
-    def __init__(self, cfg: dict, channel: str, n_trials: int): ...
+    def __init__(self, cfg: dict, channel: str, n_trials: int, phase: int = 2): ...
     def run(self) -> None:
-        # run_optuna(cfg, channel, n_trials)
+        # run_optuna(cfg, channel, n_trials, phase)
         # 매 trial 완료 → progress_updated, log_emitted / per trial completion
         # 완료 → finished({"best_params": dict, "best_value": float}) / on completion
 ```
+
+| 파라미터 / Parameter | 타입 / Type | 설명 / Description |
+| --- | --- | --- |
+| `phase` | `int` | 0 (SimCLR) 또는 / or 2 (Supervised), default=2 |
 
 ### 2.5 EmbeddingWorker
 
@@ -99,6 +110,44 @@ class EmbeddingWorker(BaseWorker):
     def run(self) -> None:
         # GrayspotModel에서 feature 추출 / extract features → t-SNE 변환 / t-SNE transform
         # 완료 → finished({"embeddings_2d": np.ndarray, "labels": List[int], "paths": List[str]})
+```
+
+### 2.6 InferenceWorker
+
+```python
+class InferenceWorker(BaseWorker):
+    def __init__(self, cfg: dict, image_path: str, checkpoint_path: str): ...
+    def run(self) -> None:
+        # cv2 로드 → resize → ToTensor → _IMAGENET_NORMALIZE(SSOT-NM01) → model.forward
+        # 완료 → finished({
+        #     "pred_level": int,
+        #     "confidence": float,
+        #     "probs": List[float],
+        #     "top3": List[Tuple[int, float]],
+        #     "image_path": str,
+        # })
+```
+
+| 파라미터 / Parameter | 타입 / Type | 설명 / Description |
+| --- | --- | --- |
+| `image_path` | `str` | 추론할 단일 이미지 경로 / Path to single image |
+| `checkpoint_path` | `str` | `.pt` 체크포인트 경로 / Path to .pt checkpoint |
+
+### 2.7 BatchInferenceWorker
+
+```python
+class BatchInferenceWorker(BaseWorker):
+    def __init__(self, cfg: dict, folder_path: str, checkpoint_path: str): ...
+    def run(self) -> None:
+        # 폴더 내 모든 이미지 순회 / iterate all images in folder
+        # 이미지당 "__ROW__<JSON>" 형식으로 log_emitted 발행 (실시간 테이블 업데이트)
+        # / emit "__ROW__<JSON>" per image via log_emitted for live table update
+        # 완료 → finished({
+        #     "results":   List[dict],   # per-image result
+        #     "total":     int,
+        #     "succeeded": int,
+        #     "failed":    int,
+        # })
 ```
 
 ---
@@ -128,21 +177,48 @@ class TrainingTab(BaseTab):
 
 ```python
 class EvaluationTab(BaseTab):
-    def load_results(self, report_path: str) -> None:
-        # outputs/reports/*.json 로드 → Confusion Matrix 렌더링 / load → rendering
-    def show_misclassified(self, predictions: List[dict]) -> None:
-        # 오분류 샘플 이미지 + 레벨 정보 표시 / display misclassified images + level info
+    def start_evaluation(self) -> None:
+        # 중복 실행 방지 후 EvaluationWorker 시작 / start EvaluationWorker with duplicate-run guard
+    def stop_evaluation(self) -> None: ...
+    def start_inference(self) -> None:
+        # 단일 이미지 추론 (InferenceWorker) / single-image inference via InferenceWorker
+    def _browse_image(self) -> None: ...   # 이미지 선택 다이얼로그
 ```
 
-### 3.4 Tab 6: EmbeddingTab
+### 3.4 Tab 4: SettingsTab (추가 계약 / additional contract)
+
+```python
+class SettingsTab(BaseTab):
+    _theme_combo: QComboBox   # userData="dark"|"light"
+    _lang_combo:  QComboBox   # userData="ko"|"en"
+    def get_checkpoint_path(self) -> str: ...
+    def save_settings(self) -> None:
+        # src/config/config.json + gui/assets/config.json 동시 저장
+        # / saves both src/config/config.json and gui/assets/config.json
+```
+
+### 3.5 Tab 6: EmbeddingTab
 
 ```python
 class EmbeddingTab(BaseTab):
-    def render_scatter(self, embeddings_2d: np.ndarray, labels: List[int]) -> None:
-        # Plotly scatter → QWebEngineView 렌더링 / rendering
     def save_label_correction(self, path: str, new_level: int) -> None:
-        # labels_vN.csv에 수정 내용 추가 / add corrections to labels_vN.csv
-        # N = 현재 최신 버전 + 1 / current latest version + 1
+        # labels_vN.csv 버전 증가 방식 저장 / version-incremented CSV save
+        # N = max existing version + 1
+```
+
+### 3.6 Tab 7: InferenceTab
+
+```python
+class InferenceTab(BaseTab):
+    def start_single_inference(self) -> None:
+        # 중복 실행 방지 → InferenceWorker 시작 / duplicate guard → start InferenceWorker
+    def start_batch_inference(self) -> None:
+        # 중복 실행 방지 → BatchInferenceWorker 시작 / duplicate guard → start BatchInferenceWorker
+    def _export_csv(self) -> None:
+        # 배치 결과를 CSV로 내보내기 / export batch results to CSV
+    def refresh(self) -> None:
+        # gui/assets/config.json 에서 체크포인트 경로 갱신
+        # / reload checkpoint path from gui/assets/config.json
 ```
 
 ---
@@ -155,6 +231,8 @@ class EmbeddingTab(BaseTab):
 | `EvaluationWorker` | `Evaluator` |
 | `TuningWorker` | `run_optuna` |
 | `EmbeddingWorker` | `GrayspotModel`, `load_config` |
+| `InferenceWorker` | `build_model` (`src/utils/utils_model`), `_IMAGENET_NORMALIZE` (`src/data/normalize`) |
+| `BatchInferenceWorker` | `build_model`, `_IMAGENET_NORMALIZE` (동일 / same as InferenceWorker) |
 | `Tab 1 (Data)` | `CMYKDataset` (샘플 수 쿼리 / sample count query) |
 | `Tab 6 (Embedding)` | `LabelRefiner.compute_priority_score()` |
 | 모든 탭 / All tabs | `load_config()` |

@@ -1,21 +1,6 @@
 {
-  "app_title": "Grayspot Defect Classification System",
-  "app_icon": "🎨",
-  "theme": "light",
-  "default_channel": "Y",
-  "data_paths": {
-    "baseline": "data_set/baseline",
-    "labeled": "data_set/labeled",
-    "outputs": "outputs/reports",
-    "logs": "outputs/logs"
-  },
-  "inference": {
-    "batch_size": 32,
-    "confidence_threshold": 0.5,
-    "device": "cuda"
-  },
-  "ui": {
-    "max_upload_size_mb": 10,
-    "columns_per_row": 4
-  }
+  "labeled_dir": "data_set/labeled",
+  "checkpoint_path": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/outputs/checkpoints/best_C.pt",
+  "theme": "dark",
+  "lang": "ko"
 }
