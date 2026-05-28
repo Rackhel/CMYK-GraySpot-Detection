@@ -1,35 +1,43 @@
-"""Data tab — 데이터셋 채널×레벨 샘플 수 표시 및 이미지 미리보기.
-Dataset channel×level sample count display and image preview.
-
-Contract: Contract_gui.md §3  /  SSOT_GUI.md §6.1
+"""Data tab — 데이터셋 현황 + 전처리 파라미터 편집.
+Dataset overview and preprocessing parameter editor.
 """
 
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
+    QDoubleSpinBox,
     QFileDialog,
+    QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
+    QScrollArea,
+    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from gui.components.image_viewer import ImageViewer
+from gui.components.log_panel import LogPanel
 from gui.tabs.base_tab import BaseTab
+
+_ROOT       = Path(__file__).resolve().parents[2]
+_SRC_CONFIG = _ROOT / "src" / "config" / "config.json"
+_IMG_EXTS   = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
 
 
 class DataTab(BaseTab):
-    """Scan configured dataset folders and display counts by CMYK channel × level.
-
-    레벨 폴더는 0-based (0~N-1) 로 저장된다.
-    Level folders are 0-based (0 ~ num_levels-1).
-    """
+    """Dataset sample count table + preprocessing parameter editor."""
 
     def __init__(self, cfg: dict[str, Any] | None = None) -> None:
         super().__init__(cfg)
@@ -37,64 +45,82 @@ class DataTab(BaseTab):
         num_levels = self.cfg.get("data", {}).get("num_levels", 6)
         self._num_levels = num_levels
 
-        # 헤더: Channel + L0~L(N-1) + Total
+        # ── 스캔 결과 테이블 / Sample-count table ─────────────────────────
         headers = ["Channel"] + [f"L{i}" for i in range(num_levels)] + ["Total"]
         self.table = QTableWidget(0, len(headers))
         self.table.setHorizontalHeaderLabels(headers)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.cellClicked.connect(self._on_cell_clicked)
 
-        # 이미지 미리보기
+        scan_btn   = QPushButton("🔍  데이터셋 스캔 / Scan Dataset")
+        browse_btn = QPushButton("📂  이미지 선택… / Browse Image…")
+        scan_btn.clicked.connect(self.refresh)
+        browse_btn.clicked.connect(self._browse_image)
+
+        self._status_lbl = QLabel("")
+        self._status_lbl.setWordWrap(True)
+
+        scan_row = QHBoxLayout()
+        scan_row.addWidget(scan_btn)
+        scan_row.addWidget(browse_btn)
+        scan_row.addStretch()
+
+        # ── 이미지 미리보기 / Image preview ───────────────────────────────
         self.image_viewer = ImageViewer()
+        self.image_viewer.setFixedHeight(180)
 
-        # 버튼
-        scan_button = QPushButton("Scan Dataset")
-        scan_button.clicked.connect(self.refresh)
-        browse_button = QPushButton("Browse Image…")
-        browse_button.clicked.connect(self._browse_image)
+        # ── 전처리 파라미터 편집 그룹 / Preprocessing params group ───────
+        self._log = LogPanel()
+        self._log.setMaximumHeight(60)
 
-        # 레이아웃
+        # ── 스크롤 레이아웃 / Scroll layout ───────────────────────────────
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        content = QWidget()
+        v = QVBoxLayout(content)
+        v.setSpacing(10)
+        v.addWidget(QLabel("<b>데이터셋 현황 — 채널 × 레벨 샘플 수</b>"))
+        v.addLayout(scan_row)
+        v.addWidget(self._status_lbl)
+        v.addWidget(self.table)
+        v.addWidget(self._build_preprocess_group())
+        v.addWidget(QLabel("<b>이미지 미리보기</b>"))
+        v.addWidget(self.image_viewer)
+        v.addWidget(self._log)
+        v.addStretch()
+        scroll.setWidget(content)
+
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Dataset Overview — Channel × Level Sample Count"))
-
-        btn_row = QHBoxLayout()
-        btn_row.addWidget(scan_button)
-        btn_row.addWidget(browse_button)
-        btn_row.addStretch()
-        layout.addLayout(btn_row)
-
-        layout.addWidget(self.table)
-        layout.addWidget(QLabel("Image Preview"))
-        layout.addWidget(self.image_viewer)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.addWidget(scroll)
 
         self.refresh()
 
     # ── BaseTab interface ─────────────────────────────────────────────────────
 
     def on_worker_finished(self, result: dict[str, Any]) -> None:
-        """Data 탭은 Worker를 사용하지 않으므로 no-op."""
+        pass
 
     def refresh(self) -> None:
-        """채널×레벨 샘플 수를 다시 스캔한다. / Re-scan sample counts."""
-        channels  = self.cfg.get("data", {}).get("channels", ["Y", "M", "C", "K"])
-        data_root = Path(self.cfg.get("storage", {}).get("labeled_dir", "data_set/labeled"))
+        """채널×레벨 샘플 수 재스캔."""
+        channels   = self.cfg.get("data", {}).get("channels", ["Y", "M", "C", "K"])
+        data_root  = Path(self.cfg.get("storage", {}).get("labeled_dir", "data_set/labeled"))
         num_levels = self._num_levels
 
         self.table.setRowCount(len(channels))
         for row, channel in enumerate(channels):
             self.table.setItem(row, 0, QTableWidgetItem(channel))
             total = 0
-            for level in range(num_levels):           # 0-based 폴더 / 0-based folders
+            for level in range(num_levels):
                 folder = data_root / channel / str(level)
                 count = (
-                    len([p for p in folder.glob("*") if p.is_file()])
-                    if folder.exists()
-                    else 0
+                    len([p for p in folder.glob("*") if p.suffix.lower() in _IMG_EXTS])
+                    if folder.exists() else 0
                 )
                 total += count
                 item = QTableWidgetItem(str(count))
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.table.setItem(row, level + 1, item)   # col 0 = Channel
+                self.table.setItem(row, level + 1, item)
 
             total_item = QTableWidgetItem(str(total))
             total_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -102,31 +128,141 @@ class DataTab(BaseTab):
 
         self.table.resizeColumnsToContents()
 
-        # 경로 존재 여부 표시
-        status = f"labeled_dir: {data_root}  ({'존재' if data_root.exists() else '없음 / NOT FOUND'})"
-        self.table.setToolTip(status)
+        grand_total = sum(
+            int(self.table.item(r, num_levels + 1).text())
+            for r in range(self.table.rowCount())
+            if self.table.item(r, num_levels + 1)
+        )
+        exists_str = "✅ 존재" if data_root.exists() else "❌ 없음"
+        ts = datetime.now().strftime("%H:%M:%S")
+        self._status_lbl.setText(
+            f"✅ 스캔 완료 — 총 {grand_total:,}개 이미지 | {exists_str} | {data_root} | {ts}"
+        )
 
-    # ── Private ───────────────────────────────────────────────────────────────
+    # ── Private — build UI ────────────────────────────────────────────────────
+
+    def _build_preprocess_group(self) -> QGroupBox:
+        g = QGroupBox("전처리 파라미터 / Preprocessing Parameters")
+        f = QFormLayout(g)
+        f.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        f.setHorizontalSpacing(12)
+        f.setVerticalSpacing(6)
+
+        d = self.cfg.get("data", {})
+        norm = d.get("normalization", {})
+        split = d.get("split_ratios", {})
+
+        # image_size
+        self._img_size = QSpinBox()
+        self._img_size.setRange(32, 512)
+        self._img_size.setSingleStep(32)
+        self._img_size.setValue(d.get("image_size", 128))
+        self._img_size.setMaximumWidth(120)
+
+        # normalization mean / std (comma-separated)
+        mean_vals = norm.get("mean", [0.485, 0.456, 0.406])
+        std_vals  = norm.get("std",  [0.229, 0.224, 0.225])
+        self._mean_edit = QLineEdit(", ".join(f"{v:.3f}" for v in mean_vals))
+        self._std_edit  = QLineEdit(", ".join(f"{v:.3f}" for v in std_vals))
+        self._mean_edit.setMaximumWidth(200)
+        self._std_edit.setMaximumWidth(200)
+        self._mean_edit.setPlaceholderText("e.g. 0.485, 0.456, 0.406")
+        self._std_edit.setPlaceholderText("e.g. 0.229, 0.224, 0.225")
+
+        # split ratios
+        self._train_split = QDoubleSpinBox()
+        self._val_split   = QDoubleSpinBox()
+        self._test_split  = QDoubleSpinBox()
+        for sb, key, default in [
+            (self._train_split, "train", 0.7),
+            (self._val_split,   "val",   0.15),
+            (self._test_split,  "test",  0.15),
+        ]:
+            sb.setRange(0.01, 0.98)
+            sb.setSingleStep(0.05)
+            sb.setDecimals(2)
+            sb.setValue(split.get(key, default))
+            sb.setMaximumWidth(100)
+
+        # labeled_dir
+        labeled_dir = self.cfg.get("storage", {}).get("labeled_dir", "data_set/labeled")
+        self._labeled_dir_edit = QLineEdit(labeled_dir)
+        browse_dir_btn = QPushButton("📂")
+        browse_dir_btn.setMaximumWidth(36)
+        browse_dir_btn.clicked.connect(self._browse_labeled_dir)
+        dir_row = QHBoxLayout()
+        dir_row.addWidget(self._labeled_dir_edit)
+        dir_row.addWidget(browse_dir_btn)
+
+        save_btn = QPushButton("💾  파라미터 저장 / Save Parameters")
+        save_btn.clicked.connect(self._save_preprocess)
+
+        f.addRow("학습 데이터 위치", dir_row)
+        f.addRow("Image Size (px)", self._img_size)
+        f.addRow("Normalize Mean", self._mean_edit)
+        f.addRow("Normalize Std", self._std_edit)
+
+        split_row = QHBoxLayout()
+        split_row.addWidget(QLabel("Train"))
+        split_row.addWidget(self._train_split)
+        split_row.addWidget(QLabel("Val"))
+        split_row.addWidget(self._val_split)
+        split_row.addWidget(QLabel("Test"))
+        split_row.addWidget(self._test_split)
+        split_row.addStretch()
+        f.addRow("Split Ratio", split_row)
+        f.addRow(save_btn)
+
+        return g
+
+    # ── Private — actions ─────────────────────────────────────────────────────
 
     def _on_cell_clicked(self, row: int, col: int) -> None:
-        """테이블 셀 클릭 시 첫 번째 이미지 미리보기 / Preview first image on cell click."""
         if col == 0 or col > self._num_levels:
             return
         channels  = self.cfg.get("data", {}).get("channels", ["Y", "M", "C", "K"])
         data_root = Path(self.cfg.get("storage", {}).get("labeled_dir", "data_set/labeled"))
-        channel = channels[row] if row < len(channels) else None
-        level   = col - 1       # 0-based
+        channel   = channels[row] if row < len(channels) else None
         if channel is None:
             return
+        level  = col - 1
         folder = data_root / channel / str(level)
-        images = [p for p in folder.glob("*") if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".bmp")]
+        images = [p for p in folder.glob("*") if p.suffix.lower() in _IMG_EXTS]
         if images:
             self.image_viewer.load_image(images[0])
 
     def _browse_image(self) -> None:
-        """파일 다이얼로그로 이미지를 직접 선택해 미리본다."""
         path, _ = QFileDialog.getOpenFileName(
             self, "Select Image", "data_set/labeled", "Images (*.png *.jpg *.jpeg *.bmp)"
         )
         if path:
             self.image_viewer.load_image(path)
+
+    def _browse_labeled_dir(self) -> None:
+        d = QFileDialog.getExistingDirectory(self, "Select Labeled Dir", "data_set")
+        if d:
+            self._labeled_dir_edit.setText(d)
+
+    def _save_preprocess(self) -> None:
+        try:
+            mean = [float(x.strip()) for x in self._mean_edit.text().split(",")]
+            std  = [float(x.strip()) for x in self._std_edit.text().split(",")]
+            assert len(mean) == 3 and len(std) == 3, "mean/std must each have 3 values"
+
+            src_cfg: dict = json.loads(_SRC_CONFIG.read_text(encoding="utf-8"))
+            src_cfg.setdefault("data", {}).update({
+                "image_size":    self._img_size.value(),
+                "split_ratios":  {
+                    "train": round(self._train_split.value(), 2),
+                    "val":   round(self._val_split.value(), 2),
+                    "test":  round(self._test_split.value(), 2),
+                },
+                "normalization": {"mean": mean, "std": std},
+            })
+            src_cfg.setdefault("storage", {})["labeled_dir"] = self._labeled_dir_edit.text()
+            _SRC_CONFIG.write_text(json.dumps(src_cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+            self.cfg.update(src_cfg)
+            self._log.append("✅ 전처리 파라미터 저장 완료 → src/config/config.json")
+            self.refresh()
+        except Exception as exc:
+            self._log.append(f"❌ 저장 실패: {exc}")

@@ -31,15 +31,22 @@ from PyQt6.QtWidgets import (
 )
 
 from gui.components.log_panel import LogPanel
+from gui.components.level_accuracy_table import LevelAccuracyTable
 from gui.i18n import t
 from gui.tabs.base_tab import BaseTab
 from gui.workers.batch_inference_worker import BatchInferenceWorker
 from gui.workers.inference_worker import InferenceWorker
+from gui.workers.gradcam_worker import GradCAMWorker
 from gui.workers._ckpt_utils import auto_find_checkpoint, auto_find_all_checkpoints
 
 _IMG_FILTER  = "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.webp)"
 _CKPT_FILTER = "Checkpoint (*.pt *.pth)"
 _CHANNELS    = ["Y", "M", "C", "K"]
+_DATA_SOURCES = {
+    "labeled": "data_set/labeled",
+    "raw":     "data_set/raw",
+    "roi":     "data_set/roi",
+}
 
 
 class InferenceTab(BaseTab):
@@ -59,6 +66,7 @@ class InferenceTab(BaseTab):
 
         self.infer_worker: InferenceWorker | None  = None
         self.batch_worker: BatchInferenceWorker | None = None
+        self.gradcam_worker: GradCAMWorker | None = None
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(8, 8, 8, 8)
@@ -111,8 +119,19 @@ class InferenceTab(BaseTab):
         browse_btn.setFixedWidth(160)
         browse_btn.clicked.connect(self._browse_checkpoint)
 
+        # 데이터 소스 선택 / Data source selector
+        src_lbl = QLabel("데이터:")
+        self._src_combo = QComboBox()
+        self._src_combo.addItem("Labeled",  userData="labeled")
+        self._src_combo.addItem("Raw",      userData="raw")
+        self._src_combo.addItem("ROI",      userData="roi")
+        self._src_combo.setFixedWidth(100)
+        self._src_combo.currentIndexChanged.connect(self._on_source_changed)
+
         row.addWidget(ch_lbl)
         row.addWidget(self._channel_combo)
+        row.addWidget(src_lbl)
+        row.addWidget(self._src_combo)
         row.addWidget(self._ckpt_edit, stretch=1)
         row.addWidget(auto_btn)
         row.addWidget(browse_btn)
@@ -208,8 +227,28 @@ class InferenceTab(BaseTab):
         res_layout.addWidget(self._per_ch_lbl)
         res_layout.addWidget(self._infer_log)
 
+        # GradCAM 패널 / GradCAM visualization panel
+        self._grp_gradcam = QGroupBox("🔥 GradCAM 시각화 / Activation Map")
+        gcam_v = QVBoxLayout(self._grp_gradcam)
+        gcam_row = QHBoxLayout()
+        self._run_gradcam_btn = QPushButton("🔥  GradCAM 실행")
+        self._run_gradcam_btn.setEnabled(False)
+        self._run_gradcam_btn.clicked.connect(self._start_gradcam)
+        gcam_row.addWidget(self._run_gradcam_btn)
+        gcam_row.addStretch()
+
+        self._gradcam_preview = QLabel("GradCAM 히트맵이 여기에 표시됩니다.")
+        self._gradcam_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._gradcam_preview.setMinimumHeight(140)
+        self._gradcam_preview.setStyleSheet(
+            "border: 1px dashed #4a6080; border-radius: 4px; background: transparent;"
+        )
+        gcam_v.addLayout(gcam_row)
+        gcam_v.addWidget(self._gradcam_preview)
+
         layout.addWidget(self._grp_single, stretch=3)
         layout.addWidget(self._grp_result, stretch=2)
+        layout.addWidget(self._grp_gradcam)
 
         self._browse_img_btn.clicked.connect(self._browse_image)
         self._run_infer_btn.clicked.connect(self.start_single_inference)
@@ -272,11 +311,16 @@ class InferenceTab(BaseTab):
         self._batch_log = LogPanel()
         self._batch_log.setMaximumHeight(80)
 
+        # 레벨별 정확도 테이블 / Per-level accuracy table
+        num_levels = self.cfg.get("data", {}).get("num_levels", 6)
+        self._level_acc_table = LevelAccuracyTable(num_levels)
+
         batch_layout.addLayout(folder_row)
         batch_layout.addLayout(ctrl_row)
         batch_layout.addWidget(self._batch_status_lbl)
         batch_layout.addWidget(self._batch_progress)
         batch_layout.addWidget(self._result_table, stretch=1)
+        batch_layout.addWidget(self._level_acc_table)
         batch_layout.addWidget(self._batch_log)
 
         layout.addWidget(self._grp_batch, stretch=1)
@@ -327,6 +371,12 @@ class InferenceTab(BaseTab):
                     f"⚠️  {ch} 채널 체크포인트를 찾을 수 없습니다 / Not found for channel {ch}"
                 )
 
+    def _on_source_changed(self) -> None:
+        """데이터 소스 변경 시 기본 폴더를 folder_edit에 채운다."""
+        src_key   = self._src_combo.currentData() or "labeled"
+        base_path = _DATA_SOURCES.get(src_key, "data_set/labeled")
+        self._batch_log.append(f"데이터 소스: {src_key} → {base_path}")
+
     def _browse_checkpoint(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self, "Select Checkpoint", "", _CKPT_FILTER
@@ -342,7 +392,9 @@ class InferenceTab(BaseTab):
     # ══════════════════════════════════════════════════════════════════════════
 
     def _browse_image(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", _IMG_FILTER)
+        src_key   = self._src_combo.currentData() or "labeled"
+        start_dir = _DATA_SOURCES.get(src_key, "data_set/labeled")
+        path, _ = QFileDialog.getOpenFileName(self, "Select Image", start_dir, _IMG_FILTER)
         if not path:
             return
         self._selected_image = path
@@ -426,6 +478,9 @@ class InferenceTab(BaseTab):
         )
         self._run_infer_btn.setEnabled(True)
         self._stop_infer_btn.setEnabled(False)
+        # GradCAM 버튼 활성화 (단일 채널일 때만)
+        if result.get("channel") not in (None, "all") and self._selected_image:
+            self._run_gradcam_btn.setEnabled(True)
 
     def _on_single_error(self, msg: str) -> None:
         self._infer_log.append(f"❌  {msg}")
@@ -443,11 +498,66 @@ class InferenceTab(BaseTab):
         self._per_ch_lbl.setText("")
 
     # ══════════════════════════════════════════════════════════════════════════
+    # GradCAM
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _start_gradcam(self) -> None:
+        if not self._selected_image:
+            return
+        if self.gradcam_worker and self.gradcam_worker.isRunning():
+            return
+        ch   = self._current_channel()
+        ckpt = "" if ch == "all" else self._checkpoint_path
+        self._run_gradcam_btn.setEnabled(False)
+        self._gradcam_preview.setText("GradCAM 계산 중…")
+        self.gradcam_worker = GradCAMWorker(self.cfg, self._selected_image, ckpt, channel=ch)
+        self.gradcam_worker.progress_updated.connect(self._infer_progress.setValue)
+        self.gradcam_worker.log_emitted.connect(self._infer_log.append)
+        self.gradcam_worker.finished.connect(self._on_gradcam_finished)
+        self.gradcam_worker.error_occurred.connect(
+            lambda msg: (self._infer_log.append(f"❌ GradCAM: {msg.splitlines()[0]}"),
+                         self._run_gradcam_btn.setEnabled(True))
+        )
+        self.gradcam_worker.start()
+
+    def _on_gradcam_finished(self, result: dict) -> None:
+        import numpy as np
+        overlay = result.get("overlay")
+        if overlay is None:
+            self._infer_log.append("⚠️  GradCAM 결과 없음")
+            self._run_gradcam_btn.setEnabled(True)
+            return
+        try:
+            h, w = overlay.shape[:2]
+            from PyQt6.QtGui import QImage
+            # overlay is RGB np.ndarray
+            img_bytes = overlay.astype(np.uint8).tobytes()
+            qimg = QImage(img_bytes, w, h, w * 3, QImage.Format.Format_RGB888)
+            px   = QPixmap.fromImage(qimg)
+            self._gradcam_preview.setPixmap(
+                px.scaled(
+                    self._gradcam_preview.width() or 300,
+                    self._gradcam_preview.height() or 200,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
+            self._infer_log.append(
+                f"🔥 GradCAM 완료 — L{result.get('pred_level')} ({result.get('confidence', 0):.1%})"
+            )
+        except Exception as exc:
+            self._infer_log.append(f"❌ GradCAM render: {exc}")
+        finally:
+            self._run_gradcam_btn.setEnabled(True)
+
+    # ══════════════════════════════════════════════════════════════════════════
     # 배치 추론
     # ══════════════════════════════════════════════════════════════════════════
 
     def _browse_folder(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, "Select Image Folder")
+        src_key   = self._src_combo.currentData() or "labeled"
+        start_dir = _DATA_SOURCES.get(src_key, "data_set/labeled")
+        folder = QFileDialog.getExistingDirectory(self, "Select Image Folder", start_dir)
         if not folder:
             return
         self._selected_folder = folder
@@ -537,6 +647,10 @@ class InferenceTab(BaseTab):
         self._stop_batch_btn.setEnabled(False)
         if self._batch_results:
             self._export_csv_btn.setEnabled(True)
+            ch = self._current_channel()
+            self._level_acc_table.update_from_results(
+                self._batch_results, channel=ch if ch != "all" else "Y"
+            )
 
     def _on_batch_error(self, msg: str) -> None:
         self._batch_log.append(f"❌  {msg}")

@@ -62,6 +62,7 @@ class SettingsTab(BaseTab):
         # ── 섹션별 위젯 생성 / Build section widgets ──────────────────────────
         main_form.addWidget(self._build_appearance_group())
         main_form.addWidget(self._build_storage_group())
+        main_form.addWidget(self._build_worker_settings_group())
         main_form.addWidget(self._build_phase2_group())
         main_form.addWidget(self._build_phase0_group())
         main_form.addWidget(self._build_train_group())
@@ -117,6 +118,12 @@ class SettingsTab(BaseTab):
         self._scheduler.setCurrentText(train_cfg.get("scheduler", "cosine"))
         self._grad_clip.setValue(float(train_cfg.get("gradient_clip", 1.0)))
 
+        sys_cfg = self.cfg.get("system", {})
+        self._device_combo.setCurrentText(sys_cfg.get("device", "auto"))
+        self._dataloader_workers.setValue(int(train_cfg.get("num_workers", 0)))
+        self._infer_batch_size.setValue(int(sys_cfg.get("inference_batch_size", 1)))
+        self._train_timeout.setValue(int(sys_cfg.get("training_timeout_min", 60)))
+
     def on_worker_finished(self, result: dict[str, Any]) -> None:
         """Settings 탭은 Worker를 사용하지 않음."""
 
@@ -158,9 +165,14 @@ class SettingsTab(BaseTab):
             })
             src_cfg.setdefault("train", {}).update({
                 "seed":          self._seed.value(),
-                "num_workers":   self._num_workers.value(),
+                "num_workers":   self._dataloader_workers.value(),
                 "scheduler":     self._scheduler.currentText(),
                 "gradient_clip": self._grad_clip.value(),
+            })
+            src_cfg.setdefault("system", {}).update({
+                "device":                self._device_combo.currentText(),
+                "inference_batch_size":  self._infer_batch_size.value(),
+                "training_timeout_min":  self._train_timeout.value(),
             })
 
             _SRC_CONFIG.write_text(
@@ -254,6 +266,28 @@ class SettingsTab(BaseTab):
         f.addRow("Reports Dir",         self._reports_dir)
         f.addRow("Checkpoint (.pt)",    ckpt_widget)
         return g
+
+    def _build_worker_settings_group(self) -> QGroupBox:
+        """Worker 설정 그룹: device, num_workers, inference batch size, timeout."""
+        self._grp_worker = QGroupBox("Worker Settings")
+        f = self._make_form(self._grp_worker)
+        sys_cfg   = self.cfg.get("system", {})
+        train_cfg = self.cfg.get("train", {})
+
+        self._device_combo = QComboBox()
+        self._device_combo.addItems(["auto", "cpu", "cuda", "mps"])
+        self._device_combo.setCurrentText(sys_cfg.get("device", "auto"))
+        self._device_combo.setMaximumWidth(_FIELD_W)
+
+        self._infer_batch_size = self._spin(sys_cfg.get("inference_batch_size", 1), 1, 256)
+        self._dataloader_workers = self._spin(train_cfg.get("num_workers", 0), 0, 32)
+        self._train_timeout = self._spin(sys_cfg.get("training_timeout_min", 60), 1, 600)
+
+        f.addRow("Device",                  self._device_combo)
+        f.addRow("DataLoader Workers",      self._dataloader_workers)
+        f.addRow("Inference Batch Size",    self._infer_batch_size)
+        f.addRow("Training Timeout (min)",  self._train_timeout)
+        return self._grp_worker
 
     def _build_phase2_group(self) -> QGroupBox:
         self._grp_phase2 = QGroupBox(t("grp_phase2"))
