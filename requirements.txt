@@ -38,7 +38,7 @@ pytest-cov>=7.1.0
 umap-learn>=0.5.4
 
 # ── GUI & Web Interface / GUI 및 웹 인터페이스 ────────────────────────────────
-streamlit>=1.28.0 # only needed for web-based GUI
+# streamlit>=1.28.0  # optional (web GUI — legacy; project uses PyQt6 desktop GUI)
 pyinstaller>=6.20.0 # only needed for building GUI executable
 
 # ── Code Quality & Formatting / 코드 품질 및 포매팅 ─────────────────────────────

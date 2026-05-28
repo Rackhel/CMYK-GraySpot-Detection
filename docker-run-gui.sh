@@ -1,6 +1,6 @@
 #!/bin/bash
 # Run the CMYK PyQt6 GUI in Docker with host display forwarding.
-# This helper is intended for Linux/X11-style environments.
+# This helper is intended for Linux/X11 environments only.
 
 CONTAINER_NAME="grayspot-gui"
 
@@ -13,7 +13,8 @@ docker run --rm -it \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v "${PWD}/data_set:/app/data_set" \
   -v "${PWD}/outputs:/app/outputs" \
-  -v "${PWD}/src/config:/app/src/config" \
+  -v "${PWD}/src:/app/src" \
+  -v "${PWD}/gui:/app/gui" \
   grayspot:latest \
   python -m gui.main
 

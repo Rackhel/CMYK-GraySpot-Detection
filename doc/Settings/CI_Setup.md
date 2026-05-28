@@ -164,12 +164,18 @@ When CI requirements change:
 - document the change in `doc/CI_Setup.md`
 - verify the new workflow by creating a temporary branch or pull request
 
+Note: `requirements.txt` is the CI/test install bundle. GUI runtime and desktop GUI extras are captured in `src/config/pyproject.toml` under the `gui` extra.
+
+
+
 CI 요구 사항이 변경되면:
 
 - `.github/workflows/ci.yml` 업데이트
 - 필요 시 `requirements.txt` 또는 `src/config/pyproject.toml` 업데이트
 - 변경 내용을 `doc/CI_Setup.md`에 문서화
 - 임시 브랜치 또는 PR로 새 워크플로우 검증
+
+참고: `requirements.txt`는 CI/테스트 설치 번들입니다. GUI 런타임 및 데스크톱 GUI 추가 항목은 `src/config/pyproject.toml`의 `gui` extras에 정리되어 있습니다.
 
 ---
 

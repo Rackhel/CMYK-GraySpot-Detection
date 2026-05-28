@@ -98,6 +98,11 @@ docs = [
     "sphinx-autodoc-typehints>=1.24.0",
 ]
 
+gui = [
+    "PyQt6>=6.4.0",
+    "pytest-qt>=4.2.0",
+]
+
 # Minimal installation / 최소 설치 (핵심만)
 minimal = [
     "torch>=2.1.0",
@@ -110,7 +115,7 @@ minimal = [
 
 # Full installation (all optional) / 전체 설치 (모든 선택사항 포함)
 all = [
-    "grayspot[dev,jupyter,mlops,docs]",
+    "grayspot[dev,jupyter,mlops,docs,gui]",
 ]
 
 [project.urls]
