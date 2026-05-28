@@ -25,7 +25,6 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 COPY src ./src
 COPY gui ./gui
-COPY doc ./doc
 
 ENV PYTHONUNBUFFERED=1
 
