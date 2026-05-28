@@ -2,7 +2,7 @@
 type: bdd
 domain: gui
 status: Active
-last_updated: 2026-05-18
+last_updated: 2026-05-28
 owner: CMYK WooSong Team
 related_docs:
   - "SSOT_GUI.md"
@@ -11,8 +11,8 @@ related_docs:
 
 # [BDD] PyQt6 GUI / PyQt6 Graphical User Interface
 
-> **역할 / Role**: PyQt6 6탭 GUI 애플리케이션의 관찰 가능한 행동을 정의한다.
-> **Role**: Defines observable behavior of the PyQt6 6-tab GUI application.
+> **역할 / Role**: PyQt6 7탭 GUI 애플리케이션의 관찰 가능한 행동을 정의한다.
+> **Role**: Defines observable behavior of the PyQt6 7-tab GUI application.
 
 ---
 
@@ -72,7 +72,7 @@ Feature: GUI 워커 격리 / GUI worker isolation
 
     Given PyQt6 환경이 사용 가능하다
 
-    When  DataTab, TrainingTab, EvaluationTab, SettingsTab, TuningTab, EmbeddingTab이 초기화된다
+    When  DataTab, TrainingTab, EvaluationTab, SettingsTab, OptunaTab, EmbeddingTab, InferenceTab이 초기화된다
 
     Then  각 탭이 refresh() 메서드를 가진다
     And   각 탭이 on_worker_finished() 메서드를 가진다
@@ -133,6 +133,43 @@ Feature: GUI 워커 격리 / GUI worker isolation
 
 ---
 
+### Scenario G.7 — 단일 이미지 추론 / Single Image Inference
+
+```gherkin
+  Scenario: 추론 탭에서 이미지와 체크포인트를 선택하면 예측 레벨이 표시된다
+  Scenario: Selecting an image and checkpoint in Inference tab shows predicted level
+
+    Given 사용자가 Inference 탭을 연다
+    And   체크포인트 파일을 선택한다
+    And   이미지 파일을 선택한다
+
+    When  추론 실행 버튼을 클릭한다
+
+    Then  예측 레벨 배지가 표시된다
+    And   신뢰도(%) 값이 표시된다
+    And   Top-3 레벨 목록이 표시된다
+```
+
+---
+
+### Scenario G.8 — 배치 폴더 추론 / Batch Folder Inference
+
+```gherkin
+  Scenario: 추론 탭에서 폴더를 선택하면 모든 이미지가 일괄 추론된다
+  Scenario: Selecting a folder in Inference tab runs batch inference on all images
+
+    Given 사용자가 Inference 탭을 연다
+    And   체크포인트 파일을 선택한다
+    And   이미지 폴더를 선택한다
+
+    When  배치 추론 버튼을 클릭한다
+
+    Then  각 이미지가 처리될 때마다 결과 테이블에 행이 추가된다
+    And   모든 처리 완료 후 CSV 내보내기 버튼이 활성화된다
+```
+
+---
+
 ## 추적 매트릭스 / Traceability Matrix
 
 | 시나리오 / Scenario | TDD 파일 / TDD File | 테스트 함수 / Test Function | 계층 / Layer |
@@ -143,6 +180,8 @@ Feature: GUI 워커 격리 / GUI worker isolation
 | G.4 — 진행률 표시 / progress display | `test_gui_tabs.py` | `test_training_tab_progress_update` | Unit |
 | G.5 — 라벨 저장 / label save | `test_gui_tabs.py` | `test_embedding_tab_save_labels_increments_version` | Unit |
 | G.6 — 워커 정리 / worker cleanup | `test_gui_workers.py` | `test_worker_thread_joins_on_quit` | Unit |
+| G.7 — 단일 이미지 추론 / single inference | `test_gui_tabs.py` | `test_inference_tab_single_image_guard` | Unit |
+| G.8 — 배치 폴더 추론 / batch inference | `test_gui_tabs.py` | `test_inference_tab_batch_csv_export` | Unit |
 
 ---
 

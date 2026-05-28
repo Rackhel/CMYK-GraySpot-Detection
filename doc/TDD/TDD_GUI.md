@@ -2,7 +2,7 @@
 type: tdd
 domain: gui
 status: failing
-last_updated: 2026-05-18
+last_updated: 2026-05-28
 owner: CMYK WooSong Team
 related_docs:
   - "../SSOT/SSOT_GUI.md"
@@ -50,7 +50,7 @@ And    finished 시그널은 발생하지 않는다
 
 **Scenario 4: 모든 탭이 BaseTab 인터페이스를 구현 / All tabs implement BaseTab interface**
 ```
-Given  6개 탭 클래스가 있을 때
+Given  7개 탭 클래스가 있을 때
 When   각 클래스를 검사하면
 Then   refresh() 메서드가 존재하고
 And    on_worker_finished(dict) 메서드가 존재한다
@@ -72,7 +72,7 @@ And    해당 경로의 level이 new_level로 저장된다
 ```
 Given  main.py 가 실행되었을 때
 When   QApplication 이 생성되면
-Then   QTabWidget 이 6개 탭을 포함한다
+Then   QTabWidget 이 7개 탭을 포함한다
 ```
 
 ---
@@ -90,6 +90,8 @@ Then   QTabWidget 이 6개 탭을 포함한다
 | T-GUI-05 | `EvaluationWorker` 동일 4개 시그널 보유 |
 | T-GUI-06 | `TuningWorker` 동일 4개 시그널 보유 |
 | T-GUI-07 | `EmbeddingWorker` 동일 4개 시그널 보유 |
+| T-GUI-08 | `InferenceWorker` 동일 4개 시그널 보유 |
+| T-GUI-09 | `BatchInferenceWorker` 동일 4개 시그널 보유 |
 
 ```python
 from PyQt6.QtCore import pyqtSignal
@@ -106,7 +108,11 @@ def test_all_workers_have_signals():
     from gui.workers.evaluation_worker import EvaluationWorker
     from gui.workers.tuning_worker import TuningWorker
     from gui.workers.embedding_worker import EmbeddingWorker
-    for WorkerClass in [TrainingWorker, EvaluationWorker, TuningWorker, EmbeddingWorker]:
+    from gui.workers.inference_worker import InferenceWorker
+    from gui.workers.batch_inference_worker import BatchInferenceWorker
+    workers = [TrainingWorker, EvaluationWorker, TuningWorker,
+               EmbeddingWorker, InferenceWorker, BatchInferenceWorker]
+    for WorkerClass in workers:
         for signal_name in ["progress_updated", "log_emitted", "finished", "error_occurred"]:
             assert hasattr(WorkerClass, signal_name), f"{WorkerClass.__name__} missing {signal_name}"
 ```
@@ -132,9 +138,9 @@ def test_training_worker_no_direct_ui_access():
 
 | 테스트 ID / Test ID | 검증 포인트 / Verification |
 | --- | --- |
-| T-GUI-20 | 6개 탭 클래스 모두 `refresh()` 메서드 보유 |
-| T-GUI-21 | 6개 탭 클래스 모두 `on_worker_finished(dict)` 메서드 보유 |
-| T-GUI-22 | `MainWindow` 의 탭 위젯이 6개 탭 포함 |
+| T-GUI-20 | 7개 탭 클래스 모두 `refresh()` 메서드 보유 |
+| T-GUI-21 | 7개 탭 클래스 모두 `on_worker_finished(dict)` 메서드 보유 |
+| T-GUI-22 | `MainWindow` 의 탭 위젯이 7개 탭 포함 |
 
 ```python
 def test_all_tabs_implement_interface(qtbot):
@@ -144,19 +150,45 @@ def test_all_tabs_implement_interface(qtbot):
     from gui.tabs.tab_settings import SettingsTab
     from gui.tabs.tab_optuna import OptunaTab
     from gui.tabs.tab_embedding import EmbeddingTab
+    from gui.tabs.tab_inference import InferenceTab
 
-    for TabClass in [DataTab, TrainingTab, EvaluationTab, SettingsTab, OptunaTab, EmbeddingTab]:
+    tabs = [DataTab, TrainingTab, EvaluationTab, SettingsTab,
+            OptunaTab, EmbeddingTab, InferenceTab]
+    for TabClass in tabs:
         assert hasattr(TabClass, "refresh"), f"{TabClass.__name__} missing refresh()"
         assert hasattr(TabClass, "on_worker_finished"), f"{TabClass.__name__} missing on_worker_finished()"
 
-def test_main_window_has_six_tabs(qtbot):
+def test_main_window_has_seven_tabs(qtbot):
     from gui.main_window import MainWindow
     window = MainWindow()
     qtbot.addWidget(window)
-    assert window.tab_widget.count() == 6
+    assert window.tab_widget.count() == 7
 ```
 
-### 2.4 Tab 6: 라벨 수정 저장 / Label Modification Save
+### 2.4 Tab 7: 추론 탭 중복 실행 방어 / InferenceTab Duplicate-Run Guard
+
+| 테스트 ID / Test ID | 검증 포인트 / Verification |
+| --- | --- |
+| T-GUI-40 | 이미지 미선택 시 `start_single_inference()` 크래시 없이 로그만 출력 |
+| T-GUI-41 | 폴더 미선택 시 `start_batch_inference()` 크래시 없이 로그만 출력 |
+| T-GUI-42 | `InferenceTab.refresh()` 체크포인트 경로 갱신 |
+
+```python
+def test_inference_tab_no_image_guard(qtbot):
+    from gui.tabs.tab_inference import InferenceTab
+    tab = InferenceTab({})
+    qtbot.addWidget(tab)
+    # 이미지 미선택 — 크래시 없어야 함
+    tab.start_single_inference()   # log만 출력, 예외 없음
+
+def test_inference_tab_no_folder_guard(qtbot):
+    from gui.tabs.tab_inference import InferenceTab
+    tab = InferenceTab({})
+    qtbot.addWidget(tab)
+    tab.start_batch_inference()    # log만 출력, 예외 없음
+```
+
+### 2.5 Tab 6: 라벨 수정 저장 / Label Modification Save
 
 | 테스트 ID / Test ID | 검증 포인트 / Verification |
 | --- | --- |
