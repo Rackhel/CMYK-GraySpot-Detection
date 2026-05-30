@@ -79,13 +79,15 @@ class EvaluationWorker(BaseWorker):
             except Exception:
                 pass
 
+            cm_html = reports_dir / "confusion" / f"cm_{self.channel}.html"
             self.finished.emit({
-                "accuracy":    accuracy,
-                "macro_f1":    macro_f1,
-                "mae":         mae,
-                "n_samples":   n_samples,
-                "report_path": str(report_path),
-                "channel":     self.channel,
+                "accuracy":     accuracy,
+                "macro_f1":     macro_f1,
+                "mae":          mae,
+                "n_samples":    n_samples,
+                "report_path":  str(report_path),
+                "cm_html_path": str(cm_html) if cm_html.exists() else "",
+                "channel":      self.channel,
             })
 
         except Exception as exc:

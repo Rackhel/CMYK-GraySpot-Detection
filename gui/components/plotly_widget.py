@@ -49,6 +49,14 @@ class PlotlyWidget(QWidget):
         figure.update_layout(title=title, template="plotly_dark", height=360)
         self.set_figure(figure)
 
+    def load_file(self, path: str) -> None:
+        """Load a locally-saved HTML file (e.g., confusion matrix from evaluation)."""
+        if self._web_engine:
+            from PyQt6.QtCore import QUrl
+            self.view.load(QUrl.fromLocalFile(path))
+        else:
+            self.view.setHtml("<p>WebEngine unavailable — cannot display local HTML.</p>")
+
     def show_scatter(
         self,
         points: list[list[float]],

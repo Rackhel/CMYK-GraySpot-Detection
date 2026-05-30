@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "experiment": "C",
+    "checkpoint": null,
+    "image_size": 128,
+    "num_levels": 6
+  },
+  "targets": {
+    "overall_accuracy": 0.9,
+    "per_color_accuracy": 0.85,
+    "per_class_f1": 0.8,
+    "mae": 0.5
+  },
+  "global": {
+    "accuracy": 0.9553,
+    "macro_f1": 0.9444,
+    "mae": 0.0572,
+    "acc_pass": true,
+    "f1_pass": true,
+    "mae_pass": true,
+    "all_pass": true
+  },
+  "by_color": {
+    "C": {
+      "accuracy": 0.9553,
+      "macro_f1": 0.9444,
+      "mae": 0.0572,
+      "acc_pass": true,
+      "all_pass": true
+    }
+  },
+  "per_class_overall": [
+    {
+      "level": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "f1_pass": true
+    },
+    {
+      "level": 1,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "f1_pass": true
+    },
+    {
+      "level": 2,
+      "precision": 0.9515,
+      "recall": 0.9515,
+      "f1": 0.9515,
+      "f1_pass": true
+    },
+    {
+      "level": 3,
+      "precision": 0.8963,
+      "recall": 0.9132,
+      "f1": 0.9047,
+      "f1_pass": true
+    },
+    {
+      "level": 4,
+      "precision": 0.8841,
+      "recall": 0.8788,
+      "f1": 0.8815,
+      "f1_pass": true
+    },
+    {
+      "level": 5,
+      "precision": 0.9479,
+      "recall": 0.91,
+      "f1": 0.9286,
+      "f1_pass": true
+    }
+  ]
+}

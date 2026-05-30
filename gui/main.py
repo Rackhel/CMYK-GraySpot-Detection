@@ -6,8 +6,17 @@ import json
 import sys
 from pathlib import Path
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QFontDatabase
 from PyQt6.QtWidgets import QApplication
+
+# QWebEngineView는 QApplication 생성 전에 import되어야 한다 (macOS/Linux 필수).
+# Must be imported before QApplication is instantiated on macOS/Linux.
+try:
+    from PyQt6.QtWebEngineWidgets import QWebEngineView as _QWebEngineView  # noqa: F401
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+except Exception:
+    pass
 
 from gui.i18n import set_lang
 from gui.main_window import MainWindow
