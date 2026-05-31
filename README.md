@@ -302,6 +302,11 @@ Key sections / 주요 섹션:
     "epochs": 30,
     "batch_size": 16,
     "learning_rate": 1.0e-4,
+    "loss": "cross_entropy",
+    "class_weights": "none",
+    "label_smoothing": 0.0,
+    "focal_gamma": 2.0,
+    "k_fold": { "enabled": false, "n_splits": 5 },
     "early_stopping": { "enabled": true, "patience": 5 }
   },
   "storage": {
@@ -314,6 +319,19 @@ Key sections / 주요 섹션:
 ```
 
 See `src/config/config.json` for complete options / 전체 옵션은 `src/config/config.json` 참고.
+
+### Phase 2 loss and cross-validation options / Phase 2 손실 및 교차 검증 옵션
+
+The Phase 2 training config supports the following additional options:
+
+- `phase2.loss`: `cross_entropy` or `focal`
+- `phase2.class_weights`: `none` or `balanced`
+- `phase2.label_smoothing`: label smoothing for `cross_entropy`
+- `phase2.focal_gamma`: gamma for `focal` loss
+- `phase2.k_fold.enabled`: enable Stratified K-fold CV for the train/val split
+- `phase2.k_fold.n_splits`: number of folds when CV is enabled
+
+When `phase2.k_fold.enabled` is true, `src/scripts/run_baseline.py` runs stratified CV over the train/val split and logs the mean best validation accuracy across folds.
 
 ---
 

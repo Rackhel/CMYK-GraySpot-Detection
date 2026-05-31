@@ -116,3 +116,17 @@ class TestGetLoss:
         assert isinstance(loss_fn, nn.CrossEntropyLoss)
         assert loss_fn.weight is not None
         assert loss_fn.weight.shape == (6,)
+
+    def test_phase2_returns_focal_loss_when_requested(self, minimal_cfg):
+        minimal_cfg["phase2"]["loss"] = "focal"
+        loss_fn = get_loss(phase=2, cfg=minimal_cfg)
+        assert loss_fn.__class__.__name__ == "FocalLoss"
+
+    def test_phase2_focal_loss_can_use_class_weights(self, minimal_cfg):
+        minimal_cfg["phase2"]["loss"] = "focal"
+        minimal_cfg["phase2"]["class_weights"] = "balanced"
+        samples = [(f"img_{i}.png", i % 6) for i in range(60)]
+        loss_fn = get_loss(phase=2, cfg=minimal_cfg, train_samples=samples)
+        assert loss_fn.__class__.__name__ == "FocalLoss"
+        assert loss_fn.weight is not None
+        assert loss_fn.weight.shape == (6,)

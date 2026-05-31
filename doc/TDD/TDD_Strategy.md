@@ -205,7 +205,7 @@ def test_grayspot_model_phase2_resnet50_output_shape(minimal_cfg):
 | `InfoNCELoss(temperature=0.1)` | 반환값 scalar, 완전 유사 pair → 낮은 loss / Returns scalar, perfectly similar pair → low loss |
 | `InfoNCELoss` | 완전 무관 pair → 높은 loss (상대적 검증) / Completely dissimilar pair → high loss (relative verification) |
 | `get_loss(0, cfg)` | `InfoNCELoss` 인스턴스 반환 / Returns `InfoNCELoss` instance |
-| `get_loss(2, cfg, train_samples=[...])` | `nn.CrossEntropyLoss` 인스턴스 반환 (균형 가중치 포함) / Returns `nn.CrossEntropyLoss` instance (with balanced weights) |
+| `get_loss(2, cfg, train_samples=[...])` | `nn.CrossEntropyLoss` or `FocalLoss` 인스턴스 반환 / Returns `nn.CrossEntropyLoss` or `FocalLoss` instance (with optional balanced weights) |
 
 ```python
 # 예시 / Example

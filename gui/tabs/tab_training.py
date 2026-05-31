@@ -247,66 +247,87 @@ class TrainingTab(BaseTab):
 
         # ── Phase 2 ───────────────────────────────────────────────────
         p2w = QWidget()
-        f2  = self._form(p2w)
-        p2  = self.cfg.get("phase2", {})
-        es  = p2.get("early_stopping", {})
+        f2 = self._form(p2w)
+        p2 = self.cfg.get("phase2", {})
+        es = p2.get("early_stopping", {})
 
-        self._p2_epochs = QSpinBox(); self._p2_epochs.setRange(1, 500)
-        self._p2_epochs.setValue(int(p2.get("epochs", 30))); self._p2_epochs.setMaximumWidth(100)
+        self._p2_epochs = QSpinBox()
+        self._p2_epochs.setRange(1, 500)
+        self._p2_epochs.setValue(int(p2.get("epochs", 30)))
+        self._p2_epochs.setMaximumWidth(100)
 
-        self._p2_lr = QDoubleSpinBox(); self._p2_lr.setRange(1e-6, 1.0)
-        self._p2_lr.setDecimals(6); self._p2_lr.setSingleStep(1e-4)
-        self._p2_lr.setValue(float(p2.get("learning_rate", 1e-4))); self._p2_lr.setMaximumWidth(130)
+        self._p2_lr = QDoubleSpinBox()
+        self._p2_lr.setRange(1e-6, 1.0)
+        self._p2_lr.setDecimals(6)
+        self._p2_lr.setSingleStep(1e-4)
+        self._p2_lr.setValue(float(p2.get("learning_rate", 1e-4)))
+        self._p2_lr.setMaximumWidth(130)
 
-        self._p2_bs = QSpinBox(); self._p2_bs.setRange(1, 512)
-        self._p2_bs.setValue(int(p2.get("batch_size", 32))); self._p2_bs.setMaximumWidth(100)
+        self._p2_bs = QSpinBox()
+        self._p2_bs.setRange(1, 512)
+        self._p2_bs.setValue(int(p2.get("batch_size", 32)))
+        self._p2_bs.setMaximumWidth(100)
 
-        self._p2_wd = QDoubleSpinBox(); self._p2_wd.setRange(0, 1)
-        self._p2_wd.setDecimals(6); self._p2_wd.setSingleStep(1e-5)
-        self._p2_wd.setValue(float(p2.get("weight_decay", 1e-4))); self._p2_wd.setMaximumWidth(130)
+        self._p2_wd = QDoubleSpinBox()
+        self._p2_wd.setRange(0, 1)
+        self._p2_wd.setDecimals(6)
+        self._p2_wd.setSingleStep(1e-5)
+        self._p2_wd.setValue(float(p2.get("weight_decay", 1e-4)))
+        self._p2_wd.setMaximumWidth(130)
 
-        self._p2_hidden = QSpinBox(); self._p2_hidden.setRange(64, 2048); self._p2_hidden.setSingleStep(64)
-        self._p2_hidden.setValue(int(p2.get("hidden_dim", 256))); self._p2_hidden.setMaximumWidth(100)
+        self._p2_hidden = QSpinBox()
+        self._p2_hidden.setRange(64, 2048)
+        self._p2_hidden.setSingleStep(64)
+        self._p2_hidden.setValue(int(p2.get("hidden_dim", 256)))
+        self._p2_hidden.setMaximumWidth(100)
 
-        self._p2_oversample  = QCheckBox("Oversample minority")
+        self._p2_oversample = QCheckBox("Oversample minority")
         self._p2_oversample.setChecked(bool(p2.get("oversample", True)))
-        self._p2_es_enabled  = QCheckBox("Early Stopping")
+        self._p2_es_enabled = QCheckBox("Early Stopping")
         self._p2_es_enabled.setChecked(bool(es.get("enabled", True)))
-        self._p2_es_patience = QSpinBox(); self._p2_es_patience.setRange(1, 200)
-        self._p2_es_patience.setValue(int(es.get("patience", 10))); self._p2_es_patience.setMaximumWidth(100)
+        self._p2_es_patience = QSpinBox()
+        self._p2_es_patience.setRange(1, 200)
+        self._p2_es_patience.setValue(int(es.get("patience", 10)))
+        self._p2_es_patience.setMaximumWidth(100)
 
-        f2.addRow("Epochs",        self._p2_epochs)
+        f2.addRow("Epochs", self._p2_epochs)
         f2.addRow("Learning Rate", self._p2_lr)
-        f2.addRow("Batch Size",    self._p2_bs)
-        f2.addRow("Weight Decay",  self._p2_wd)
-        f2.addRow("Hidden Dim",    self._p2_hidden)
+        f2.addRow("Batch Size", self._p2_bs)
+        f2.addRow("Weight Decay", self._p2_wd)
+        f2.addRow("Hidden Dim", self._p2_hidden)
         f2.addRow(self._p2_oversample)
         f2.addRow(self._p2_es_enabled)
-        f2.addRow("ES Patience",   self._p2_es_patience)
+        f2.addRow("ES Patience", self._p2_es_patience)
         tabs.addTab(p2w, "Phase 2")
 
         # ── Phase 0 ───────────────────────────────────────────────────
         p0w = QWidget()
-        f0  = self._form(p0w)
-        p0  = self.cfg.get("phase0", {})
+        f0 = self._form(p0w)
+        p0 = self.cfg.get("phase0", {})
 
         self._p0_epochs = QSpinBox()
         self._p0_epochs.setRange(1, 500)
         self._p0_epochs.setValue(int(p0.get("epochs", 10)))
         self._p0_epochs.setMaximumWidth(100)
 
-        self._p0_lr = QDoubleSpinBox(); self._p0_lr.setRange(1e-6, 1.0)
-        self._p0_lr.setDecimals(6); self._p0_lr.setSingleStep(1e-4)
-        self._p0_lr.setValue(float(p0.get("learning_rate", 1e-3))); self._p0_lr.setMaximumWidth(130)
+        self._p0_lr = QDoubleSpinBox()
+        self._p0_lr.setRange(1e-6, 1.0)
+        self._p0_lr.setDecimals(6)
+        self._p0_lr.setSingleStep(1e-4)
+        self._p0_lr.setValue(float(p0.get("learning_rate", 1e-3)))
+        self._p0_lr.setMaximumWidth(130)
 
         self._p0_bs = QSpinBox()
         self._p0_bs.setRange(1, 512)
         self._p0_bs.setValue(int(p0.get("batch_size", 16)))
         self._p0_bs.setMaximumWidth(100)
 
-        self._p0_temp = QDoubleSpinBox(); self._p0_temp.setRange(0.01, 1.0)
-        self._p0_temp.setDecimals(3); self._p0_temp.setSingleStep(0.01)
-        self._p0_temp.setValue(float(p0.get("temperature", 0.1))); self._p0_temp.setMaximumWidth(100)
+        self._p0_temp = QDoubleSpinBox()
+        self._p0_temp.setRange(0.01, 1.0)
+        self._p0_temp.setDecimals(3)
+        self._p0_temp.setSingleStep(0.01)
+        self._p0_temp.setValue(float(p0.get("temperature", 0.1)))
+        self._p0_temp.setMaximumWidth(100)
 
         self._p0_proj = QSpinBox()
         self._p0_proj.setRange(32, 1024)
@@ -325,20 +346,25 @@ class TrainingTab(BaseTab):
         fc = self._form(cw)
         tr = self.cfg.get("train", {})
 
-        self._seed = QSpinBox(); self._seed.setRange(0, 99999)
-        self._seed.setValue(int(tr.get("seed", 42))); self._seed.setMaximumWidth(100)
+        self._seed = QSpinBox()
+        self._seed.setRange(0, 99999)
+        self._seed.setValue(int(tr.get("seed", 42)))
+        self._seed.setMaximumWidth(100)
 
         self._scheduler = QComboBox()
         self._scheduler.addItems(["cosine", "step", "none"])
         self._scheduler.setCurrentText(tr.get("scheduler", "cosine"))
         self._scheduler.setMaximumWidth(130)
 
-        self._grad_clip = QDoubleSpinBox(); self._grad_clip.setRange(0.0, 10.0)
-        self._grad_clip.setDecimals(2); self._grad_clip.setSingleStep(0.1)
-        self._grad_clip.setValue(float(tr.get("gradient_clip", 1.0))); self._grad_clip.setMaximumWidth(100)
+        self._grad_clip = QDoubleSpinBox()
+        self._grad_clip.setRange(0.0, 10.0)
+        self._grad_clip.setDecimals(2)
+        self._grad_clip.setSingleStep(0.1)
+        self._grad_clip.setValue(float(tr.get("gradient_clip", 1.0)))
+        self._grad_clip.setMaximumWidth(100)
 
-        fc.addRow("Seed",          self._seed)
-        fc.addRow("Scheduler",     self._scheduler)
+        fc.addRow("Seed", self._seed)
+        fc.addRow("Scheduler", self._scheduler)
         fc.addRow("Gradient Clip", self._grad_clip)
         tabs.addTab(cw, "Common")
 
@@ -386,31 +412,39 @@ class TrainingTab(BaseTab):
         )
         self.cfg.setdefault("data", {})["num_levels"] = self._num_levels.value()
         p2 = self.cfg.setdefault("phase2", {})
-        p2.update({
-            "epochs":        self._p2_epochs.value(),
-            "learning_rate": self._p2_lr.value(),
-            "batch_size":    self._p2_bs.value(),
-            "weight_decay":  self._p2_wd.value(),
-            "dropout":       self._dropout.value(),
-            "hidden_dim":    self._p2_hidden.value(),
-            "oversample":    self._p2_oversample.isChecked(),
-        })
-        p2.setdefault("early_stopping", {}).update({
-            "enabled":  self._p2_es_enabled.isChecked(),
-            "patience": self._p2_es_patience.value(),
-        })
-        self.cfg.setdefault("phase0", {}).update({
-            "epochs":         self._p0_epochs.value(),
-            "learning_rate":  self._p0_lr.value(),
-            "batch_size":     self._p0_bs.value(),
-            "temperature":    self._p0_temp.value(),
-            "projection_dim": self._p0_proj.value(),
-        })
-        self.cfg.setdefault("train", {}).update({
-            "seed":          self._seed.value(),
-            "scheduler":     self._scheduler.currentText(),
-            "gradient_clip": self._grad_clip.value(),
-        })
+        p2.update(
+            {
+                "epochs": self._p2_epochs.value(),
+                "learning_rate": self._p2_lr.value(),
+                "batch_size": self._p2_bs.value(),
+                "weight_decay": self._p2_wd.value(),
+                "dropout": self._dropout.value(),
+                "hidden_dim": self._p2_hidden.value(),
+                "oversample": self._p2_oversample.isChecked(),
+            }
+        )
+        p2.setdefault("early_stopping", {}).update(
+            {
+                "enabled": self._p2_es_enabled.isChecked(),
+                "patience": self._p2_es_patience.value(),
+            }
+        )
+        self.cfg.setdefault("phase0", {}).update(
+            {
+                "epochs": self._p0_epochs.value(),
+                "learning_rate": self._p0_lr.value(),
+                "batch_size": self._p0_bs.value(),
+                "temperature": self._p0_temp.value(),
+                "projection_dim": self._p0_proj.value(),
+            }
+        )
+        self.cfg.setdefault("train", {}).update(
+            {
+                "seed": self._seed.value(),
+                "scheduler": self._scheduler.currentText(),
+                "gradient_clip": self._grad_clip.value(),
+            }
+        )
 
     def _set_running(self, running: bool) -> None:
         self._start_btn.setEnabled(not running)

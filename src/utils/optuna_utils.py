@@ -250,6 +250,11 @@ def resolve_n_jobs(cfg: dict) -> int:
     if _IS_WINDOWS:
         n_jobs = int(optuna_cfg.get("n_jobs_windows", 4))
         label = "Windows (n_jobs_windows)"
+        if n_jobs > 1:
+            # SQLite + multi-threaded access on Windows can be unstable in this code path.
+            # Use a single worker by default to avoid open-file / shared DB issues.
+            n_jobs = 1
+            label += " → forced 1 for Windows SQLite stability"
     else:
         n_jobs = int(optuna_cfg.get("n_jobs", 1))
         os_name = "macOS" if platform.system() == "Darwin" else "Linux"

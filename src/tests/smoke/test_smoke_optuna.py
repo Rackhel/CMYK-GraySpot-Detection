@@ -83,7 +83,15 @@ def test_objective_returns_float(cfg, channel):
     study = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=42))
     trial = study.ask()
 
-    score = objective(trial, channel=channel.lower())
+    phase0_dir = ROOT_DIR / cfg["storage"]["models_dir"]
+    ckpt_dir = ROOT_DIR / "outputs" / "checkpoints"
+
+    score = objective(
+        trial,
+        channel=channel.lower(),
+        phase0_dir=phase0_dir,
+        ckpt_dir=ckpt_dir,
+    )
 
     assert isinstance(score, float), f"objective 반환값이 float가 아님: {type(score)}"
     assert 0.0 <= score <= 1.0, f"score 범위 오류: {score}"

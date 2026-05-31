@@ -1,13 +1,14 @@
 """InferenceView — raw 이미지를 CMYK 채널별로 레벨 분류.
 Classifies raw images per CMYK channel and shows per-channel level results.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap, QDragEnterEvent, QDropEvent
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -22,15 +23,19 @@ from PyQt6.QtWidgets import (
 
 from gui_for_user.i18n import t
 
-_ROOT     = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[1]
 _CHANNELS = ["Y", "M", "C", "K"]
 _IMG_FILTER = "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff *.webp)"
-_IMG_EXTS   = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
+_IMG_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
 
 # 레벨별 색상 (0=최상, 높을수록 불량)
 _LEVEL_COLORS = {
-    0: "#22c55e", 1: "#84cc16", 2: "#eab308",
-    3: "#f97316", 4: "#ef4444", 5: "#dc2626",
+    0: "#22c55e",
+    1: "#84cc16",
+    2: "#eab308",
+    3: "#f97316",
+    4: "#ef4444",
+    5: "#dc2626",
 }
 _CH_COLOR = {"Y": "#f9e2af", "M": "#f38ba8", "C": "#89dceb", "K": "#a6adc8"}
 
@@ -40,6 +45,7 @@ def _lv_color(level: int) -> str:
 
 
 # ── 채널 결과 카드 ─────────────────────────────────────────────────────────────
+
 
 class ChannelCard(QWidget):
     """Y / M / C / K 채널 하나의 레벨+신뢰도 카드."""
@@ -58,9 +64,7 @@ class ChannelCard(QWidget):
         ch_col = _CH_COLOR.get(channel, "#cdd6f4")
         self._ch_lbl = QLabel(channel)
         self._ch_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._ch_lbl.setStyleSheet(
-            f"font-size:14px; font-weight:bold; color:{ch_col};"
-        )
+        self._ch_lbl.setStyleSheet(f"font-size:14px; font-weight:bold; color:{ch_col};")
 
         self._level_lbl = QLabel("—")
         self._level_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -96,7 +100,9 @@ class ChannelCard(QWidget):
 
     def reset(self) -> None:
         self._level_lbl.setText("—")
-        self._level_lbl.setStyleSheet("font-size:30px; font-weight:bold; color:#585b70;")
+        self._level_lbl.setStyleSheet(
+            "font-size:30px; font-weight:bold; color:#585b70;"
+        )
         self._bar.setValue(0)
         self._bar.setStyleSheet("")
         self._conf_lbl.setText("—")
@@ -109,7 +115,9 @@ class EnsembleCard(QWidget):
         super().__init__(parent)
         self.setFixedWidth(150)
         self.setMinimumHeight(130)
-        self.setStyleSheet("background:#1e1e2e; border:2px solid #45475a; border-radius:10px;")
+        self.setStyleSheet(
+            "background:#1e1e2e; border:2px solid #45475a; border-radius:10px;"
+        )
 
         v = QVBoxLayout(self)
         v.setContentsMargins(8, 10, 8, 10)
@@ -121,7 +129,9 @@ class EnsembleCard(QWidget):
 
         self._level_lbl = QLabel("—")
         self._level_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._level_lbl.setStyleSheet("font-size:36px; font-weight:bold; color:#585b70;")
+        self._level_lbl.setStyleSheet(
+            "font-size:36px; font-weight:bold; color:#585b70;"
+        )
 
         self._bar = QProgressBar()
         self._bar.setRange(0, 100)
@@ -153,17 +163,22 @@ class EnsembleCard(QWidget):
 
     def reset(self) -> None:
         self._level_lbl.setText("—")
-        self._level_lbl.setStyleSheet("font-size:36px; font-weight:bold; color:#585b70;")
+        self._level_lbl.setStyleSheet(
+            "font-size:36px; font-weight:bold; color:#585b70;"
+        )
         self._bar.setValue(0)
         self._bar.setStyleSheet("")
         self._conf_lbl.setText("—")
-        self.setStyleSheet("background:#1e1e2e; border:2px solid #45475a; border-radius:10px;")
+        self.setStyleSheet(
+            "background:#1e1e2e; border:2px solid #45475a; border-radius:10px;"
+        )
 
     def retranslate(self) -> None:
         self._hdr.setText(t("lbl_ensemble"))
 
 
 # ── 메인 뷰 ────────────────────────────────────────────────────────────────────
+
 
 class InferenceView(QWidget):
     """메인 추론 패널 — 단일 이미지 추론."""
@@ -174,11 +189,11 @@ class InferenceView(QWidget):
 
         self._settings: dict[str, Any] = {
             "checkpoints": {ch: "" for ch in _CHANNELS},
-            "device":       "auto",
+            "device": "auto",
             "channel_mode": "all",
         }
         self._selected_image = ""
-        self._infer_worker   = None
+        self._infer_worker = None
 
         main_v = QVBoxLayout(self)
         main_v.setContentsMargins(8, 8, 8, 8)
@@ -218,11 +233,15 @@ class InferenceView(QWidget):
         self._progress.setValue(0)
         self._progress.setFixedHeight(8)
         self._progress.setTextVisible(False)
-        self._progress.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._progress.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
 
         self._file_lbl = QLabel(t("toolbar_placeholder"))
         self._file_lbl.setStyleSheet("color:#6c7086; font-size:11px;")
-        self._file_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._file_lbl.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
 
         h.addWidget(self._browse_img_btn)
         h.addWidget(self._run_btn)
@@ -245,7 +264,9 @@ class InferenceView(QWidget):
         self._img_preview = QLabel()
         self._img_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._img_preview.setMinimumSize(240, 240)
-        self._img_preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._img_preview.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         self._img_preview.setStyleSheet(
             "background:#181825; border:1px dashed #45475a; border-radius:6px;"
         )
@@ -328,7 +349,9 @@ class InferenceView(QWidget):
     def _build_status_bar(self) -> QLabel:
         self._status_lbl = QLabel(t("status_main"))
         self._status_lbl.setFixedHeight(20)
-        self._status_lbl.setStyleSheet("font-size:10px; color:#6c7086; padding-left:4px;")
+        self._status_lbl.setStyleSheet(
+            "font-size:10px; color:#6c7086; padding-left:4px;"
+        )
         return self._status_lbl
 
     # ── Settings from sidebar ─────────────────────────────────────────────────
@@ -388,11 +411,14 @@ class InferenceView(QWidget):
         if not self._selected_image:
             return
         from gui.workers.inference_worker import InferenceWorker
+
         cfg = self._build_cfg()
-        ch  = self._settings.get("channel_mode", "all")
+        ch = self._settings.get("channel_mode", "all")
         ckpt = self._settings.get("checkpoints", {}).get(ch, "") if ch != "all" else ""
 
-        self._infer_worker = InferenceWorker(cfg, self._selected_image, ckpt, channel=ch)
+        self._infer_worker = InferenceWorker(
+            cfg, self._selected_image, ckpt, channel=ch
+        )
         self._infer_worker.progress_updated.connect(self._progress.setValue)
         self._infer_worker.log_emitted.connect(self._on_log)
         self._infer_worker.finished.connect(self._on_single_done)
@@ -409,7 +435,7 @@ class InferenceView(QWidget):
     # ── Worker callbacks ──────────────────────────────────────────────────────
 
     def _on_single_done(self, result: dict) -> None:
-        ch   = result.get("channel", "all")
+        ch = result.get("channel", "all")
         pred = result.get("pred_level", 0)
         conf = result.get("confidence", 0.0)
 
@@ -447,12 +473,13 @@ class InferenceView(QWidget):
     def _build_cfg(self) -> dict:
         try:
             from src.utils.utils_config import load_config
+
             cfg = load_config()
         except Exception:
             cfg = {
-                "data":    {"image_size": 128, "num_levels": 6, "channels": _CHANNELS},
+                "data": {"image_size": 128, "num_levels": 6, "channels": _CHANNELS},
                 "storage": {"models_dir": "data_set/models"},
-                "system":  {},
+                "system": {},
             }
         cfg.setdefault("system", {})["device"] = self._settings.get("device", "auto")
         ckpts = self._settings.get("checkpoints", {})

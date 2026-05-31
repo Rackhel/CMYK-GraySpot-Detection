@@ -1,4 +1,6 @@
 # ── Core ML & Deep Learning / 핵심 ML 및 딥러닝 ─────────────────────────
+# Use a CUDA-enabled PyTorch build if you want GPU support.
+# Example: pip install --index-url https://download.pytorch.org/whl/cu121 torch torchvision torchaudio
 torch>=2.12.0
 torchvision>=0.26.0
 # torchmetrics>=0.11.0 # only needed for advanced metric tracking
@@ -39,6 +41,8 @@ umap-learn>=0.5.4
 
 # ── GUI & Web Interface / GUI 및 웹 인터페이스 ────────────────────────────────
 # streamlit>=1.28.0  # optional (web GUI — legacy; project uses PyQt6 desktop GUI)
+PyQt6>=6.8.0 
+PyQt6-WebEngine>=6.8.0 # required for QtWebEngine support in desktop GUI
 pyinstaller>=6.20.0 # only needed for building GUI executable
 
 # ── Code Quality & Formatting / 코드 품질 및 포매팅 ─────────────────────────────

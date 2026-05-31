@@ -32,6 +32,7 @@ import warnings
 from pathlib import Path
 
 import torch
+from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import DataLoader
 
 # CMYK_MAIN 루트와 src/ 를 sys.path에 추가
@@ -83,6 +84,20 @@ def create_dataloader(dataset, cfg: dict, shuffle: bool = False) -> DataLoader:
     )
 
 
+def load_channel_samples(cfg: dict, channel: str) -> list[tuple[Path, int]]:
+    """Load all labeled samples for a channel, preserving level labels."""
+    labeled_dir = Path(cfg["storage"]["labeled_dir"])
+    samples: list[tuple[Path, int]] = []
+    for level in range(cfg["data"]["num_levels"]):
+        level_dir = labeled_dir / channel / str(level)
+        if not level_dir.exists():
+            continue
+        for img_path in sorted(level_dir.glob("*")):
+            if img_path.suffix.lower() in CMYKDataset._EXTS:
+                samples.append((img_path, level))
+    return samples
+
+
 def run_baseline(cfg: dict, channel: str, device: torch.device) -> dict:
     """
     단일 채널 Naive Baseline 학습 실행.
@@ -97,10 +112,102 @@ def run_baseline(cfg: dict, channel: str, device: torch.device) -> dict:
     bcfg = copy.deepcopy(cfg)
     bcfg["storage"]["models_dir"] = str(baseline_dir)
     bcfg["storage"]["reports_dir"] = str(baseline_dir)
+    seed = int(cfg["train"].get("seed", 42))
 
     train_ds = CMYKDataset(bcfg, channel, split="train", augment=True, oversample=True)
     val_ds = CMYKDataset(bcfg, channel, split="val", augment=False, oversample=False)
     test_ds = CMYKDataset(bcfg, channel, split="test", augment=False, oversample=False)
+
+    cv_cfg = (
+        cfg["phase2"].get("k_fold", {})
+        if isinstance(cfg["phase2"].get("k_fold", {}), dict)
+        else {}
+    )
+    cv_mean_val_acc = None
+    if cv_cfg.get("enabled", False):
+        n_splits = int(cv_cfg.get("n_splits", 5))
+        if n_splits > 1:
+            train_raw = CMYKDataset(
+                bcfg,
+                channel,
+                split="train",
+                augment=False,
+                oversample=False,
+            )
+            val_raw = CMYKDataset(
+                bcfg,
+                channel,
+                split="val",
+                augment=False,
+                oversample=False,
+            )
+            trainval_samples = train_raw.samples + val_raw.samples
+
+            if len(trainval_samples) < n_splits:
+                logger.warning(
+                    f"  [CV] Not enough train/val samples for {n_splits}-fold CV — skipping CV"
+                )
+            else:
+                labels = [lv for _, lv in trainval_samples]
+                cv_fold_acc = []
+                kfold = StratifiedKFold(
+                    n_splits=n_splits,
+                    shuffle=True,
+                    random_state=seed,
+                )
+
+                logger.info(
+                    f"  [CV] Running Stratified {n_splits}-Fold Cross Validation with {len(trainval_samples)} train/val samples"
+                )
+                for fold_idx, (train_idx, val_idx) in enumerate(
+                    kfold.split(trainval_samples, labels), start=1
+                ):
+                    logger.info(f"  [CV] Fold {fold_idx}/{n_splits}")
+                    fold_train_samples = [trainval_samples[i] for i in train_idx]
+                    fold_val_samples = [trainval_samples[i] for i in val_idx]
+
+                    fold_train_ds = CMYKDataset(
+                        bcfg,
+                        channel,
+                        split="train",
+                        augment=True,
+                        oversample=True,
+                        samples=fold_train_samples,
+                    )
+                    fold_val_ds = CMYKDataset(
+                        bcfg,
+                        channel,
+                        split="val",
+                        augment=False,
+                        oversample=False,
+                        samples=fold_val_samples,
+                    )
+
+                    fold_train_loader = create_dataloader(
+                        fold_train_ds, bcfg, shuffle=True
+                    )
+                    fold_val_loader = create_dataloader(
+                        fold_val_ds, bcfg, shuffle=False
+                    )
+
+                    fold_model = GrayspotModel(bcfg, phase=2).to(device)
+                    fold_trainer = Phase2Trainer(
+                        fold_model,
+                        bcfg,
+                        channel,
+                        device,
+                        fold_train_ds,
+                    )
+                    fold_history = fold_trainer.train(
+                        fold_train_loader, fold_val_loader
+                    )
+                    fold_best = max(r["val_acc"] for r in fold_history)
+                    cv_fold_acc.append(fold_best)
+
+                cv_mean_val_acc = sum(cv_fold_acc) / max(len(cv_fold_acc), 1)
+                logger.info(
+                    f"  [CV] Stratified {n_splits}-Fold mean best val acc: {cv_mean_val_acc:.4f}"
+                )
 
     logger.info("=" * 60)
     logger.info(f"  Baseline Training — Channel: [{channel}]")
@@ -173,10 +280,12 @@ def run_baseline(cfg: dict, channel: str, device: torch.device) -> dict:
         f"  MAE           : {mae:.4f}  (target <= {cfg['evaluation']['targets']['mae']}) "
         f"{'[PASS]' if mae <= cfg['evaluation']['targets']['mae'] else '[FAIL]'}"
     )
+    if cv_mean_val_acc is not None:
+        logger.info(f"  CV Mean Best Val Acc: {cv_mean_val_acc:.4f}")
     logger.info(f"  Best Val Acc  : {best_val_acc:.4f}")
     logger.info(f"  Test Samples  : {total}개")
 
-    return {
+    result = {
         "channel": channel,
         "skipped": False,
         "test_acc": round(test_acc, 4),
@@ -190,6 +299,9 @@ def run_baseline(cfg: dict, channel: str, device: torch.device) -> dict:
         "pass_acc": test_acc >= cfg["evaluation"]["targets"]["per_color_accuracy"],
         "pass_mae": mae <= cfg["evaluation"]["targets"]["mae"],
     }
+    if cv_mean_val_acc is not None:
+        result["cv_mean_val_acc"] = round(cv_mean_val_acc, 4)
+    return result
 
 
 def main():

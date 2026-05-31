@@ -1,6 +1,7 @@
 """AppWindow — 메인 윈도우: 헤더 바 + 사이드바(숨기기 가능) + 추론 뷰.
 Main window with a toggleable sidebar and full-screen inference panel.
 """
+
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
@@ -15,11 +16,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from gui_for_user.i18n import t, set_lang, get_lang
-from gui_for_user.sidebar import SidebarWidget
+from gui_for_user.i18n import get_lang, set_lang, t
 from gui_for_user.inference_view import InferenceView
+from gui_for_user.sidebar import SidebarWidget
 
-_SIDEBAR_W = 280   # 사이드바 기본 너비 (px)
+_SIDEBAR_W = 280  # 사이드바 기본 너비 (px)
 
 
 class AppWindow(QMainWindow):
@@ -44,7 +45,7 @@ class AppWindow(QMainWindow):
         self._splitter.setHandleWidth(4)
         self._splitter.setChildrenCollapsible(True)
 
-        self.sidebar        = SidebarWidget()
+        self.sidebar = SidebarWidget()
         self.inference_view = InferenceView()
 
         self._splitter.addWidget(self.sidebar)
@@ -101,7 +102,9 @@ class AppWindow(QMainWindow):
 
         # 도움말 레이블
         self._hint_lbl = QLabel(t("header_hint"))
-        self._hint_lbl.setStyleSheet("font-size:11px; color:#585b70; background:transparent;")
+        self._hint_lbl.setStyleSheet(
+            "font-size:11px; color:#585b70; background:transparent;"
+        )
 
         # 언어 전환 버튼
         self._lang_btn = QPushButton(t("btn_lang"))

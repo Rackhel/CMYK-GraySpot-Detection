@@ -4,6 +4,7 @@
     python -m gui_for_user.main
     python gui_for_user/main.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -21,6 +22,7 @@ from PyQt6.QtWidgets import QApplication
 
 try:
     from PyQt6.QtWebEngineWidgets import QWebEngineView as _QWE  # noqa: F401
+
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 except Exception:
     pass
@@ -75,6 +77,7 @@ def main() -> None:
     app.setStyleSheet(_DARK_QSS)
 
     from gui_for_user.app_window import AppWindow
+
     window = AppWindow()
     window.show()
     sys.exit(app.exec())

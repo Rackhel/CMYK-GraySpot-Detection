@@ -66,14 +66,18 @@ class CMYKDataset(Dataset):
         split: str = "train",
         augment: bool = True,
         oversample: bool = True,
+        samples: list[tuple[Path, int]] | None = None,
     ):
         self.augment = augment and (split == "train")
         self.image_size = cfg["data"]["image_size"]
         self.num_levels = cfg["data"]["num_levels"]
         self.sup_aug_cfg = cfg["phase2"].get("augmentation", {})
 
-        labeled_dir = Path(cfg["storage"]["labeled_dir"])
-        all_samples: list[tuple[Path, int]] = []
+        if samples is not None:
+            self.samples = samples
+        else:
+            labeled_dir = Path(cfg["storage"]["labeled_dir"])
+            all_samples: list[tuple[Path, int]] = []
 
         # 레벨별 이미지 수집 / Collect images per level
         channel_dir = labeled_dir / channel

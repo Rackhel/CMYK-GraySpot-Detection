@@ -91,7 +91,7 @@ class SettingsTab(BaseTab):
             self._load_gui_config().get("checkpoint_path", "")
         )
 
-        sys_cfg   = self.cfg.get("system", {})
+        sys_cfg = self.cfg.get("system", {})
         train_cfg = self.cfg.get("train", {})
         self._device_combo.setCurrentText(sys_cfg.get("device", "auto"))
         self._dataloader_workers.setValue(int(train_cfg.get("num_workers", 0)))
@@ -113,19 +113,25 @@ class SettingsTab(BaseTab):
         try:
             src_cfg: dict = json.loads(_SRC_CONFIG.read_text(encoding="utf-8"))
 
-            src_cfg.setdefault("storage", {}).update({
-                "labeled_dir": self._labeled_dir.text().strip(),
-                "models_dir":  self._models_dir.text().strip(),
-                "reports_dir": self._reports_dir.text().strip(),
-            })
-            src_cfg.setdefault("train", {}).update({
-                "num_workers": self._dataloader_workers.value(),
-            })
-            src_cfg.setdefault("system", {}).update({
-                "device":               self._device_combo.currentText(),
-                "inference_batch_size": self._infer_batch_size.value(),
-                "training_timeout_min": self._train_timeout.value(),
-            })
+            src_cfg.setdefault("storage", {}).update(
+                {
+                    "labeled_dir": self._labeled_dir.text().strip(),
+                    "models_dir": self._models_dir.text().strip(),
+                    "reports_dir": self._reports_dir.text().strip(),
+                }
+            )
+            src_cfg.setdefault("train", {}).update(
+                {
+                    "num_workers": self._dataloader_workers.value(),
+                }
+            )
+            src_cfg.setdefault("system", {}).update(
+                {
+                    "device": self._device_combo.currentText(),
+                    "inference_batch_size": self._infer_batch_size.value(),
+                    "training_timeout_min": self._train_timeout.value(),
+                }
+            )
 
             _SRC_CONFIG.write_text(
                 json.dumps(src_cfg, indent=2, ensure_ascii=False), encoding="utf-8"

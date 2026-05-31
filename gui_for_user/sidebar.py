@@ -1,13 +1,14 @@
 """SidebarWidget — 모델 가중치 경로 + 추론 설정 (숨기기 가능).
 Collapsible sidebar for checkpoint paths and inference settings.
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -24,7 +25,7 @@ from PyQt6.QtWidgets import (
 
 from gui_for_user.i18n import t
 
-_ROOT     = Path(__file__).resolve().parents[1]
+_ROOT = Path(__file__).resolve().parents[1]
 _CFG_PATH = Path(__file__).resolve().parent / "assets" / "config.json"
 _CHANNELS = ["Y", "M", "C", "K"]
 
@@ -101,7 +102,7 @@ class SidebarWidget(QWidget):
         for ch in _CHANNELS:
             col = _CH_COLOR[ch]
             row_w = QWidget()
-            row   = QHBoxLayout(row_w)
+            row = QHBoxLayout(row_w)
             row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(4)
 
@@ -153,24 +154,27 @@ class SidebarWidget(QWidget):
             self._mode_combo.addItem(t("mode_single_ch", ch=ch), userData=ch)
 
         self._device_row_lbl = QLabel(t("lbl_device"))
-        self._mode_row_lbl   = QLabel(t("lbl_ch_mode"))
+        self._mode_row_lbl = QLabel(t("lbl_ch_mode"))
 
         f.addRow(self._device_row_lbl, self._device_combo)
-        f.addRow(self._mode_row_lbl,   self._mode_combo)
+        f.addRow(self._mode_row_lbl, self._mode_combo)
         return g
 
     # ── Slots ─────────────────────────────────────────────────────────────────
 
     def _browse(self, ch: str) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, t("dlg_select_ckpt"),
-            str(_ROOT), "PyTorch (*.pt *.pth)",
+            self,
+            t("dlg_select_ckpt"),
+            str(_ROOT),
+            "PyTorch (*.pt *.pth)",
         )
         if path:
             self._ckpt_edits[ch].setText(path)
 
     def _auto_detect(self, ch: str) -> None:
         from gui.workers._ckpt_utils import auto_find_checkpoint
+
         cfg = self._load_src_cfg()
         p = auto_find_checkpoint(cfg, ch)
         if p:
@@ -193,8 +197,10 @@ class SidebarWidget(QWidget):
 
     def collect_settings(self) -> dict[str, Any]:
         return {
-            "checkpoints": {ch: self._ckpt_edits[ch].text().strip() for ch in _CHANNELS},
-            "device":       self._device_combo.currentText(),
+            "checkpoints": {
+                ch: self._ckpt_edits[ch].text().strip() for ch in _CHANNELS
+            },
+            "device": self._device_combo.currentText(),
             "channel_mode": self._mode_combo.currentData(),
         }
 
@@ -224,6 +230,7 @@ class SidebarWidget(QWidget):
     def _load_src_cfg() -> dict:
         try:
             from src.utils.utils_config import load_config
+
             return load_config()
         except Exception:
             return {}

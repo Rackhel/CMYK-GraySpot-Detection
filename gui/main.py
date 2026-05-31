@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import QApplication
 # Must be imported before QApplication is instantiated on macOS/Linux.
 try:
     from PyQt6.QtWebEngineWidgets import QWebEngineView as _QWebEngineView  # noqa: F401
+
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 except Exception:
     pass

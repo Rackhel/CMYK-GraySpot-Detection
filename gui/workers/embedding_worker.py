@@ -144,7 +144,9 @@ class EmbeddingWorker(BaseWorker):
 
             n_samples = features.shape[0]
             perplexity = min(30, max(5, n_samples // 10))
-            tsne = TSNE(n_components=2, perplexity=perplexity, random_state=42, max_iter=500)
+            tsne = TSNE(
+                n_components=2, perplexity=perplexity, random_state=42, max_iter=500
+            )
             embeddings_2d = tsne.fit_transform(features).tolist()
 
             self.emit_progress(

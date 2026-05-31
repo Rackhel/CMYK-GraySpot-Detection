@@ -12,8 +12,48 @@ from collections import Counter
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from training.contrastive_loss import InfoNCELoss
+
+
+class FocalLoss(nn.Module):
+    """Focal Loss for imbalanced classification.
+
+    Reference: https://arxiv.org/abs/1708.02002
+    """
+
+    def __init__(
+        self,
+        gamma: float = 2.0,
+        weight: torch.Tensor | None = None,
+        reduction: str = "mean",
+        ignore_index: int = -100,
+    ) -> None:
+        super().__init__()
+        self.gamma = gamma
+        self.weight = weight
+        self.reduction = reduction
+        self.ignore_index = ignore_index
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        log_probs = F.log_softmax(logits, dim=1)
+        probs = log_probs.exp()
+        gather_target = targets.unsqueeze(1)
+        target_log_probs = log_probs.gather(1, gather_target).squeeze(1)
+        target_probs = probs.gather(1, gather_target).squeeze(1)
+
+        if self.weight is not None:
+            weights = self.weight.to(logits.device).gather(0, targets)
+        else:
+            weights = 1.0
+
+        loss = -weights * ((1.0 - target_probs) ** self.gamma) * target_log_probs
+        if self.reduction == "sum":
+            return loss.sum()
+        if self.reduction == "mean":
+            return loss.mean()
+        return loss
 
 
 def get_loss(phase: int, cfg: dict, train_samples: list = None) -> nn.Module:
@@ -36,12 +76,14 @@ def get_loss(phase: int, cfg: dict, train_samples: list = None) -> nn.Module:
         return InfoNCELoss(temperature=temperature)
 
     elif phase == 2:
-        # Phase 2: CrossEntropyLoss
-        # Softmax 포함 — Head에 Softmax 추가 금지 / Includes Softmax — do NOT add Softmax to Head
+        # Phase 2: supervised classification loss
+        loss_type = cfg["phase2"].get("loss", "cross_entropy").lower()
         class_weights_mode = cfg["phase2"].get("class_weights", "none")
+        label_smoothing = float(cfg["phase2"].get("label_smoothing", 0.0))
+        focal_gamma = float(cfg["phase2"].get("focal_gamma", 2.0))
 
+        weights = None
         if class_weights_mode == "balanced" and train_samples is not None:
-            # 클래스 가중치 계산 (데이터 불균형 보정) / Compute class weights (imbalance correction)
             num_levels = cfg["data"]["num_levels"]
             level_counts = Counter([lv for _, lv in train_samples])
             total = sum(level_counts.values())
@@ -52,11 +94,13 @@ def get_loss(phase: int, cfg: dict, train_samples: list = None) -> nn.Module:
                 ],
                 dtype=torch.float32,
             )
-            # 정규화 / Normalize
             weights = weights / weights.sum()
-            return nn.CrossEntropyLoss(weight=weights)
+
+        if loss_type == "focal":
+            return FocalLoss(gamma=focal_gamma, weight=weights)
         else:
-            return nn.CrossEntropyLoss()
+            # Softmax 포함 — Head에 Softmax 추가 금지 / Includes Softmax — do NOT add Softmax to Head
+            return nn.CrossEntropyLoss(weight=weights, label_smoothing=label_smoothing)
 
     else:
         raise ValueError(

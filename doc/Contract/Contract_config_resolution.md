@@ -92,8 +92,8 @@ val = get_nested(cfg, "phase2.learning_rate")  # → Any (None-safe dot-notation
 | `data.augmentation` (Phase 2) | `phase2.augmentation.*` (flip/brightness/noise), `phase2.oversample` |
 | `models.grayspot_model` | `model.backbone`, `model.frozen_backbone`, `data.num_levels`, `phase0.projection_dim`, `phase0.hidden_dim`, `phase2.heads.{backbone}.*` |
 | `training.trainer` (Phase 0) | `phase0.epochs/batch_size/learning_rate/weight_decay/temperature`, `train.optimizer/scheduler/gradient_clip/eta_min/seed`, `storage.models_dir` |
-| `training.trainer` (Phase 2) | `phase2.epochs/batch_size/learning_rate/weight_decay/early_stopping.*`, `train.*`, `storage.models_dir/reports_dir` |
-| `training.losses` | `phase0.temperature`, `data.num_levels` |
+| `training.trainer` (Phase 2) | `phase2.epochs/batch_size/learning_rate/weight_decay/early_stopping.*`, `phase2.k_fold.*`, `train.*`, `storage.models_dir/reports_dir` |
+| `training.losses` | `phase2.loss`, `phase2.class_weights`, `phase2.label_smoothing`, `phase2.focal_gamma`, `data.num_levels` |
 | `evaluation.evaluator` | `inference.confidence_thresholds.*`, `evaluation.swing_thresholds.*` |
 | `evaluation.metrics` | `evaluation.targets.*`, `data.num_levels` |
 | `tuning.optuna_tuner` | `optuna.*`, `system.device`, `train.seed` |
