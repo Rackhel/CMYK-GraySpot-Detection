@@ -106,6 +106,8 @@ def test_optuna_mini_run_saves_outputs(cfg, channel):
     run_optuna(n_trials=1, channel=channel.lower())
 
     output_dir = ROOT_DIR / "outputs" / "optuna"
+    # Fix: Add "phase2_" prefix to match save_best_params behavior
+    expected_file = output_dir / f"best_params_phase2_{channel.lower()}.json"
     assert (
-        output_dir / f"best_params_{channel.lower()}.json"
-    ).exists(), "best_params JSON 파일이 저장되지 않음"
+        expected_file.exists()
+    ), f"best_params JSON 파일이 저장되지 않음: {expected_file}"
