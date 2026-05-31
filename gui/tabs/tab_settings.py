@@ -11,9 +11,7 @@ from typing import Any
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QComboBox,
-    QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
     QGroupBox,
@@ -63,9 +61,6 @@ class SettingsTab(BaseTab):
         main_form.addWidget(self._build_appearance_group())
         main_form.addWidget(self._build_storage_group())
         main_form.addWidget(self._build_worker_settings_group())
-        main_form.addWidget(self._build_phase2_group())
-        main_form.addWidget(self._build_phase0_group())
-        main_form.addWidget(self._build_train_group())
         main_form.addStretch()
 
         # ── 버튼 / Buttons ────────────────────────────────────────────────────
@@ -96,31 +91,8 @@ class SettingsTab(BaseTab):
             self._load_gui_config().get("checkpoint_path", "")
         )
 
-        p2 = self.cfg.get("phase2", {})
-        self._p2_epochs.setValue(int(p2.get("epochs", 50)))
-        self._p2_batch.setValue(int(p2.get("batch_size", 16)))
-        self._p2_lr.setValue(float(p2.get("learning_rate", 1e-4)))
-        self._p2_wd.setValue(float(p2.get("weight_decay", 1e-4)))
-        self._p2_dropout.setValue(float(p2.get("dropout", 0.3)))
-        self._p2_hidden.setValue(int(p2.get("hidden_dim", 256)))
-        self._p2_oversample.setChecked(bool(p2.get("oversample", True)))
-        es = p2.get("early_stopping", {})
-        self._p2_es_enabled.setChecked(bool(es.get("enabled", True)))
-        self._p2_es_patience.setValue(int(es.get("patience", 10)))
-
-        p0 = self.cfg.get("phase0", {})
-        self._p0_epochs.setValue(int(p0.get("epochs", 10)))
-        self._p0_batch.setValue(int(p0.get("batch_size", 16)))
-        self._p0_lr.setValue(float(p0.get("learning_rate", 1e-3)))
-        self._p0_temp.setValue(float(p0.get("temperature", 0.1)))
-
+        sys_cfg   = self.cfg.get("system", {})
         train_cfg = self.cfg.get("train", {})
-        self._seed.setValue(int(train_cfg.get("seed", 42)))
-        self._num_workers.setValue(int(train_cfg.get("num_workers", 0)))
-        self._scheduler.setCurrentText(train_cfg.get("scheduler", "cosine"))
-        self._grad_clip.setValue(float(train_cfg.get("gradient_clip", 1.0)))
-
-        sys_cfg = self.cfg.get("system", {})
         self._device_combo.setCurrentText(sys_cfg.get("device", "auto"))
         self._dataloader_workers.setValue(int(train_cfg.get("num_workers", 0)))
         self._infer_batch_size.setValue(int(sys_cfg.get("inference_batch_size", 1)))
@@ -141,53 +113,19 @@ class SettingsTab(BaseTab):
         try:
             src_cfg: dict = json.loads(_SRC_CONFIG.read_text(encoding="utf-8"))
 
-            src_cfg.setdefault("storage", {}).update(
-                {
-                    "labeled_dir": self._labeled_dir.text().strip(),
-                    "models_dir": self._models_dir.text().strip(),
-                    "reports_dir": self._reports_dir.text().strip(),
-                }
-            )
-            src_cfg.setdefault("phase2", {}).update(
-                {
-                    "epochs": self._p2_epochs.value(),
-                    "batch_size": self._p2_batch.value(),
-                    "learning_rate": self._p2_lr.value(),
-                    "weight_decay": self._p2_wd.value(),
-                    "dropout": self._p2_dropout.value(),
-                    "hidden_dim": self._p2_hidden.value(),
-                    "oversample": self._p2_oversample.isChecked(),
-                }
-            )
-            src_cfg["phase2"].setdefault("early_stopping", {}).update(
-                {
-                    "enabled": self._p2_es_enabled.isChecked(),
-                    "patience": self._p2_es_patience.value(),
-                }
-            )
-            src_cfg.setdefault("phase0", {}).update(
-                {
-                    "epochs": self._p0_epochs.value(),
-                    "batch_size": self._p0_batch.value(),
-                    "learning_rate": self._p0_lr.value(),
-                    "temperature": self._p0_temp.value(),
-                }
-            )
-            src_cfg.setdefault("train", {}).update(
-                {
-                    "seed": self._seed.value(),
-                    "num_workers": self._dataloader_workers.value(),
-                    "scheduler": self._scheduler.currentText(),
-                    "gradient_clip": self._grad_clip.value(),
-                }
-            )
-            src_cfg.setdefault("system", {}).update(
-                {
-                    "device": self._device_combo.currentText(),
-                    "inference_batch_size": self._infer_batch_size.value(),
-                    "training_timeout_min": self._train_timeout.value(),
-                }
-            )
+            src_cfg.setdefault("storage", {}).update({
+                "labeled_dir": self._labeled_dir.text().strip(),
+                "models_dir":  self._models_dir.text().strip(),
+                "reports_dir": self._reports_dir.text().strip(),
+            })
+            src_cfg.setdefault("train", {}).update({
+                "num_workers": self._dataloader_workers.value(),
+            })
+            src_cfg.setdefault("system", {}).update({
+                "device":               self._device_combo.currentText(),
+                "inference_batch_size": self._infer_batch_size.value(),
+                "training_timeout_min": self._train_timeout.value(),
+            })
 
             _SRC_CONFIG.write_text(
                 json.dumps(src_cfg, indent=2, ensure_ascii=False), encoding="utf-8"
@@ -217,9 +155,6 @@ class SettingsTab(BaseTab):
     def retranslate_ui(self, lang: str) -> None:
         self._grp_appearance.setTitle(t("grp_appearance"))
         self._grp_storage.setTitle(t("grp_storage"))
-        self._grp_phase2.setTitle(t("grp_phase2"))
-        self._grp_phase0.setTitle(t("grp_phase0"))
-        self._grp_train.setTitle(t("grp_train_cmn"))
         self._save_btn.setText(t("btn_save_settings"))
         self._reset_btn.setText(t("btn_reset"))
 
@@ -315,74 +250,6 @@ class SettingsTab(BaseTab):
         f.addRow("Training Timeout (min)", self._train_timeout)
         return self._grp_worker
 
-    def _build_phase2_group(self) -> QGroupBox:
-        self._grp_phase2 = QGroupBox(t("grp_phase2"))
-        g = self._grp_phase2
-        f = self._make_form(g)
-        p2 = self.cfg.get("phase2", {})
-        es = p2.get("early_stopping", {})
-
-        self._p2_epochs = self._spin(p2.get("epochs", 50), 1, 500)
-        self._p2_batch = self._spin(p2.get("batch_size", 16), 1, 256)
-        self._p2_lr = self._dspin(p2.get("learning_rate", 1e-4), 1e-6, 1.0, 6)
-        self._p2_wd = self._dspin(p2.get("weight_decay", 1e-4), 1e-7, 1.0, 7)
-        self._p2_dropout = self._dspin(p2.get("dropout", 0.3), 0.0, 0.9, 2)
-        self._p2_hidden = self._spin(p2.get("hidden_dim", 256), 64, 2048, step=64)
-
-        self._p2_oversample = QCheckBox("Oversample minority classes")
-        self._p2_oversample.setChecked(bool(p2.get("oversample", True)))
-        self._p2_es_enabled = QCheckBox("Early Stopping enabled")
-        self._p2_es_enabled.setChecked(bool(es.get("enabled", True)))
-        self._p2_es_patience = self._spin(es.get("patience", 10), 1, 200)
-
-        f.addRow("Epochs", self._p2_epochs)
-        f.addRow("Batch Size", self._p2_batch)
-        f.addRow("Learning Rate", self._p2_lr)
-        f.addRow("Weight Decay", self._p2_wd)
-        f.addRow("Dropout", self._p2_dropout)
-        f.addRow("Hidden Dim", self._p2_hidden)
-        f.addRow(self._p2_oversample)  # full-span
-        f.addRow(self._p2_es_enabled)  # full-span
-        f.addRow("ES Patience", self._p2_es_patience)
-        return g
-
-    def _build_phase0_group(self) -> QGroupBox:
-        self._grp_phase0 = QGroupBox(t("grp_phase0"))
-        g = self._grp_phase0
-        f = self._make_form(g)
-        p0 = self.cfg.get("phase0", {})
-
-        self._p0_epochs = self._spin(p0.get("epochs", 10), 1, 200)
-        self._p0_batch = self._spin(p0.get("batch_size", 16), 1, 256)
-        self._p0_lr = self._dspin(p0.get("learning_rate", 1e-3), 1e-6, 1.0, 6)
-        self._p0_temp = self._dspin(p0.get("temperature", 0.1), 0.01, 1.0, 3)
-
-        f.addRow("Epochs", self._p0_epochs)
-        f.addRow("Batch Size", self._p0_batch)
-        f.addRow("Learning Rate", self._p0_lr)
-        f.addRow("Temperature", self._p0_temp)
-        return g
-
-    def _build_train_group(self) -> QGroupBox:
-        self._grp_train = QGroupBox(t("grp_train_cmn"))
-        g = self._grp_train
-        f = self._make_form(g)
-        train_cfg = self.cfg.get("train", {})
-
-        self._seed = self._spin(train_cfg.get("seed", 42), 0, 99999)
-        self._num_workers = self._spin(train_cfg.get("num_workers", 0), 0, 16)
-        self._scheduler = QComboBox()
-        self._scheduler.addItems(["cosine", "step", "none"])
-        self._scheduler.setCurrentText(train_cfg.get("scheduler", "cosine"))
-        self._scheduler.setMaximumWidth(_FIELD_W)
-        self._grad_clip = self._dspin(train_cfg.get("gradient_clip", 1.0), 0.0, 10.0, 2)
-
-        f.addRow("Seed", self._seed)
-        f.addRow("Num Workers", self._num_workers)
-        f.addRow("Scheduler", self._scheduler)
-        f.addRow("Gradient Clip", self._grad_clip)
-        return g
-
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     @staticmethod
@@ -403,16 +270,6 @@ class SettingsTab(BaseTab):
         w.setRange(mn, mx)
         w.setSingleStep(step)
         w.setValue(int(val))
-        w.setMaximumWidth(_FIELD_W)
-        return w
-
-    @staticmethod
-    def _dspin(val, mn, mx, decimals=4) -> QDoubleSpinBox:
-        w = QDoubleSpinBox()
-        w.setRange(mn, mx)
-        w.setDecimals(decimals)
-        w.setSingleStep(10 ** (-decimals))
-        w.setValue(float(val))
         w.setMaximumWidth(_FIELD_W)
         return w
 

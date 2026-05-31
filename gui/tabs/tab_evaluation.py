@@ -14,7 +14,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QScrollArea,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
@@ -37,8 +36,9 @@ _CHANNELS = ["Y", "M", "C", "K"]
 class EvaluationTab(BaseTab):
     """Dataset evaluation with F1, MAE, Confusion Matrix per channel."""
 
-    def __init__(self, cfg: dict[str, Any] | None = None) -> None:
+    def __init__(self, cfg: dict[str, Any] | None = None, settings_tab=None) -> None:
         super().__init__(cfg)
+        self._settings_tab = settings_tab
         self.service = EvaluationService()
         self.eval_worker: EvaluationWorker | None = None
         self._results: dict[str, dict] = {}  # channel → metrics dict
@@ -92,33 +92,57 @@ class EvaluationTab(BaseTab):
 
         # ── Confusion Matrix 차트 / Confusion matrix chart ────────────────
         self.chart = PlotlyWidget()
-        self.chart.setMinimumHeight(320)
+        self.chart.setMinimumHeight(200)
 
         # ── 진행 / Progress ───────────────────────────────────────────────
         self.progress = ProgressPanel()
         self.log = LogPanel()
         self.log.setMaximumHeight(70)
 
-        # ── 스크롤 레이아웃 / Scroll layout ───────────────────────────────
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        content = QWidget()
-        v = QVBoxLayout(content)
-        v.setSpacing(10)
-        v.addWidget(ctrl_group)
-        v.addLayout(card_row)
-        v.addWidget(QLabel("<b>채널별 비교 / Per-Channel Summary</b>"))
-        v.addWidget(self._ch_table)
-        v.addWidget(QLabel("<b>Confusion Matrix</b>"))
-        v.addWidget(self.chart)
-        v.addWidget(self.progress)
-        v.addWidget(self.log)
-        v.addStretch()
-        scroll.setWidget(content)
+        # ── 상단 패널: 컨트롤 + 카드 / Top panel: controls + cards ─────────
+        top_widget = QWidget()
+        top_v = QVBoxLayout(top_widget)
+        top_v.setSpacing(8)
+        top_v.setContentsMargins(0, 0, 0, 0)
+        top_v.addWidget(ctrl_group)
+        top_v.addLayout(card_row)
+
+        # ── 하단 좌: 채널 테이블 + 로그 / Bottom-left: table + log ──────────
+        left_widget = QWidget()
+        left_v = QVBoxLayout(left_widget)
+        left_v.setSpacing(6)
+        left_v.setContentsMargins(0, 0, 0, 0)
+        left_v.addWidget(QLabel("<b>채널별 비교 / Per-Channel Summary</b>"))
+        left_v.addWidget(self._ch_table)
+        left_v.addWidget(self.progress)
+        left_v.addWidget(self.log)
+        left_v.addStretch()
+
+        # ── 하단 우: Confusion Matrix / Bottom-right: CM chart ──────────────
+        right_widget = QWidget()
+        right_v = QVBoxLayout(right_widget)
+        right_v.setSpacing(4)
+        right_v.setContentsMargins(0, 0, 0, 0)
+        right_v.addWidget(QLabel("<b>Confusion Matrix</b>"))
+        right_v.addWidget(self.chart, stretch=1)
+
+        # ── 하단 수평 스플리터 / Bottom horizontal splitter ─────────────────
+        h_splitter = QSplitter(Qt.Orientation.Horizontal)
+        h_splitter.addWidget(left_widget)
+        h_splitter.addWidget(right_widget)
+        h_splitter.setStretchFactor(0, 1)
+        h_splitter.setStretchFactor(1, 2)
+
+        # ── 수직 스플리터: 상단 ↕ 하단 / Vertical splitter: top ↕ bottom ───
+        v_splitter = QSplitter(Qt.Orientation.Vertical)
+        v_splitter.addWidget(top_widget)
+        v_splitter.addWidget(h_splitter)
+        v_splitter.setStretchFactor(0, 0)
+        v_splitter.setStretchFactor(1, 1)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
-        layout.addWidget(scroll)
+        layout.addWidget(v_splitter)
 
     # ── BaseTab interface ──────────────────────────────────────────────────────
 
@@ -130,9 +154,9 @@ class EvaluationTab(BaseTab):
         self._results[ch] = result
         self._update_cards(result)
         self._update_ch_table(ch, result)
-        matrix = result.get("confusion_matrix")
-        if matrix:
-            self.chart.show_matrix(matrix, title=f"Confusion Matrix — {ch}")
+        cm_html = result.get("cm_html_path", "")
+        if cm_html and Path(cm_html).exists():
+            self.chart.load_file(cm_html)
         self._run_btn.setEnabled(True)
         self._stop_btn.setEnabled(False)
         self.eval_worker = None

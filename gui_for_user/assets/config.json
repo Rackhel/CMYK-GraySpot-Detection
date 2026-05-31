@@ -1,0 +1,10 @@
+{
+  "checkpoints": {
+    "Y": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/data_set/models/best_Y.pt",
+    "M": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/data_set/models/best_M.pt",
+    "C": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/data_set/models/best_C.pt",
+    "K": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/data_set/models/best_K.pt"
+  },
+  "device": "mps",
+  "channel_mode": "all"
+}
