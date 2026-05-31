@@ -5,13 +5,7 @@ Displays per-level accuracy broken down by channel after batch inference.
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QLabel,
-    QTableWidget,
-    QTableWidgetItem,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
 
 class LevelAccuracyTable(QWidget):
@@ -55,7 +49,9 @@ class LevelAccuracyTable(QWidget):
         from pathlib import Path
 
         # Group by true level (derived from folder name)
-        per_level: dict[int, dict] = {i: {"total": 0, "correct": 0} for i in range(self._num_levels)}
+        per_level: dict[int, dict] = {
+            i: {"total": 0, "correct": 0} for i in range(self._num_levels)
+        }
 
         for r in results:
             if r.get("error"):
@@ -87,7 +83,11 @@ class LevelAccuracyTable(QWidget):
                 item = QTableWidgetItem(text)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 if color:
-                    item.setForeground(Qt.GlobalColor.green if acc >= 0.8 else Qt.GlobalColor.yellow if acc >= 0.5 else Qt.GlobalColor.red)
+                    item.setForeground(
+                        Qt.GlobalColor.green
+                        if acc >= 0.8
+                        else Qt.GlobalColor.yellow if acc >= 0.5 else Qt.GlobalColor.red
+                    )
                 self._table.setItem(lvl, ch_col, item)
 
             # Overall column

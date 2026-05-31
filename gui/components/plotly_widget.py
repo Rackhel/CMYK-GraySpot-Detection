@@ -40,7 +40,9 @@ class PlotlyWidget(QWidget):
         else:
             self.view.setHtml("<p>Plotly WebEngine backend unavailable.</p>")
 
-    def show_matrix(self, matrix: list[list[int]], title: str = "Confusion Matrix") -> None:
+    def show_matrix(
+        self, matrix: list[list[int]], title: str = "Confusion Matrix"
+    ) -> None:
         """Render a confusion matrix heatmap."""
 
         import plotly.graph_objects as go
@@ -69,6 +71,10 @@ class PlotlyWidget(QWidget):
 
         x_values = [point[0] for point in points]
         y_values = [point[1] for point in points]
-        figure = go.Figure(data=go.Scatter(x=x_values, y=y_values, mode="markers", marker={"color": labels}))
+        figure = go.Figure(
+            data=go.Scatter(
+                x=x_values, y=y_values, mode="markers", marker={"color": labels}
+            )
+        )
         figure.update_layout(title=title, template="plotly_dark", height=360)
         self.set_figure(figure)

@@ -30,6 +30,7 @@ from gui.components.plotly_widget import PlotlyWidget
 from gui.components.progress_panel import ProgressPanel
 from gui.services.embedding_service import EmbeddingService
 from gui.workers.embedding_worker import EmbeddingWorker
+
 from .base_tab import BaseTab
 
 _CHANNELS = ["Y", "M", "C", "K"]
@@ -49,11 +50,13 @@ class EmbeddingTab(BaseTab):
         self.service = EmbeddingService()
         self.worker: EmbeddingWorker | None = None
         self._settings_tab = settings_tab
-        self.labels_dir = Path(labels_dir) if labels_dir is not None else Path("data_set")
+        self.labels_dir = (
+            Path(labels_dir) if labels_dir is not None else Path("data_set")
+        )
 
         self._selected_path: str = ""
         self._embedding_paths: list[str] = []
-        self._all_channel_data: dict[str, dict] = {}   # ch → {points, labels, paths}
+        self._all_channel_data: dict[str, dict] = {}  # ch → {points, labels, paths}
 
         # ── 컨트롤 바 / Control bar ───────────────────────────────────────
         ctrl_group = QGroupBox("임베딩 추출 / Extract Embeddings")
@@ -63,7 +66,7 @@ class EmbeddingTab(BaseTab):
         self.channel_box.addItems(["Y", "M", "C", "K", "전체 비교 (All)"])
         self.channel_box.setMaximumWidth(200)
 
-        self._run_btn  = QPushButton("▶  임베딩 추출 / Extract")
+        self._run_btn = QPushButton("▶  임베딩 추출 / Extract")
         self._stop_btn = QPushButton("■  중지 / Stop")
         self._run_btn.clicked.connect(self.start_embedding)
         self._stop_btn.clicked.connect(self.stop_embedding)
@@ -79,9 +82,9 @@ class EmbeddingTab(BaseTab):
 
         # ── 내부 탭: Scatter / Purity / Similar ──────────────────────────
         self._inner_tabs = QTabWidget()
-        self._inner_tabs.addTab(self._build_scatter_tab(),  "🗺️  t-SNE 산점도")
-        self._inner_tabs.addTab(self._build_purity_tab(),   "📊  레벨 순도")
-        self._inner_tabs.addTab(self._build_similar_tab(),  "🔍  유사 이미지")
+        self._inner_tabs.addTab(self._build_scatter_tab(), "🗺️  t-SNE 산점도")
+        self._inner_tabs.addTab(self._build_purity_tab(), "📊  레벨 순도")
+        self._inner_tabs.addTab(self._build_similar_tab(), "🔍  유사 이미지")
         self._inner_tabs.addTab(self._build_correction_tab(), "✏️  라벨 교정")
 
         # ── 진행 / Progress ───────────────────────────────────────────────
@@ -104,11 +107,15 @@ class EmbeddingTab(BaseTab):
         pass
 
     def on_worker_finished(self, result: dict[str, Any]) -> None:
-        ch     = result.get("channel", "?")
+        ch = result.get("channel", "?")
         points = result.get("embeddings_2d", [])
         labels = result.get("labels", [])
-        paths  = result.get("paths", [])
-        self._all_channel_data[ch] = {"points": points, "labels": labels, "paths": paths}
+        paths = result.get("paths", [])
+        self._all_channel_data[ch] = {
+            "points": points,
+            "labels": labels,
+            "paths": paths,
+        }
         self._embedding_paths = paths
         self.log.append(f"✅ [{ch}] {len(points)}개 포인트 완료")
         self._render_scatter()
@@ -140,7 +147,7 @@ class EmbeddingTab(BaseTab):
             self._stop_btn.setEnabled(False)
             return
 
-        ch   = self._pending_channels.pop(0)
+        ch = self._pending_channels.pop(0)
         ckpt = self._get_checkpoint(ch)
         self.worker = self.service.start_embedding(self.cfg, ch, ckpt)
         self.worker.progress_updated.connect(self.progress.set_progress)
@@ -181,8 +188,10 @@ class EmbeddingTab(BaseTab):
         w = QWidget()
         v = QVBoxLayout(w)
         v.setContentsMargins(4, 4, 4, 4)
-        hint = QLabel("채널 선택 후 추출하면 t-SNE 산점도가 여기에 표시됩니다.\n"
-                       "'전체 비교' 모드: 4채널을 같은 차트에 색으로 구분하여 오버레이.")
+        hint = QLabel(
+            "채널 선택 후 추출하면 t-SNE 산점도가 여기에 표시됩니다.\n"
+            "'전체 비교' 모드: 4채널을 같은 차트에 색으로 구분하여 오버레이."
+        )
         hint.setWordWrap(True)
         self._scatter_chart = PlotlyWidget()
         self._scatter_chart.setMinimumHeight(360)
@@ -196,7 +205,9 @@ class EmbeddingTab(BaseTab):
         w = QWidget()
         v = QVBoxLayout(w)
         v.setContentsMargins(4, 4, 4, 4)
-        hint = QLabel("레벨 순도: 각 레벨의 임베딩 클러스터가 얼마나 응집되어 있는지(intra-cluster distance) 표시.")
+        hint = QLabel(
+            "레벨 순도: 각 레벨의 임베딩 클러스터가 얼마나 응집되어 있는지(intra-cluster distance) 표시."
+        )
         hint.setWordWrap(True)
         self._purity_chart = PlotlyWidget()
         self._purity_chart.setMinimumHeight(300)
@@ -208,11 +219,15 @@ class EmbeddingTab(BaseTab):
         w = QWidget()
         v = QVBoxLayout(w)
         v.setContentsMargins(4, 4, 4, 4)
-        hint = QLabel("산점도에서 포인트 클릭 후 이 탭으로 이동하면 가장 유사한 이미지 N개를 표시합니다.")
+        hint = QLabel(
+            "산점도에서 포인트 클릭 후 이 탭으로 이동하면 가장 유사한 이미지 N개를 표시합니다."
+        )
         hint.setWordWrap(True)
 
         ctrl = QHBoxLayout()
-        self._k_spin = QSpinBox(); self._k_spin.setRange(1, 20); self._k_spin.setValue(5)
+        self._k_spin = QSpinBox()
+        self._k_spin.setRange(1, 20)
+        self._k_spin.setValue(5)
         search_btn = QPushButton("🔍  유사 이미지 검색")
         search_btn.clicked.connect(self._search_similar)
         ctrl.addWidget(QLabel("K ="))
@@ -258,7 +273,9 @@ class EmbeddingTab(BaseTab):
         self._preview = ImageViewer()
         self._preview.setFixedHeight(160)
 
-        v.addWidget(QLabel("<b>산점도 포인트를 클릭하거나 이미지를 직접 선택하세요</b>"))
+        v.addWidget(
+            QLabel("<b>산점도 포인트를 클릭하거나 이미지를 직접 선택하세요</b>")
+        )
         v.addWidget(self._selected_label)
         v.addWidget(self._preview)
         v.addLayout(row)
@@ -271,25 +288,37 @@ class EmbeddingTab(BaseTab):
             return
         try:
             import plotly.graph_objects as go
+
             traces = []
             for ch, d in self._all_channel_data.items():
-                pts    = d["points"]
-                lbs    = d["labels"]
-                color  = _CH_COLORS.get(ch, "#888")
-                traces.append(go.Scatter(
-                    x=[p[0] for p in pts],
-                    y=[p[1] for p in pts],
-                    mode="markers",
-                    name=f"Ch {ch}",
-                    marker={"color": lbs if len(self._all_channel_data) == 1 else color,
-                            "colorscale": "Viridis" if len(self._all_channel_data) == 1 else None,
-                            "size": 6, "opacity": 0.75},
-                    text=[f"L{l}" for l in lbs],
-                    hovertemplate="%{text}<extra>Ch " + ch + "</extra>",
-                ))
+                pts = d["points"]
+                lbs = d["labels"]
+                color = _CH_COLORS.get(ch, "#888")
+                traces.append(
+                    go.Scatter(
+                        x=[p[0] for p in pts],
+                        y=[p[1] for p in pts],
+                        mode="markers",
+                        name=f"Ch {ch}",
+                        marker={
+                            "color": lbs if len(self._all_channel_data) == 1 else color,
+                            "colorscale": (
+                                "Viridis" if len(self._all_channel_data) == 1 else None
+                            ),
+                            "size": 6,
+                            "opacity": 0.75,
+                        },
+                        text=[f"L{l}" for l in lbs],
+                        hovertemplate="%{text}<extra>Ch " + ch + "</extra>",
+                    )
+                )
             fig = go.Figure(data=traces)
-            fig.update_layout(title="t-SNE Embedding Projection", template="plotly_dark",
-                              height=360, legend={"orientation": "h"})
+            fig.update_layout(
+                title="t-SNE Embedding Projection",
+                template="plotly_dark",
+                height=360,
+                legend={"orientation": "h"},
+            )
             self._scatter_chart.set_figure(fig)
         except Exception as exc:
             self.log.append(f"Scatter render error: {exc}")
@@ -300,9 +329,11 @@ class EmbeddingTab(BaseTab):
             return
         try:
             import math
+
             import plotly.graph_objects as go
-            pts    = self._all_channel_data[ch]["points"]
-            lbs    = labels
+
+            pts = self._all_channel_data[ch]["points"]
+            lbs = labels
             num_levels = self.cfg.get("data", {}).get("num_levels", 6)
             purity: dict[int, float] = {}
 
@@ -313,18 +344,25 @@ class EmbeddingTab(BaseTab):
                     continue
                 cx = sum(p[0] for p in lvl_pts) / len(lvl_pts)
                 cy = sum(p[1] for p in lvl_pts) / len(lvl_pts)
-                dists = [math.sqrt((p[0]-cx)**2 + (p[1]-cy)**2) for p in lvl_pts]
+                dists = [
+                    math.sqrt((p[0] - cx) ** 2 + (p[1] - cy) ** 2) for p in lvl_pts
+                ]
                 purity[lvl] = sum(dists) / len(dists)
 
-            fig = go.Figure(data=go.Bar(
-                x=[f"L{k}" for k in sorted(purity)],
-                y=[purity[k] for k in sorted(purity)],
-                marker_color="#60a5fa",
-            ))
+            fig = go.Figure(
+                data=go.Bar(
+                    x=[f"L{k}" for k in sorted(purity)],
+                    y=[purity[k] for k in sorted(purity)],
+                    marker_color="#60a5fa",
+                )
+            )
             fig.update_layout(
                 title=f"레벨별 Intra-Cluster Distance [{ch}] (낮을수록 응집)",
-                xaxis_title="Level", yaxis_title="Mean Distance",
-                template="plotly_dark", height=280, margin={"t": 40},
+                xaxis_title="Level",
+                yaxis_title="Mean Distance",
+                template="plotly_dark",
+                height=280,
+                margin={"t": 40},
             )
             self._purity_chart.set_figure(fig)
         except Exception as exc:
@@ -336,6 +374,7 @@ class EmbeddingTab(BaseTab):
             return
         try:
             import math
+
             k = self._k_spin.value()
             # Find embedding index of selected path
             if self._selected_path not in self._embedding_paths:
@@ -346,9 +385,12 @@ class EmbeddingTab(BaseTab):
             ch = next(iter(self._all_channel_data))
             pts = self._all_channel_data[ch]["points"]
             sx, sy = pts[sel_idx]
-            dists = [(math.sqrt((p[0]-sx)**2 + (p[1]-sy)**2), i) for i, p in enumerate(pts)]
+            dists = [
+                (math.sqrt((p[0] - sx) ** 2 + (p[1] - sy) ** 2), i)
+                for i, p in enumerate(pts)
+            ]
             dists.sort()
-            top_k = [self._embedding_paths[i] for _, i in dists[1:k+1]]
+            top_k = [self._embedding_paths[i] for _, i in dists[1 : k + 1]]
 
             # Clear and refill thumbnail grid
             for i in reversed(range(self._similar_layout.count())):
@@ -384,7 +426,10 @@ class EmbeddingTab(BaseTab):
 
     def _browse_for_correction(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select Image", str(self.labels_dir), "Images (*.png *.jpg *.jpeg *.bmp)"
+            self,
+            "Select Image",
+            str(self.labels_dir),
+            "Images (*.png *.jpg *.jpeg *.bmp)",
         )
         if path:
             self._selected_path = path
@@ -393,7 +438,10 @@ class EmbeddingTab(BaseTab):
 
     def _get_checkpoint(self, channel: str = "Y") -> str:
         from gui.workers._ckpt_utils import auto_find_checkpoint
-        if self._settings_tab is not None and hasattr(self._settings_tab, "get_checkpoint_path"):
+
+        if self._settings_tab is not None and hasattr(
+            self._settings_tab, "get_checkpoint_path"
+        ):
             ckpt = self._settings_tab.get_checkpoint_path()
             if ckpt:
                 return ckpt

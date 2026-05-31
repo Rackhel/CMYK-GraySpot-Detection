@@ -8,7 +8,9 @@ from PyQt6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
 class MetricCard(QFrame):
     """Display a title and value for engineering metrics."""
 
-    def __init__(self, title: str, value: str = "-", parent: QWidget | None = None) -> None:
+    def __init__(
+        self, title: str, value: str = "-", parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.title_label = QLabel(title)

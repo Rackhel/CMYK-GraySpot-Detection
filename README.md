@@ -80,6 +80,9 @@ pip install --upgrade pip setuptools wheel
 # Install core dependencies (CPU)
 pip install -r requirements.txt
 
+# Install optional desktop GUI support
+pip install -e '.[gui]'
+
 # For GPU support (CUDA 11.8)
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 ```
@@ -119,7 +122,7 @@ docker build --build-arg TORCH_VERSION=cu118 -t grayspot:gpu .
 docker run --rm -it \
   -v ${PWD}/data_set:/app/data_set \
   -v ${PWD}/outputs:/app/outputs \
-  grayspot:latest
+  grayspot:latest bash
 
 # GPU (requires nvidia-docker)
 docker run --rm -it --gpus all \
@@ -398,7 +401,7 @@ predictor.export_to_onnx(
 # Run inference in container
 docker run --rm -it \
   -v ${PWD}/models:/app/models \
-  -v ${PWD}/data:/app/data \
+  -v ${PWD}/data_set:/app/data_set \
   grayspot:latest python -c "
 from src.inference.predictor import GrayspotPredictor
 predictor = GrayspotPredictor()
@@ -537,7 +540,7 @@ For issues, questions, or suggestions:
 docker run --rm \
   -v ${PWD}/data_set:/app/data_set \
   -v ${PWD}/outputs:/app/outputs \
-  cmyk-project:latest \
+  grayspot:latest \
   python -m src.scripts.generate_baseline_report
 ```
 
@@ -548,21 +551,21 @@ docker run --rm \
 docker run -d \
   -v ${PWD}/data_set:/app/data_set \
   -v ${PWD}/outputs:/app/outputs \
-  --name cmyk-training \
-  cmyk-project:latest
+  --name grayspot-training \
+  grayspot:latest
 
 # View logs of running container / 실행 중인 컨테이너의 로그 보기
-docker logs -f cmyk-training
+docker logs -f grayspot-training
 
 # Stop container / 컨테이너 중지
-docker stop cmyk-training
+docker stop grayspot-training
 
-# Limit memory and CPU usage / 메모리 및 CPU 사용량 제한
+## Limit memory and CPU usage / 메모리 및 CPU 사용량 제한
 docker run --rm \
   --memory=4g --cpus=2 \
   -v ${PWD}/data_set:/app/data_set \
   -v ${PWD}/outputs:/app/outputs \
-  cmyk-project:latest
+  grayspot:latest
 ```
 
 #### 2.4.5 Docker Compose (Optional) / Docker Compose (선택 사항)
@@ -574,8 +577,8 @@ Create a `docker-compose.yml` file for easier management:
 version: '3.8'
 
 services:
-  cmyk-cpu:
-    image: cmyk-project:latest
+  grayspot-cpu:
+    image: grayspot:latest
     build:
       context: .
       args:
@@ -585,8 +588,8 @@ services:
       - ./outputs:/app/outputs
     working_dir: /app
 
-  cmyk-gpu:
-    image: cmyk-project:gpu
+  grayspot-gpu:
+    image: grayspot:gpu
     build:
       context: .
       args:
@@ -602,11 +605,11 @@ services:
 
 Then use:
 ```bash
-# Build and run CPU version / CPU 버전 빌드 및 실행
-docker-compose up cmyk-cpu
+ # Build and run CPU version / CPU 버전 빌드 및 실행
+docker-compose up grayspot-cpu
 
-# Build and run GPU version / GPU 버전 빌드 및 실행
-docker-compose up cmyk-gpu
+ # Build and run GPU version / GPU 버전 빌드 및 실행
+docker-compose up grayspot-gpu
 ```
 
 ---

@@ -1,5 +1,5 @@
 # ── Core ML & Deep Learning / 핵심 ML 및 딥러닝 ─────────────────────────
-torch>=2.1.0
+torch>=2.12.0
 torchvision>=0.26.0
 # torchmetrics>=0.11.0 # only needed for advanced metric tracking
 
@@ -24,7 +24,7 @@ python-dotenv>=1.0.0 # only needed if using .env files for configuration
 # ── Visualization & Reporting / 시각화 및 리포팅 ────────────────────────────
 plotly>=6.7.0
 matplotlib>=3.10.9
-seaborn>=0.12.0
+seaborn>=0.13.2
 Jinja2>=3.1.0 # only needed for HTML report generation
 
 # ── Data Download / 데이터 다운로드 ──────────────────────────────────────────
@@ -38,11 +38,11 @@ pytest-cov>=7.1.0
 umap-learn>=0.5.4
 
 # ── GUI & Web Interface / GUI 및 웹 인터페이스 ────────────────────────────────
-streamlit>=1.28.0 # only needed for web-based GUI
+# streamlit>=1.28.0  # optional (web GUI — legacy; project uses PyQt6 desktop GUI)
 pyinstaller>=6.20.0 # only needed for building GUI executable
 
 # ── Code Quality & Formatting / 코드 품질 및 포매팅 ─────────────────────────────
-black>=23.3.0
+black>=26.5.1
 isort>=5.12.0
 
 # ── ONNX & Model Export / ONNX 및 모델 내보내기 ───────────────────────────────

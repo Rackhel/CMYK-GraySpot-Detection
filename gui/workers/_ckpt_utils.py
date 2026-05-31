@@ -63,7 +63,7 @@ def auto_find_all_checkpoints(cfg: dict) -> dict[str, str]:
 
 def run_ensemble(
     cfg: dict,
-    tensor,          # torch.Tensor (1, 3, H, W) — 이미 전처리 완료
+    tensor,  # torch.Tensor (1, 3, H, W) — 이미 전처리 완료
     ckpt_paths: dict[str, str],
     device,
 ) -> dict[str, Any]:
@@ -87,6 +87,7 @@ def run_ensemble(
     """
     import torch
     import torch.nn.functional as F
+
     from src.utils.utils_model import build_model
 
     all_probs = []
@@ -101,7 +102,7 @@ def run_ensemble(
             model.eval()
             with torch.no_grad():
                 logits = model(tensor.to(device))
-                probs  = F.softmax(logits, dim=1)[0]
+                probs = F.softmax(logits, dim=1)[0]
             all_probs.append(probs)
             channels_used.append(ch)
             per_channel[ch] = {
@@ -112,20 +113,24 @@ def run_ensemble(
             pass  # 로드 실패 채널은 건너뜀
 
     if not all_probs:
-        raise RuntimeError("앙상블: 로드된 채널 모델이 없습니다 / No channel model could be loaded")
+        raise RuntimeError(
+            "앙상블: 로드된 채널 모델이 없습니다 / No channel model could be loaded"
+        )
 
-    avg_probs   = torch.stack(all_probs).mean(dim=0)
-    probs_list  = avg_probs.cpu().tolist()
-    pred_level  = int(torch.argmax(avg_probs).item())
-    confidence  = float(avg_probs[pred_level])
-    sorted_idx  = sorted(range(len(probs_list)), key=lambda i: probs_list[i], reverse=True)
-    top3        = [(i, probs_list[i]) for i in sorted_idx[:3]]
+    avg_probs = torch.stack(all_probs).mean(dim=0)
+    probs_list = avg_probs.cpu().tolist()
+    pred_level = int(torch.argmax(avg_probs).item())
+    confidence = float(avg_probs[pred_level])
+    sorted_idx = sorted(
+        range(len(probs_list)), key=lambda i: probs_list[i], reverse=True
+    )
+    top3 = [(i, probs_list[i]) for i in sorted_idx[:3]]
 
     return {
-        "pred_level":    pred_level,
-        "confidence":    confidence,
-        "probs":         probs_list,
-        "top3":          top3,
-        "per_channel":   per_channel,
+        "pred_level": pred_level,
+        "confidence": confidence,
+        "probs": probs_list,
+        "top3": top3,
+        "per_channel": per_channel,
         "channels_used": channels_used,
     }

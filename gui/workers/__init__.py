@@ -1,11 +1,11 @@
 from .base_worker import BaseWorker
-from .training_worker import TrainingWorker
-from .evaluation_worker import EvaluationWorker
-from .tuning_worker import TuningWorker
-from .embedding_worker import EmbeddingWorker
-from .inference_worker import InferenceWorker
 from .batch_inference_worker import BatchInferenceWorker
+from .embedding_worker import EmbeddingWorker
+from .evaluation_worker import EvaluationWorker
 from .gradcam_worker import GradCAMWorker
+from .inference_worker import InferenceWorker
+from .training_worker import TrainingWorker
+from .tuning_worker import TuningWorker
 
 __all__ = [
     "BaseWorker",

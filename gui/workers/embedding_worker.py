@@ -51,7 +51,9 @@ class EmbeddingWorker(BaseWorker):
             from src.data.dataset import CMYKDataset
             from src.utils.utils_model import build_model
 
-            self.emit_progress(0, f"[{self.channel}] 임베딩 추출 시작 / Embedding extraction started")
+            self.emit_progress(
+                0, f"[{self.channel}] 임베딩 추출 시작 / Embedding extraction started"
+            )
 
             if self.is_cancelled():
                 self.log_emitted.emit("Embedding cancelled before start")
@@ -59,11 +61,15 @@ class EmbeddingWorker(BaseWorker):
 
             # ── 디바이스 설정 / Device setup ──────────────────────────────────
             device_str = self.cfg.get("system", {}).get("device", "cpu")
-            device = torch.device(
-                "cuda" if torch.cuda.is_available()
-                else "mps" if torch.backends.mps.is_available()
-                else "cpu"
-            ) if device_str == "auto" else torch.device(device_str)
+            device = (
+                torch.device(
+                    "cuda"
+                    if torch.cuda.is_available()
+                    else "mps" if torch.backends.mps.is_available() else "cpu"
+                )
+                if device_str == "auto"
+                else torch.device(device_str)
+            )
 
             # ── 체크포인트 경로 해소 / Resolve checkpoint path ────────────────
             storage = self.cfg.get("storage", {})
@@ -82,7 +88,9 @@ class EmbeddingWorker(BaseWorker):
             model.eval()
 
             # ── 데이터셋 구성 (test split 전체) / Build dataset ───────────────
-            self.emit_progress(30, f"[{self.channel}] 데이터 로드 중 / Loading dataset...")
+            self.emit_progress(
+                30, f"[{self.channel}] 데이터 로드 중 / Loading dataset..."
+            )
             dataset = CMYKDataset(
                 self.cfg, self.channel, split="test", augment=False, oversample=False
             )
@@ -95,7 +103,9 @@ class EmbeddingWorker(BaseWorker):
             )
 
             # ── Feature 추출 / Extract features ───────────────────────────────
-            self.emit_progress(40, f"[{self.channel}] feature 추출 중 / Extracting features...")
+            self.emit_progress(
+                40, f"[{self.channel}] feature 추출 중 / Extracting features..."
+            )
             all_feats, all_labels, all_paths = [], [], []
 
             with torch.no_grad():
@@ -120,7 +130,10 @@ class EmbeddingWorker(BaseWorker):
                     all_labels.extend(labels.tolist())
 
                     progress = 40 + int(batch_idx / len(loader) * 40)
-                    self.emit_progress(progress, f"[{self.channel}] {batch_idx+1}/{len(loader)} 배치 처리")
+                    self.emit_progress(
+                        progress,
+                        f"[{self.channel}] {batch_idx+1}/{len(loader)} 배치 처리",
+                    )
 
             features = np.concatenate(all_feats, axis=0)
             labels_arr = np.array(all_labels, dtype=int)
@@ -134,14 +147,24 @@ class EmbeddingWorker(BaseWorker):
             tsne = TSNE(n_components=2, perplexity=perplexity, random_state=42, max_iter=500)
             embeddings_2d = tsne.fit_transform(features).tolist()
 
-            self.emit_progress(100, f"[{self.channel}] 임베딩 완료 / Embedding finished ({n_samples} samples)")
-            self.finished.emit({
-                "embeddings_2d": embeddings_2d,
-                "labels": labels_arr.tolist(),
-                "paths": all_paths if all_paths else [f"sample_{i}" for i in range(n_samples)],
-                "channel": self.channel,
-            })
+            self.emit_progress(
+                100,
+                f"[{self.channel}] 임베딩 완료 / Embedding finished ({n_samples} samples)",
+            )
+            self.finished.emit(
+                {
+                    "embeddings_2d": embeddings_2d,
+                    "labels": labels_arr.tolist(),
+                    "paths": (
+                        all_paths
+                        if all_paths
+                        else [f"sample_{i}" for i in range(n_samples)]
+                    ),
+                    "channel": self.channel,
+                }
+            )
 
         except Exception as exc:
             import traceback
+
             self.error_occurred.emit(f"{exc}\n{traceback.format_exc()}")

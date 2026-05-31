@@ -26,15 +26,15 @@ from PyQt6.QtWidgets import (
 )
 
 from gui.components.log_panel import LogPanel
-from gui.i18n import t, set_lang, get_lang
+from gui.i18n import get_lang, set_lang, t
 from gui.tabs.base_tab import BaseTab
 
-_ROOT       = Path(__file__).resolve().parents[2]
+_ROOT = Path(__file__).resolve().parents[2]
 _SRC_CONFIG = _ROOT / "src" / "config" / "config.json"
 
 # ── 레이아웃 상수 / Layout constants ─────────────────────────────────────────
-_LABEL_W  = 160   # 라벨 고정 폭 (px) / fixed label column width
-_FIELD_W  = 180   # 필드 최대 폭 (px) / max field width
+_LABEL_W = 160  # 라벨 고정 폭 (px) / fixed label column width
+_FIELD_W = 180  # 필드 최대 폭 (px) / max field width
 
 
 class SettingsTab(BaseTab):
@@ -65,7 +65,7 @@ class SettingsTab(BaseTab):
 
         # ── 버튼 / Buttons ────────────────────────────────────────────────────
         self.log_panel = LogPanel()
-        self._save_btn  = QPushButton(t("btn_save_settings"))
+        self._save_btn = QPushButton(t("btn_save_settings"))
         self._reset_btn = QPushButton(t("btn_reset"))
         self._save_btn.clicked.connect(self.save_settings)
         self._reset_btn.clicked.connect(self.refresh)
@@ -87,7 +87,9 @@ class SettingsTab(BaseTab):
         self._labeled_dir.setText(s.get("labeled_dir", "data_set/labeled"))
         self._models_dir.setText(s.get("models_dir", "data_set/models"))
         self._reports_dir.setText(s.get("reports_dir", "outputs/reports"))
-        self._checkpoint_path.setText(self._load_gui_config().get("checkpoint_path", ""))
+        self._checkpoint_path.setText(
+            self._load_gui_config().get("checkpoint_path", "")
+        )
 
         sys_cfg   = self.cfg.get("system", {})
         train_cfg = self.cfg.get("train", {})
@@ -132,12 +134,16 @@ class SettingsTab(BaseTab):
 
             self.gui_config_path.parent.mkdir(parents=True, exist_ok=True)
             self.gui_config_path.write_text(
-                json.dumps({
-                    "labeled_dir":     self._labeled_dir.text().strip(),
-                    "checkpoint_path": self._checkpoint_path.text().strip(),
-                    "theme":           self._theme_combo.currentData(),
-                    "lang":            self._lang_combo.currentData(),
-                }, indent=2, ensure_ascii=False),
+                json.dumps(
+                    {
+                        "labeled_dir": self._labeled_dir.text().strip(),
+                        "checkpoint_path": self._checkpoint_path.text().strip(),
+                        "theme": self._theme_combo.currentData(),
+                        "lang": self._lang_combo.currentData(),
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                ),
                 encoding="utf-8",
             )
             self.log_panel.append("✅ Settings saved → src/config/config.json")
@@ -161,7 +167,7 @@ class SettingsTab(BaseTab):
 
         # 테마 콤보박스 / Theme combo
         self._theme_combo = QComboBox()
-        self._theme_combo.addItem(t("theme_dark"),  userData="dark")
+        self._theme_combo.addItem(t("theme_dark"), userData="dark")
         self._theme_combo.addItem(t("theme_light"), userData="light")
         self._theme_combo.setMaximumWidth(_FIELD_W)
         saved_theme = gui_cfg.get("theme", "dark")
@@ -180,7 +186,7 @@ class SettingsTab(BaseTab):
             self._lang_combo.setCurrentIndex(idx)
 
         f.addRow(t("lbl_theme"), self._theme_combo)
-        f.addRow(t("lbl_lang"),  self._lang_combo)
+        f.addRow(t("lbl_lang"), self._lang_combo)
         return self._grp_appearance
 
     def _build_storage_group(self) -> QGroupBox:
@@ -188,16 +194,20 @@ class SettingsTab(BaseTab):
         g = self._grp_storage
         f = self._make_form(g)
 
-        self._labeled_dir  = self._lineedit(
-            self.cfg.get("storage", {}).get("labeled_dir", "data_set/labeled"))
-        self._models_dir   = self._lineedit(
-            self.cfg.get("storage", {}).get("models_dir", "data_set/models"))
-        self._reports_dir  = self._lineedit(
-            self.cfg.get("storage", {}).get("reports_dir", "outputs/reports"))
+        self._labeled_dir = self._lineedit(
+            self.cfg.get("storage", {}).get("labeled_dir", "data_set/labeled")
+        )
+        self._models_dir = self._lineedit(
+            self.cfg.get("storage", {}).get("models_dir", "data_set/models")
+        )
+        self._reports_dir = self._lineedit(
+            self.cfg.get("storage", {}).get("reports_dir", "outputs/reports")
+        )
 
         # 체크포인트 경로 + Browse 버튼
         self._checkpoint_path = QLineEdit(
-            self._load_gui_config().get("checkpoint_path", ""))
+            self._load_gui_config().get("checkpoint_path", "")
+        )
         browse_btn = QPushButton("Browse…")
         browse_btn.setFixedWidth(70)
         browse_btn.clicked.connect(self._browse_checkpoint)
@@ -209,16 +219,16 @@ class SettingsTab(BaseTab):
         ckpt_widget.setLayout(ckpt_row)
 
         f.addRow("Labeled Dataset Dir", self._labeled_dir)
-        f.addRow("Models Dir",          self._models_dir)
-        f.addRow("Reports Dir",         self._reports_dir)
-        f.addRow("Checkpoint (.pt)",    ckpt_widget)
+        f.addRow("Models Dir", self._models_dir)
+        f.addRow("Reports Dir", self._reports_dir)
+        f.addRow("Checkpoint (.pt)", ckpt_widget)
         return g
 
     def _build_worker_settings_group(self) -> QGroupBox:
         """Worker 설정 그룹: device, num_workers, inference batch size, timeout."""
         self._grp_worker = QGroupBox("Worker Settings")
         f = self._make_form(self._grp_worker)
-        sys_cfg   = self.cfg.get("system", {})
+        sys_cfg = self.cfg.get("system", {})
         train_cfg = self.cfg.get("train", {})
 
         self._device_combo = QComboBox()
@@ -226,14 +236,18 @@ class SettingsTab(BaseTab):
         self._device_combo.setCurrentText(sys_cfg.get("device", "auto"))
         self._device_combo.setMaximumWidth(_FIELD_W)
 
-        self._infer_batch_size = self._spin(sys_cfg.get("inference_batch_size", 1), 1, 256)
+        self._infer_batch_size = self._spin(
+            sys_cfg.get("inference_batch_size", 1), 1, 256
+        )
         self._dataloader_workers = self._spin(train_cfg.get("num_workers", 0), 0, 32)
-        self._train_timeout = self._spin(sys_cfg.get("training_timeout_min", 60), 1, 600)
+        self._train_timeout = self._spin(
+            sys_cfg.get("training_timeout_min", 60), 1, 600
+        )
 
-        f.addRow("Device",                  self._device_combo)
-        f.addRow("DataLoader Workers",      self._dataloader_workers)
-        f.addRow("Inference Batch Size",    self._infer_batch_size)
-        f.addRow("Training Timeout (min)",  self._train_timeout)
+        f.addRow("Device", self._device_combo)
+        f.addRow("DataLoader Workers", self._dataloader_workers)
+        f.addRow("Inference Batch Size", self._infer_batch_size)
+        f.addRow("Training Timeout (min)", self._train_timeout)
         return self._grp_worker
 
     # ── Helpers ───────────────────────────────────────────────────────────────

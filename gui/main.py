@@ -28,16 +28,17 @@ _GUI_CFG = Path(__file__).resolve().parent / "assets" / "config.json"
 # 플랫폼별 폰트 후보 (앞에서부터 실제 존재하는 것을 선택)
 _PLATFORM_FONTS = {
     "darwin": [".AppleSystemUIFont", "Helvetica Neue", "Helvetica", "Arial"],
-    "win32":  ["Segoe UI", "Arial"],
-    "linux":  ["Ubuntu", "DejaVu Sans", "Arial"],
+    "win32": ["Segoe UI", "Arial"],
+    "linux": ["Ubuntu", "DejaVu Sans", "Arial"],
 }
 
 
 def _detect_font() -> str:
     """실제 Qt 폰트 DB에 존재하는 첫 번째 폰트 이름을 반환한다."""
     from PyQt6.QtGui import QFontDatabase
+
     candidates = _PLATFORM_FONTS.get(sys.platform, ["Arial"])
-    available  = set(QFontDatabase.families())
+    available = set(QFontDatabase.families())
     for name in candidates:
         if name in available:
             return name
@@ -73,8 +74,8 @@ def main() -> None:
 
     # ── 저장된 설정 로드 / Load persisted appearance settings ──────────────
     gui_cfg = _load_gui_cfg()
-    theme   = gui_cfg.get("theme", "dark")
-    lang    = gui_cfg.get("lang",  "ko")
+    theme = gui_cfg.get("theme", "dark")
+    lang = gui_cfg.get("lang", "ko")
 
     # 언어 전역 설정 (MainWindow 생성 전에 적용해야 탭 라벨이 올바르게 뜸)
     set_lang(lang)

@@ -13,7 +13,9 @@ class TrainingService:
     def __init__(self) -> None:
         self._worker: TrainingWorker | None = None
 
-    def start_training(self, cfg: dict[str, Any], phase: int, channel: str) -> TrainingWorker:
+    def start_training(
+        self, cfg: dict[str, Any], phase: int, channel: str
+    ) -> TrainingWorker:
         """Create a worker for a training request without blocking the UI."""
 
         self._worker = TrainingWorker(cfg, phase, channel)

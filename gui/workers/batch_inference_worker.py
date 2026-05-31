@@ -11,8 +11,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from ._ckpt_utils import auto_find_all_checkpoints, auto_find_checkpoint, run_ensemble
 from .base_worker import BaseWorker
-from ._ckpt_utils import auto_find_checkpoint, auto_find_all_checkpoints, run_ensemble
 
 _ROOT = Path(__file__).resolve().parents[2]
 for _p in (str(_ROOT), str(_ROOT / "src")):
@@ -41,10 +41,10 @@ class BatchInferenceWorker(BaseWorker):
         channel: str = "Y",
     ) -> None:
         super().__init__()
-        self.cfg             = cfg
-        self.folder_path     = folder_path
+        self.cfg = cfg
+        self.folder_path = folder_path
         self.checkpoint_path = checkpoint_path
-        self.channel         = channel
+        self.channel = channel
 
     def run(self) -> None:  # noqa: C901
         try:
@@ -60,18 +60,23 @@ class BatchInferenceWorker(BaseWorker):
             if not folder.is_dir():
                 raise NotADirectoryError(f"Not a directory: {self.folder_path}")
 
-            images = [p for p in sorted(folder.rglob("*")) if p.suffix.lower() in _IMG_EXTS]
-            total  = len(images)
+            images = [
+                p for p in sorted(folder.rglob("*")) if p.suffix.lower() in _IMG_EXTS
+            ]
+            total = len(images)
             if total == 0:
                 self.emit_progress(100, "이미지 없음 / No images found")
-                self.finished.emit({"results": [], "total": 0, "succeeded": 0, "failed": 0})
+                self.finished.emit(
+                    {"results": [], "total": 0, "succeeded": 0, "failed": 0}
+                )
                 return
 
             self.emit_progress(5, f"{total}개 이미지 발견 / Found {total} images")
 
             # ── 디바이스 / Device ─────────────────────────────────────────────
             from gui.workers.inference_worker import _resolve_device
-            d      = self.cfg.get("system", {}).get("device", "cpu")
+
+            d = self.cfg.get("system", {}).get("device", "cpu")
             device = _resolve_device(d)
 
             image_size = self.cfg.get("data", {}).get("image_size", 128)
@@ -79,12 +84,16 @@ class BatchInferenceWorker(BaseWorker):
             # ── 앙상블 vs 단일 채널 / Ensemble vs single-channel ─────────────
             if self.channel == "all":
                 ckpt_paths = auto_find_all_checkpoints(self.cfg)
-                missing    = [ch for ch, p in ckpt_paths.items() if not p]
+                missing = [ch for ch, p in ckpt_paths.items() if not p]
                 if missing:
-                    self.emit_progress(8, f"⚠️  체크포인트 미발견 / Not found: {missing}")
+                    self.emit_progress(
+                        8, f"⚠️  체크포인트 미발견 / Not found: {missing}"
+                    )
                 mode = "ensemble"
             else:
-                ckpt = self.checkpoint_path or auto_find_checkpoint(self.cfg, self.channel)
+                ckpt = self.checkpoint_path or auto_find_checkpoint(
+                    self.cfg, self.channel
+                )
                 if not ckpt:
                     raise FileNotFoundError(
                         f"체크포인트를 찾을 수 없습니다 / Checkpoint not found for channel {self.channel}"
@@ -111,67 +120,81 @@ class BatchInferenceWorker(BaseWorker):
                     if img is None:
                         raise ValueError("Cannot read image")
 
-                    img    = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                    img    = cv2.resize(img, (image_size, image_size))
+                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    img = cv2.resize(img, (image_size, image_size))
                     tensor = T.ToTensor()(img)
-                    tensor = _IMAGENET_NORMALIZE(tensor)   # SSOT-NM01
+                    tensor = _IMAGENET_NORMALIZE(tensor)  # SSOT-NM01
                     tensor = tensor.unsqueeze(0)
 
                     if mode == "ensemble":
                         res = run_ensemble(self.cfg, tensor, ckpt_paths, device)
                         pred_level = res["pred_level"]
                         confidence = res["confidence"]
-                        top3       = res["top3"]
+                        top3 = res["top3"]
                     else:
                         with torch.no_grad():
                             logits = model(tensor.to(device))
-                            probs  = F.softmax(logits, dim=1)[0]
+                            probs = F.softmax(logits, dim=1)[0]
                         probs_list = probs.cpu().tolist()
                         pred_level = int(torch.argmax(probs).item())
                         confidence = float(probs[pred_level])
-                        sorted_idx = sorted(range(len(probs_list)), key=lambda i: probs_list[i], reverse=True)
-                        top3       = [(i, probs_list[i]) for i in sorted_idx[:3]]
+                        sorted_idx = sorted(
+                            range(len(probs_list)),
+                            key=lambda i: probs_list[i],
+                            reverse=True,
+                        )
+                        top3 = [(i, probs_list[i]) for i in sorted_idx[:3]]
 
-                    results.append({
-                        "filename":   img_path.name,
-                        "path":       str(img_path),
-                        "pred_level": pred_level,
-                        "confidence": confidence,
-                        "top3":       top3,
-                        "error":      None,
-                    })
+                    results.append(
+                        {
+                            "filename": img_path.name,
+                            "path": str(img_path),
+                            "pred_level": pred_level,
+                            "confidence": confidence,
+                            "top3": top3,
+                            "error": None,
+                        }
+                    )
                     succeeded += 1
 
                     # 실시간 행 추가용 JSON
                     self.log_emitted.emit(
-                        "__ROW__" + json.dumps({
-                            "filename":   img_path.name,
-                            "pred_level": pred_level,
-                            "confidence": confidence,
-                            "top3":       top3,
-                        })
+                        "__ROW__"
+                        + json.dumps(
+                            {
+                                "filename": img_path.name,
+                                "pred_level": pred_level,
+                                "confidence": confidence,
+                                "top3": top3,
+                            }
+                        )
                     )
 
                 except Exception as row_exc:
                     failed += 1
-                    results.append({
-                        "filename":   img_path.name,
-                        "path":       str(img_path),
-                        "pred_level": -1,
-                        "confidence": 0.0,
-                        "top3":       [],
-                        "error":      str(row_exc),
-                    })
+                    results.append(
+                        {
+                            "filename": img_path.name,
+                            "path": str(img_path),
+                            "pred_level": -1,
+                            "confidence": 0.0,
+                            "top3": [],
+                            "error": str(row_exc),
+                        }
+                    )
                     self.log_emitted.emit(f"⚠️  {img_path.name}: {row_exc}")
 
             self.emit_progress(100, f"완료 / Done — {succeeded}/{total} 성공")
-            self.finished.emit({
-                "results":   results,
-                "total":     total,
-                "succeeded": succeeded,
-                "failed":    failed,
-            })
+            self.finished.emit(
+                {
+                    "results": results,
+                    "total": total,
+                    "succeeded": succeeded,
+                    "failed": failed,
+                }
+            )
 
         except Exception as exc:
             import traceback
+
             self.error_occurred.emit(f"{exc}\n{traceback.format_exc()}")

@@ -1,18 +1,38 @@
 version: '3.8'
 
 services:
-  grayspot:
+  grayspot-cpu:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: grayspot_container
+      args:
+        TORCH_VERSION: cpu
+    image: grayspot:latest
     volumes:
-      - ./data:/app/data
+      - ./data_set:/app/data_set
       - ./outputs:/app/outputs
-    ports:
-      - "8501:8501"
+    working_dir: /app
     environment:
       - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+  grayspot-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TORCH_VERSION: cu118
+    image: grayspot:gpu
+    runtime: nvidia
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ./data_set:/app/data_set
+      - ./outputs:/app/outputs
+    working_dir: /app
     stdin_open: true
     tty: true
     command: /bin/bash
