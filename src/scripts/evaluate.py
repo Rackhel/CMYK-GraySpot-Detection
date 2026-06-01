@@ -104,6 +104,15 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         default=None,
         help=("모델 체크포인트 .pt 파일 경로 / " "Path to model checkpoint .pt file"),
     )
+    parser.add_argument(
+        "--holdout",
+        action="store_true",
+        default=False,
+        help=(
+            "holdout 테스트 세트로 평가 (prepare_holdout.py 실행 후 사용) / "
+            "Evaluate on holdout test set (use after prepare_holdout.py)"
+        ),
+    )
 
     return parser.parse_args(argv)
 
@@ -358,6 +367,16 @@ def main(argv: Optional[List[str]] = None) -> None:
         sys.exit(1)
 
     cfg = load_config()
+
+    # holdout 모드: labeled_dir을 holdout_dir로 교체
+    # Holdout mode: swap labeled_dir with holdout_dir in cfg
+    if args.holdout:
+        holdout_dir = cfg.get("storage", {}).get(
+            "holdout_dir",
+            str(Path(cfg.get("storage", {}).get("labeled_dir", "data_set/labeled")).parent / "holdout")
+        )
+        cfg.setdefault("storage", {})["labeled_dir"] = holdout_dir
+        print(f"[Holdout mode] Using labeled_dir = {holdout_dir}")
 
     # 출력 디렉토리 해소 — str → Path 변환 (argparse는 str로 수신)
     # Resolve output directory — str → Path conversion (argparse receives str)

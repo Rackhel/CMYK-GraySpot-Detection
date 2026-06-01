@@ -9,6 +9,7 @@ from typing import Any
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QGroupBox,
     QHBoxLayout,
@@ -51,6 +52,12 @@ class EvaluationTab(BaseTab):
         self.channel_box.addItems(["Y", "M", "C", "K", "전체 (All)"])
         self.channel_box.setMaximumWidth(180)
 
+        self._holdout_chk = QCheckBox("Holdout 평가 / Use Holdout Set")
+        self._holdout_chk.setToolTip(
+            "prepare_holdout.py 실행 후 사용. 최종 성능 보고용.\n"
+            "Use after prepare_holdout.py — for final performance reporting only."
+        )
+
         self._run_btn = QPushButton("▶  평가 실행 / Run Evaluation")
         self._stop_btn = QPushButton("■  중지 / Stop")
         self._run_btn.clicked.connect(self.start_evaluation)
@@ -60,6 +67,7 @@ class EvaluationTab(BaseTab):
         ctrl_row = QHBoxLayout()
         ctrl_row.addWidget(QLabel("채널 / Channel:"))
         ctrl_row.addWidget(self.channel_box)
+        ctrl_row.addWidget(self._holdout_chk)
         ctrl_row.addWidget(self._run_btn)
         ctrl_row.addWidget(self._stop_btn)
         ctrl_row.addStretch()
@@ -186,7 +194,8 @@ class EvaluationTab(BaseTab):
 
         ch = self._pending.pop(0)
         ckpt = auto_find_checkpoint(self.cfg, ch)
-        self.eval_worker = self.service.start_evaluation(self.cfg, ch, ckpt)
+        use_holdout = self._holdout_chk.isChecked()
+        self.eval_worker = self.service.start_evaluation(self.cfg, ch, ckpt, use_holdout=use_holdout)
         self.eval_worker.progress_updated.connect(self.progress.set_progress)
         self.eval_worker.log_emitted.connect(self.progress.append_log)
         self.eval_worker.finished.connect(self._on_ch_done)

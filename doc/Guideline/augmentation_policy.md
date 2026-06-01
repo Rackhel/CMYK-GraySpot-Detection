@@ -1,8 +1,8 @@
 # CMYK Grayspot Detection System
 # Augmentation Policy — 증강 정책
 
-Version: 2.2.0
-Date: 2026-05-21
+Version: 3.0.0
+Date: 2026-06-01
 
 ---
 
@@ -83,64 +83,76 @@ If the target count is already satisfied, augmentation is skipped.
 
 ---
 
-# 5. Allowed Transformations — 허용 변환
+# 5. Allowed Transformations — 허용 변환 (두 계층으로 분리)
 
-The following transformations are allowed:
+## 5.1 오프라인 데이터셋 증강 (augment_dataset.py)
 
-다음 변환이 허용된다:
+Dataset 디렉토리에 파일로 저장되는 증강:
 
 - horizontal mirror / 수평 뒤집기
-- 90° rotation / 90° 회전
-- 180° rotation / 180° 회전
-- 270° rotation / 270° 회전
+- 90° / 180° / 270° rotation / 회전
 
-These transformations preserve defect semantics while increasing sample diversity.
+결함 의미를 보존하면서 샘플 다양성을 높인다.
 
-이 변환들은 결함 의미를 보존하면서 샘플 다양성을 높인다.
+## 5.2 런타임 증강 (augment_supervised — 학습 중 실시간)
+
+`augment_supervised()`에서 train split에만 적용:
+
+| 변환 | 활성화 조건 | 파라미터 |
+|---|---|---|
+| 수평 뒤집기 | 항상 | `flip_prob=0.5` |
+| 수직 뒤집기 | `vflip_prob > 0` | 기본값 0 (config에서 활성화) |
+| 랜덤 회전 | `rotation_prob > 0` | ±`rotation_max`도 (기본 ±15°) |
+| 밝기 조절 | 항상 | `brightness_prob=0.5` |
+| 가산 노이즈 | 항상 | `noise_prob=0.5` |
+| policy="strong" | K/Y 채널 per_channel 설정 | 모든 확률 ×1.3 |
+
+## 5.3 합성 데이터 (generate_synthetic.py)
+
+`prepare_holdout.py` 실행 이후에만 실행 가능:
+
+| 방법 | 대상 | 설명 |
+|---|---|---|
+| Level Interpolation | `labeled/` only | Level 0 + Level N 보간 |
+| SD img2img (선택) | `labeled/` only | Stable Diffusion 조건부 생성 |
+
+파일명 패턴: `synthetic_{N:04d}.png` — `exclude_synthetic=True`로 제외 가능.
+
+## 5.4 배치 레벨 증강 (MixUp / CutMix)
+
+DataLoader 이후 배치 텐서에 적용. 손실 함수가 soft label을 지원해야 함:
+
+```python
+from data.augmentation import mixup_batch, cutmix_batch
+mixed_x, soft_y = mixup_batch(x, y, alpha=0.2, num_classes=6)
+```
 
 ---
 
 # 6. Forbidden Transformations — 금지 변환
 
-The following transformations are prohibited:
-
-다음 변환은 금지된다:
-
 - extreme geometric distortion / 극단적 기하학적 왜곡
 - unrealistic scaling / 비현실적 스케일링
-- heavy blur / 강한 블러
-- synthetic noise injection / 합성 노이즈 주입
-- aggressive color modification / 강한 색상 변형
-
-These operations may alter real print-defect characteristics.
-
-이 변환들은 실제 인쇄 결함 특성을 훼손할 수 있다.
+- heavy blur / 강한 블러 (Phase 0 Contrastive는 예외)
+- aggressive color modification / 강한 색상 변형 (hue shift 등)
+- holdout/ 디렉토리에 합성 데이터 추가 (SSOT-HO01)
 
 ---
 
-# 7. Channel Policy — 채널별 정책
+# 7. Channel Policy — 채널별 정책 (v3.0 변경)
 
-모든 채널(C/M/Y/K)에 동일한 PRD v2 목표와 증강 정책이 적용된다.
+v3.0부터 채널별 독립 정책 적용. `config.json`의 `phase2.per_channel`에서 설정:
 
-The same PRD v2 targets and augmentation policy apply to all channels (C/M/Y/K).
+| 채널 | frozen_backbone | dropout | epochs | patience | policy |
+|---|---|---|---|---|---|
+| K | `true` | 0.5 | 10 | 3 | `"strong"` |
+| Y | `true` | 0.5 | 15 | 5 | `"strong"` |
+| C | `false` | 0.3 | 30 | 7 | `"light"` |
+| M | `false` | 0.2 | 50 | 10 | `"light"` |
 
 ## Labeling Rule — 라벨링 원칙
 
-각 채널은 **독립적으로** 라벨링되어야 한다. 같은 스캔에서 나온 Y/M/C/K 채널이라도 각각 다른 결함 레벨을 가질 수 있다.
-
-Each channel must be labeled **independently**. Y/M/C/K channels from the same scan can each have different defect levels.
-
----
-
-## Y / M / C / K Channels
-
-Augmentation is applied to any (channel, level) pair below the PRD v2 target.
-
-PRD v2 목표에 미달하는 (채널, 레벨) 쌍에 증강이 적용된다.
-
-All four channels use the same target table (§3) and the same allowed transforms (§5).
-
-4개 채널 모두 동일한 목표표(§3)와 허용 변환(§5)을 사용한다.
+각 채널은 **독립적으로** 라벨링되어야 한다. Y/M/C/K 채널이라도 각각 다른 결함 레벨을 가질 수 있다.
 
 ---
 

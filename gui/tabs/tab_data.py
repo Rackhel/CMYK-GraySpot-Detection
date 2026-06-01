@@ -84,6 +84,7 @@ class DataTab(BaseTab):
         v.addWidget(self._status_lbl)
         v.addWidget(self.table)
         v.addWidget(self._build_preprocess_group())
+        v.addWidget(self._build_pipeline_group())
         v.addWidget(QLabel("<b>이미지 미리보기</b>"))
         v.addWidget(self.image_viewer)
         v.addWidget(self._log)
@@ -218,6 +219,56 @@ class DataTab(BaseTab):
 
         return g
 
+    def _build_pipeline_group(self) -> QGroupBox:
+        """Holdout 분리 + 합성 데이터 생성 버튼 그룹."""
+        from PyQt6.QtWidgets import QSpinBox as _QSpinBox, QComboBox as _QComboBox
+        g = QGroupBox("데이터 파이프라인 / Data Pipeline Scripts")
+        v = QVBoxLayout(g)
+        v.setSpacing(6)
+        v.setContentsMargins(8, 10, 8, 8)
+
+        # ── Holdout 분리 ──────────────────────────────────────────────
+        holdout_lbl = QLabel(
+            "<b>① Holdout 분리</b> — 학습 전 한 번만 실행 / Run ONCE before training"
+        )
+        holdout_lbl.setStyleSheet("color:#f38ba8;")
+        holdout_btn = QPushButton("🔒  Holdout 분리 실행 / Prepare Holdout (dry-run)")
+        holdout_btn.setToolTip(
+            "prepare_holdout.py --dry-run 실행 — 실제 파일을 이동하지 않습니다.\n"
+            "CLI에서 --no-dry-run 플래그로 실제 실행하세요."
+        )
+        holdout_btn.clicked.connect(self._run_prepare_holdout)
+
+        # ── 합성 데이터 생성 ──────────────────────────────────────────
+        syn_lbl = QLabel(
+            "<b>② 합성 데이터 생성</b> — Holdout 분리 이후 실행 / Run AFTER holdout split"
+        )
+        syn_lbl.setStyleSheet("color:#a6e3a1;")
+
+        syn_row = QHBoxLayout()
+        self._syn_channel = _QComboBox()
+        self._syn_channel.addItems(["all", "Y", "M", "C", "K"])
+        self._syn_channel.setMaximumWidth(80)
+        self._syn_count = _QSpinBox()
+        self._syn_count.setRange(10, 500)
+        self._syn_count.setValue(100)
+        self._syn_count.setMaximumWidth(80)
+        syn_btn = QPushButton("🧪  합성 이미지 생성 / Generate Synthetic")
+        syn_btn.clicked.connect(self._run_generate_synthetic)
+
+        syn_row.addWidget(QLabel("Channel:"))
+        syn_row.addWidget(self._syn_channel)
+        syn_row.addWidget(QLabel("Count:"))
+        syn_row.addWidget(self._syn_count)
+        syn_row.addWidget(syn_btn)
+        syn_row.addStretch()
+
+        v.addWidget(holdout_lbl)
+        v.addWidget(holdout_btn)
+        v.addWidget(syn_lbl)
+        v.addLayout(syn_row)
+        return g
+
     # ── Private — actions ─────────────────────────────────────────────────────
 
     def _on_cell_clicked(self, row: int, col: int) -> None:
@@ -250,6 +301,44 @@ class DataTab(BaseTab):
         d = QFileDialog.getExistingDirectory(self, "Select Labeled Dir", "data_set")
         if d:
             self._labeled_dir_edit.setText(d)
+
+    def _run_prepare_holdout(self) -> None:
+        """prepare_holdout.py --dry-run 실행."""
+        import subprocess, sys
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "src.scripts.prepare_holdout", "--dry-run"],
+                capture_output=True, text=True, cwd=str(_ROOT)
+            )
+            out = (result.stdout + result.stderr).strip()
+            self._log.append("📋 prepare_holdout --dry-run:\n" + (out[:600] if out else "(no output)"))
+            self._log.append(
+                "⚠️  실제 분리는 CLI에서: python -m src.scripts.prepare_holdout\n"
+                "    (파일이 이동됩니다 / files will be MOVED)"
+            )
+        except Exception as exc:
+            self._log.append(f"❌ {exc}")
+
+    def _run_generate_synthetic(self) -> None:
+        """generate_synthetic.py 실행 (dry-run)."""
+        import subprocess, sys
+        channel = self._syn_channel.currentText()
+        count = str(self._syn_count.value())
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "src.scripts.generate_synthetic",
+                 "--channel", channel, "--count", count, "--dry-run"],
+                capture_output=True, text=True, cwd=str(_ROOT)
+            )
+            out = (result.stdout + result.stderr).strip()
+            self._log.append(f"🧪 generate_synthetic (dry-run) ch={channel} count={count}:\n"
+                             + (out[:600] if out else "(no output)"))
+            self._log.append(
+                "⚠️  실제 생성은 CLI에서: python -m src.scripts.generate_synthetic "
+                f"--channel {channel} --count {count}"
+            )
+        except Exception as exc:
+            self._log.append(f"❌ {exc}")
 
     def _save_preprocess(self) -> None:
         try:

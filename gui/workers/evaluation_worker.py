@@ -35,11 +35,13 @@ class EvaluationWorker(BaseWorker):
         cfg: dict[str, Any],
         channel: str,
         checkpoint_path: str,
+        use_holdout: bool = False,
     ) -> None:
         super().__init__()
         self.cfg = cfg
         self.channel = channel
         self.checkpoint_path = checkpoint_path
+        self.use_holdout = use_holdout
 
     def run(self) -> None:
         """run_evaluate()를 호출하고 결과를 시그널로 전달.
@@ -58,10 +60,22 @@ class EvaluationWorker(BaseWorker):
             storage = self.cfg.get("storage", {})
             reports_dir = (_REPORTS_ROOT / storage.get("reports_dir", "outputs/reports")).resolve()
 
+            # holdout 모드: labeled_dir을 holdout_dir로 교체
+            eval_cfg = self.cfg
+            if self.use_holdout:
+                import copy
+                eval_cfg = copy.deepcopy(self.cfg)
+                holdout_dir = storage.get(
+                    "holdout_dir",
+                    str(Path(storage.get("labeled_dir", "data_set/labeled")).parent / "holdout")
+                )
+                eval_cfg.setdefault("storage", {})["labeled_dir"] = holdout_dir
+                self.emit_progress(5, f"[{self.channel}] Holdout 평가 모드 — {holdout_dir}")
+
             self.emit_progress(20, f"[{self.channel}] 모델 로드 중 / Loading model...")
             report_path = run_evaluate(
                 channel=self.channel,
-                cfg=self.cfg,
+                cfg=eval_cfg,
                 checkpoint=ckpt,
                 output_dir=reports_dir,
             )

@@ -153,7 +153,7 @@ class Phase0Trainer:
         ) and self.device.type in ("cuda", "mps")
         grad_accum = max(1, int(self.cfg["train"].get("grad_accumulation_steps", 1)))
         scaler = (
-            torch.cuda.amp.GradScaler()
+            torch.amp.GradScaler("cuda")
             if use_amp and self.device.type == "cuda"
             else None
         )
@@ -266,24 +266,44 @@ class Phase2Trainer:
         train_ds: CMYKDataset = None,
     ):
         self.model = model
-        self.cfg = cfg
         self.channel = channel
         self.device = device
 
+        # per-channel override를 cfg에 병합 / Merge per-channel overrides into cfg copy
+        import copy
+        self.cfg = copy.deepcopy(cfg)
+        per = cfg.get("phase2", {}).get("per_channel", {}).get(channel, {})
+        if per:
+            for k, v in per.items():
+                if k != "augmentation":
+                    self.cfg["phase2"][k] = v
+            if "augmentation" in per:
+                self.cfg["phase2"].setdefault("augmentation", {}).update(per["augmentation"])
+            logger.info(f"  [per-channel] Applying overrides for [{channel}]: {per}")
+
+        # frozen_backbone 적용 / Apply frozen_backbone
+        frozen = self.cfg["phase2"].get(
+            "frozen_backbone", self.cfg.get("model", {}).get("frozen_backbone", False)
+        )
+        if frozen:
+            for param in model.backbone.parameters():
+                param.requires_grad = False
+            logger.info(f"  [per-channel] Backbone frozen for [{channel}]")
+
         self.criterion = get_loss(
-            phase=2, cfg=cfg, train_samples=train_ds.samples if train_ds else None
+            phase=2, cfg=self.cfg, train_samples=train_ds.samples if train_ds else None
         )
         if hasattr(self.criterion, "weight") and self.criterion.weight is not None:
             self.criterion.weight = self.criterion.weight.to(device)
 
         self.optimizer = _build_optimizer(
             model,
-            lr=cfg["phase2"]["learning_rate"],
-            weight_decay=cfg["phase2"]["weight_decay"],
-            cfg=cfg,
+            lr=self.cfg["phase2"]["learning_rate"],
+            weight_decay=self.cfg["phase2"]["weight_decay"],
+            cfg=self.cfg,
         )
         self.scheduler = _build_scheduler(
-            self.optimizer, epochs=cfg["phase2"]["epochs"], cfg=cfg, phase="phase2"
+            self.optimizer, epochs=self.cfg["phase2"]["epochs"], cfg=self.cfg, phase="phase2"
         )
 
     def train(
@@ -319,10 +339,22 @@ class Phase2Trainer:
         ) and self.device.type in ("cuda", "mps")
         grad_accum = max(1, int(self.cfg["train"].get("grad_accumulation_steps", 1)))
         scaler = (
-            torch.cuda.amp.GradScaler()
+            torch.amp.GradScaler("cuda")
             if use_amp and self.device.type == "cuda"
             else None
         )
+
+        # MixUp / CutMix 설정 / MixUp/CutMix config
+        aug2_cfg = self.cfg.get("phase2", {}).get("augmentation", {})
+        mixup_alpha = float(aug2_cfg.get("mixup_alpha", 0.0))
+        cutmix_prob = float(aug2_cfg.get("cutmix_prob", 0.0))
+        num_classes  = int(self.cfg.get("data", {}).get("num_levels", 6))
+        use_mixup  = mixup_alpha > 0
+        use_cutmix = cutmix_prob > 0
+
+        import random as _random
+        if use_mixup or use_cutmix:
+            from data.augmentation import mixup_batch, cutmix_batch
 
         for epoch in range(1, epochs + 1):
             t0 = time.time()
@@ -330,18 +362,33 @@ class Phase2Trainer:
             # Train
             self.model.train()
             train_loss, train_correct, train_total = 0.0, 0, 0
-            self.optimizer.zero_grad()  # accum 방식: epoch 시작 시 초기화 / zero_grad at epoch start for accumulation
+            self.optimizer.zero_grad()
 
             for step, (x, labels) in enumerate(train_loader):
                 x, labels = x.to(self.device), labels.to(self.device)
 
+                # MixUp / CutMix 적용 (배치 레벨) / Apply batch-level augmentation
+                mixed_labels = None
+                if use_cutmix and _random.random() < cutmix_prob:
+                    x, mixed_labels = cutmix_batch(x, labels, alpha=1.0, num_classes=num_classes)
+                elif use_mixup:
+                    x, mixed_labels = mixup_batch(x, labels, alpha=mixup_alpha, num_classes=num_classes)
+
                 if use_amp:
                     with torch.autocast(device_type=self.device.type):
                         logits = self.model(x)
-                        loss = self.criterion(logits, labels) / grad_accum
+                        if mixed_labels is not None:
+                            import torch.nn.functional as _F
+                            loss = (_F.cross_entropy(logits, mixed_labels) / grad_accum)
+                        else:
+                            loss = self.criterion(logits, labels) / grad_accum
                 else:
                     logits = self.model(x)
-                    loss = self.criterion(logits, labels) / grad_accum
+                    if mixed_labels is not None:
+                        import torch.nn.functional as _F
+                        loss = (_F.cross_entropy(logits, mixed_labels) / grad_accum)
+                    else:
+                        loss = self.criterion(logits, labels) / grad_accum
 
                 if scaler:
                     scaler.scale(loss).backward()
@@ -364,10 +411,12 @@ class Phase2Trainer:
                         self.optimizer.step()
                     self.optimizer.zero_grad()
 
-                train_loss += (
-                    loss.item() * grad_accum
-                )  # 원래 scale로 기록 / record at original scale
-                train_correct += (logits.argmax(1) == labels).sum().item()
+                train_loss += loss.item() * grad_accum
+                if mixed_labels is not None:
+                    # soft label: argmax로 dominant class 비교
+                    train_correct += (logits.argmax(1) == mixed_labels.argmax(1)).sum().item()
+                else:
+                    train_correct += (logits.argmax(1) == labels).sum().item()
                 train_total += len(labels)
 
             train_loss_avg = train_loss / max(len(train_loader), 1)
