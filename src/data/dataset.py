@@ -38,6 +38,7 @@ from data.preprocessing import preprocess
 # helpers
 # ──────────────────────────────────────────────────────────────
 
+
 def _resolve_per_channel(cfg: dict, channel: str, key: str, default):
     """cfg['phase2']['per_channel'][channel][key] 우선, 없으면 cfg['phase2'][key] fallback."""
     per = cfg.get("phase2", {}).get("per_channel", {}).get(channel, {})
@@ -94,8 +95,10 @@ class CMYKDataset(Dataset):
         # ── holdout 분기 ──────────────────────────────────────────
         if split == "holdout":
             holdout_dir = Path(
-                cfg["storage"].get("holdout_dir",
-                    str(Path(cfg["storage"]["labeled_dir"]).parent / "holdout"))
+                cfg["storage"].get(
+                    "holdout_dir",
+                    str(Path(cfg["storage"]["labeled_dir"]).parent / "holdout"),
+                )
             )
             self.samples = self._collect(holdout_dir / channel, exclude_synthetic)
             return
@@ -117,8 +120,8 @@ class CMYKDataset(Dataset):
             n_train = max(1, int(n * ratios["train"]))
             n_val = max(1, int(n * ratios["val"]))
             train_s.extend(items[:n_train])
-            val_s.extend(items[n_train: n_train + n_val])
-            test_s.extend(items[n_train + n_val:])
+            val_s.extend(items[n_train : n_train + n_val])
+            test_s.extend(items[n_train + n_val :])
 
         split_map = {"train": train_s, "val": val_s, "test": test_s}
         self.samples: list[tuple[Path, int]] = split_map[split]

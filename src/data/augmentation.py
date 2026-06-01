@@ -30,26 +30,26 @@ import torch
 # ──────────────────────────────────────────────────────────────
 
 # Supervised augmentation (Phase 2)
-_SUP_FLIP_PROB       = 0.5
-_SUP_VFLIP_PROB      = 0.0   # 수직 뒤집기 기본 꺼짐 / vertical flip off by default
+_SUP_FLIP_PROB = 0.5
+_SUP_VFLIP_PROB = 0.0  # 수직 뒤집기 기본 꺼짐 / vertical flip off by default
 _SUP_BRIGHTNESS_PROB = 0.5
 _SUP_BRIGHTNESS_RANGE = 30
-_SUP_NOISE_PROB      = 0.5
-_SUP_NOISE_RANGE     = 10
-_SUP_ROTATION_PROB   = 0.3
-_SUP_ROTATION_MAX    = 15    # degrees
+_SUP_NOISE_PROB = 0.5
+_SUP_NOISE_RANGE = 10
+_SUP_ROTATION_PROB = 0.3
+_SUP_ROTATION_MAX = 15  # degrees
 
 # Contrastive augmentation (Phase 0)
-_CON_FLIP_PROB         = 0.5
-_CON_CROP_PROB         = 0.5
-_CON_CROP_SCALE_MIN    = 0.6
-_CON_CROP_SCALE_MAX    = 1.0
+_CON_FLIP_PROB = 0.5
+_CON_CROP_PROB = 0.5
+_CON_CROP_SCALE_MIN = 0.6
+_CON_CROP_SCALE_MAX = 1.0
 _CON_CONTRAST_SCALE_MIN = 0.8
 _CON_CONTRAST_SCALE_MAX = 1.2
-_CON_BLUR_KERNELS      = [3, 5]
+_CON_BLUR_KERNELS = [3, 5]
 
 # MixUp / CutMix defaults
-_MIXUP_ALPHA  = 0.2
+_MIXUP_ALPHA = 0.2
 _CUTMIX_ALPHA = 1.0
 
 
@@ -82,14 +82,14 @@ def augment_supervised(image: np.ndarray, aug_cfg: Optional[dict] = None) -> np.
     def _p(key, default):
         return min(1.0, float(aug_cfg.get(key, default)) * prob_scale)
 
-    flip_prob        = _p("flip_prob",        _SUP_FLIP_PROB)
-    vflip_prob       = _p("vflip_prob",       _SUP_VFLIP_PROB)
-    brightness_prob  = _p("brightness_prob",  _SUP_BRIGHTNESS_PROB)
+    flip_prob = _p("flip_prob", _SUP_FLIP_PROB)
+    vflip_prob = _p("vflip_prob", _SUP_VFLIP_PROB)
+    brightness_prob = _p("brightness_prob", _SUP_BRIGHTNESS_PROB)
     brightness_range = int(aug_cfg.get("brightness_range", _SUP_BRIGHTNESS_RANGE))
-    noise_prob       = _p("noise_prob",       _SUP_NOISE_PROB)
-    noise_range      = int(aug_cfg.get("noise_range",      _SUP_NOISE_RANGE))
-    rotation_prob    = _p("rotation_prob",    _SUP_ROTATION_PROB)
-    rotation_max     = float(aug_cfg.get("rotation_max",   _SUP_ROTATION_MAX))
+    noise_prob = _p("noise_prob", _SUP_NOISE_PROB)
+    noise_range = int(aug_cfg.get("noise_range", _SUP_NOISE_RANGE))
+    rotation_prob = _p("rotation_prob", _SUP_ROTATION_PROB)
+    rotation_max = float(aug_cfg.get("rotation_max", _SUP_ROTATION_MAX))
 
     if random.random() < flip_prob:
         image = cv2.flip(image, 1)
@@ -101,9 +101,9 @@ def augment_supervised(image: np.ndarray, aug_cfg: Optional[dict] = None) -> np.
         h, w = image.shape[:2]
         angle = random.uniform(-rotation_max, rotation_max)
         M = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1.0)
-        image = cv2.warpAffine(image, M, (w, h),
-                               flags=cv2.INTER_LINEAR,
-                               borderMode=cv2.BORDER_REFLECT_101)
+        image = cv2.warpAffine(
+            image, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101
+        )
 
     if random.random() < brightness_prob:
         image = np.clip(
@@ -133,15 +133,19 @@ def augment_contrastive(
     if aug_cfg is None:
         aug_cfg = {}
 
-    color_jitter      = float(aug_cfg.get("color_jitter",        0.2))
-    blur_prob         = float(aug_cfg.get("blur_prob",            _CON_FLIP_PROB))
-    flip_prob         = float(aug_cfg.get("flip_prob",            _CON_FLIP_PROB))
-    crop_prob         = float(aug_cfg.get("crop_prob",            _CON_CROP_PROB))
-    crop_scale_min    = float(aug_cfg.get("crop_scale_min",       _CON_CROP_SCALE_MIN))
-    crop_scale_max    = float(aug_cfg.get("crop_scale_max",       _CON_CROP_SCALE_MAX))
-    contrast_scale_min = float(aug_cfg.get("contrast_scale_min", _CON_CONTRAST_SCALE_MIN))
-    contrast_scale_max = float(aug_cfg.get("contrast_scale_max", _CON_CONTRAST_SCALE_MAX))
-    blur_kernels      = list(aug_cfg.get("blur_kernels",          _CON_BLUR_KERNELS))
+    color_jitter = float(aug_cfg.get("color_jitter", 0.2))
+    blur_prob = float(aug_cfg.get("blur_prob", _CON_FLIP_PROB))
+    flip_prob = float(aug_cfg.get("flip_prob", _CON_FLIP_PROB))
+    crop_prob = float(aug_cfg.get("crop_prob", _CON_CROP_PROB))
+    crop_scale_min = float(aug_cfg.get("crop_scale_min", _CON_CROP_SCALE_MIN))
+    crop_scale_max = float(aug_cfg.get("crop_scale_max", _CON_CROP_SCALE_MAX))
+    contrast_scale_min = float(
+        aug_cfg.get("contrast_scale_min", _CON_CONTRAST_SCALE_MIN)
+    )
+    contrast_scale_max = float(
+        aug_cfg.get("contrast_scale_max", _CON_CONTRAST_SCALE_MAX)
+    )
+    blur_kernels = list(aug_cfg.get("blur_kernels", _CON_BLUR_KERNELS))
 
     if random.random() < flip_prob:
         image = cv2.flip(image, 1)
@@ -152,22 +156,26 @@ def augment_contrastive(
         ch, cw = int(h * scale), int(w * scale)
         y0 = random.randint(0, h - ch)
         x0 = random.randint(0, w - cw)
-        image = cv2.resize(image[y0: y0 + ch, x0: x0 + cw], (image_size, image_size))
+        image = cv2.resize(image[y0 : y0 + ch, x0 : x0 + cw], (image_size, image_size))
 
     if random.random() < blur_prob:
         image = np.clip(image + random.uniform(-color_jitter, color_jitter), 0, 1)
 
     if random.random() < blur_prob:
         image = np.clip(
-            (image - 0.5) * random.uniform(contrast_scale_min, contrast_scale_max) + 0.5,
-            0, 1,
+            (image - 0.5) * random.uniform(contrast_scale_min, contrast_scale_max)
+            + 0.5,
+            0,
+            1,
         )
 
     if random.random() < blur_prob:
         k = random.choice(blur_kernels)
         image = (
-            cv2.GaussianBlur((image * 255).astype(np.uint8), (k, k), 0)
-            .astype(np.float32) / 255.0
+            cv2.GaussianBlur((image * 255).astype(np.uint8), (k, k), 0).astype(
+                np.float32
+            )
+            / 255.0
         )
 
     return image
@@ -207,6 +215,7 @@ def mixup_batch(
         return x, y_onehot
 
     import numpy as _np
+
     lam = float(_np.random.beta(alpha, alpha))
     batch_size = x.size(0)
     idx = torch.randperm(batch_size, device=x.device)

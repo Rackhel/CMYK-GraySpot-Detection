@@ -373,7 +373,12 @@ def main(argv: Optional[List[str]] = None) -> None:
     if args.holdout:
         holdout_dir = cfg.get("storage", {}).get(
             "holdout_dir",
-            str(Path(cfg.get("storage", {}).get("labeled_dir", "data_set/labeled")).parent / "holdout")
+            str(
+                Path(
+                    cfg.get("storage", {}).get("labeled_dir", "data_set/labeled")
+                ).parent
+                / "holdout"
+            ),
         )
         cfg.setdefault("storage", {})["labeled_dir"] = holdout_dir
         print(f"[Holdout mode] Using labeled_dir = {holdout_dir}")
