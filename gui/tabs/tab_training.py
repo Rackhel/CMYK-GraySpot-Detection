@@ -117,19 +117,30 @@ class TrainingTab(BaseTab):
         self._p2_bs.setValue(int(p2.get("batch_size", 32)))
         self._p2_wd.setValue(float(p2.get("weight_decay", 1e-4)))
         self._p2_hidden.setValue(int(p2.get("hidden_dim", 256)))
+        self._p2_warmup.setValue(int(p2.get("warmup_epochs", 3)))
         self._p2_oversample.setChecked(bool(p2.get("oversample", True)))
+        self._p2_loss.setCurrentText(p2.get("loss", "cross_entropy"))
+        self._p2_class_weights.setCurrentText(p2.get("class_weights", "none"))
+        self._p2_label_smooth.setValue(float(p2.get("label_smoothing", 0.0)))
         self._p2_es_enabled.setChecked(bool(es.get("enabled", True)))
         self._p2_es_patience.setValue(int(es.get("patience", 10)))
+        self._p2_es_min_delta.setValue(float(es.get("min_delta", 0.0001)))
 
         self._p0_epochs.setValue(int(p0.get("epochs", 10)))
         self._p0_lr.setValue(float(p0.get("learning_rate", 1e-3)))
         self._p0_bs.setValue(int(p0.get("batch_size", 16)))
+        self._p0_wd.setValue(float(p0.get("weight_decay", 1e-5)))
+        self._p0_warmup.setValue(int(p0.get("warmup_epochs", 2)))
         self._p0_temp.setValue(float(p0.get("temperature", 0.1)))
         self._p0_proj.setValue(int(p0.get("projection_dim", 128)))
 
         self._seed.setValue(int(tr.get("seed", 42)))
+        self._optimizer.setCurrentText(tr.get("optimizer", "adamw"))
         self._scheduler.setCurrentText(tr.get("scheduler", "cosine"))
         self._grad_clip.setValue(float(tr.get("gradient_clip", 1.0)))
+        self._mixed_prec.setChecked(bool(tr.get("mixed_precision", False)))
+        self._grad_accum.setValue(int(tr.get("grad_accumulation_steps", 1)))
+        self._num_workers.setValue(int(tr.get("num_workers", 0)))
 
     def on_worker_finished(self, result: dict[str, Any]) -> None:
         phase = result.get("phase", "?")
@@ -281,23 +292,59 @@ class TrainingTab(BaseTab):
         self._p2_hidden.setValue(int(p2.get("hidden_dim", 256)))
         self._p2_hidden.setMaximumWidth(100)
 
+        self._p2_warmup = QSpinBox()
+        self._p2_warmup.setRange(0, 50)
+        self._p2_warmup.setValue(int(p2.get("warmup_epochs", 3)))
+        self._p2_warmup.setMaximumWidth(100)
+
+        self._p2_loss = QComboBox()
+        self._p2_loss.addItems(["cross_entropy", "focal"])
+        self._p2_loss.setCurrentText(p2.get("loss", "cross_entropy"))
+        self._p2_loss.setMaximumWidth(130)
+
+        self._p2_class_weights = QComboBox()
+        self._p2_class_weights.addItems(["none", "balanced"])
+        self._p2_class_weights.setCurrentText(p2.get("class_weights", "none"))
+        self._p2_class_weights.setMaximumWidth(130)
+
+        self._p2_label_smooth = QDoubleSpinBox()
+        self._p2_label_smooth.setRange(0.0, 0.5)
+        self._p2_label_smooth.setDecimals(2)
+        self._p2_label_smooth.setSingleStep(0.05)
+        self._p2_label_smooth.setValue(float(p2.get("label_smoothing", 0.0)))
+        self._p2_label_smooth.setMaximumWidth(100)
+
         self._p2_oversample = QCheckBox("Oversample minority")
         self._p2_oversample.setChecked(bool(p2.get("oversample", True)))
+
         self._p2_es_enabled = QCheckBox("Early Stopping")
         self._p2_es_enabled.setChecked(bool(es.get("enabled", True)))
+
         self._p2_es_patience = QSpinBox()
         self._p2_es_patience.setRange(1, 200)
         self._p2_es_patience.setValue(int(es.get("patience", 10)))
         self._p2_es_patience.setMaximumWidth(100)
+
+        self._p2_es_min_delta = QDoubleSpinBox()
+        self._p2_es_min_delta.setRange(0.0, 0.1)
+        self._p2_es_min_delta.setDecimals(5)
+        self._p2_es_min_delta.setSingleStep(1e-4)
+        self._p2_es_min_delta.setValue(float(es.get("min_delta", 0.0001)))
+        self._p2_es_min_delta.setMaximumWidth(130)
 
         f2.addRow("Epochs", self._p2_epochs)
         f2.addRow("Learning Rate", self._p2_lr)
         f2.addRow("Batch Size", self._p2_bs)
         f2.addRow("Weight Decay", self._p2_wd)
         f2.addRow("Hidden Dim", self._p2_hidden)
+        f2.addRow("Warmup Epochs", self._p2_warmup)
+        f2.addRow("Loss Type", self._p2_loss)
+        f2.addRow("Class Weights", self._p2_class_weights)
+        f2.addRow("Label Smoothing", self._p2_label_smooth)
         f2.addRow(self._p2_oversample)
         f2.addRow(self._p2_es_enabled)
         f2.addRow("ES Patience", self._p2_es_patience)
+        f2.addRow("ES Min Delta", self._p2_es_min_delta)
         tabs.addTab(p2w, "Phase 2")
 
         # ── Phase 0 ───────────────────────────────────────────────────
@@ -334,9 +381,23 @@ class TrainingTab(BaseTab):
         self._p0_proj.setValue(int(p0.get("projection_dim", 128)))
         self._p0_proj.setMaximumWidth(100)
 
+        self._p0_wd = QDoubleSpinBox()
+        self._p0_wd.setRange(0, 1)
+        self._p0_wd.setDecimals(7)
+        self._p0_wd.setSingleStep(1e-6)
+        self._p0_wd.setValue(float(p0.get("weight_decay", 1e-5)))
+        self._p0_wd.setMaximumWidth(130)
+
+        self._p0_warmup = QSpinBox()
+        self._p0_warmup.setRange(0, 50)
+        self._p0_warmup.setValue(int(p0.get("warmup_epochs", 2)))
+        self._p0_warmup.setMaximumWidth(100)
+
         f0.addRow("Epochs", self._p0_epochs)
         f0.addRow("Learning Rate", self._p0_lr)
         f0.addRow("Batch Size", self._p0_bs)
+        f0.addRow("Weight Decay", self._p0_wd)
+        f0.addRow("Warmup Epochs", self._p0_warmup)
         f0.addRow("Temperature", self._p0_temp)
         f0.addRow("Projection Dim", self._p0_proj)
         tabs.addTab(p0w, "Phase 0")
@@ -351,6 +412,11 @@ class TrainingTab(BaseTab):
         self._seed.setValue(int(tr.get("seed", 42)))
         self._seed.setMaximumWidth(100)
 
+        self._optimizer = QComboBox()
+        self._optimizer.addItems(["adamw", "sgd"])
+        self._optimizer.setCurrentText(tr.get("optimizer", "adamw"))
+        self._optimizer.setMaximumWidth(130)
+
         self._scheduler = QComboBox()
         self._scheduler.addItems(["cosine", "step", "none"])
         self._scheduler.setCurrentText(tr.get("scheduler", "cosine"))
@@ -363,9 +429,26 @@ class TrainingTab(BaseTab):
         self._grad_clip.setValue(float(tr.get("gradient_clip", 1.0)))
         self._grad_clip.setMaximumWidth(100)
 
+        self._mixed_prec = QCheckBox("Mixed Precision (AMP)")
+        self._mixed_prec.setChecked(bool(tr.get("mixed_precision", False)))
+
+        self._grad_accum = QSpinBox()
+        self._grad_accum.setRange(1, 32)
+        self._grad_accum.setValue(int(tr.get("grad_accumulation_steps", 1)))
+        self._grad_accum.setMaximumWidth(100)
+
+        self._num_workers = QSpinBox()
+        self._num_workers.setRange(0, 16)
+        self._num_workers.setValue(int(tr.get("num_workers", 0)))
+        self._num_workers.setMaximumWidth(100)
+
         fc.addRow("Seed", self._seed)
+        fc.addRow("Optimizer", self._optimizer)
         fc.addRow("Scheduler", self._scheduler)
         fc.addRow("Gradient Clip", self._grad_clip)
+        fc.addRow(self._mixed_prec)
+        fc.addRow("Grad Accum Steps", self._grad_accum)
+        fc.addRow("Num Workers", self._num_workers)
         tabs.addTab(cw, "Common")
 
         outer.addWidget(tabs)
@@ -420,6 +503,10 @@ class TrainingTab(BaseTab):
                 "weight_decay": self._p2_wd.value(),
                 "dropout": self._dropout.value(),
                 "hidden_dim": self._p2_hidden.value(),
+                "warmup_epochs": self._p2_warmup.value(),
+                "loss": self._p2_loss.currentText(),
+                "class_weights": self._p2_class_weights.currentText(),
+                "label_smoothing": self._p2_label_smooth.value(),
                 "oversample": self._p2_oversample.isChecked(),
             }
         )
@@ -427,6 +514,7 @@ class TrainingTab(BaseTab):
             {
                 "enabled": self._p2_es_enabled.isChecked(),
                 "patience": self._p2_es_patience.value(),
+                "min_delta": self._p2_es_min_delta.value(),
             }
         )
         self.cfg.setdefault("phase0", {}).update(
@@ -434,6 +522,8 @@ class TrainingTab(BaseTab):
                 "epochs": self._p0_epochs.value(),
                 "learning_rate": self._p0_lr.value(),
                 "batch_size": self._p0_bs.value(),
+                "weight_decay": self._p0_wd.value(),
+                "warmup_epochs": self._p0_warmup.value(),
                 "temperature": self._p0_temp.value(),
                 "projection_dim": self._p0_proj.value(),
             }
@@ -441,8 +531,12 @@ class TrainingTab(BaseTab):
         self.cfg.setdefault("train", {}).update(
             {
                 "seed": self._seed.value(),
+                "optimizer": self._optimizer.currentText(),
                 "scheduler": self._scheduler.currentText(),
                 "gradient_clip": self._grad_clip.value(),
+                "mixed_precision": self._mixed_prec.isChecked(),
+                "grad_accumulation_steps": self._grad_accum.value(),
+                "num_workers": self._num_workers.value(),
             }
         )
 

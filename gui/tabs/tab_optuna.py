@@ -209,6 +209,12 @@ class OptunaTab(BaseTab):
         self._p0_bs.setText(
             ",".join(str(x) for x in p0_ss.get("batch_size", [16, 32, 64]))
         )
+        p0_temp = p0_ss.get("temperature", [0.05, 0.5])
+        self._p0_temp_min.setValue(float(p0_temp[0]))
+        self._p0_temp_max.setValue(float(p0_temp[1]))
+        p0_wp = p0_ss.get("warmup_epochs", [0, 5])
+        self._p0_wp_min.setValue(int(p0_wp[0]))
+        self._p0_wp_max.setValue(int(p0_wp[1]))
 
         p2_ss = opt.get("phase2", {}).get("search_space", {})
         eff = p2_ss.get("efficientnet_b0", {})
@@ -226,6 +232,14 @@ class OptunaTab(BaseTab):
         self._eff_hd.setText(
             ",".join(str(x) for x in eff.get("hidden_dim", [128, 256]))
         )
+        eff_ls = eff.get("label_smoothing", [0.0, 0.2])
+        self._eff_ls_min.setValue(float(eff_ls[0]))
+        self._eff_ls_max.setValue(float(eff_ls[1]))
+        eff_wp = eff.get("warmup_epochs", [0, 5])
+        self._eff_wp_min.setValue(int(eff_wp[0]))
+        self._eff_wp_max.setValue(int(eff_wp[1]))
+        self._eff_cw.setText(",".join(str(x) for x in eff.get("class_weights", ["none", "balanced"])))
+        self._eff_fb.setText(",".join(str(x) for x in eff.get("frozen_backbone", [False, True])))
 
         res = p2_ss.get("resnet50", {})
         self._res_lr_min.setValue(float(res.get("learning_rate", [1e-4, 5e-4])[0]))
@@ -245,6 +259,14 @@ class OptunaTab(BaseTab):
         self._res_md.setText(
             ",".join(str(x) for x in res.get("mid_dim", [256, 512, 1024]))
         )
+        res_ls = res.get("label_smoothing", [0.0, 0.2])
+        self._res_ls_min.setValue(float(res_ls[0]))
+        self._res_ls_max.setValue(float(res_ls[1]))
+        res_wp = res.get("warmup_epochs", [0, 5])
+        self._res_wp_min.setValue(int(res_wp[0]))
+        self._res_wp_max.setValue(int(res_wp[1]))
+        self._res_cw.setText(",".join(str(x) for x in res.get("class_weights", ["none", "balanced"])))
+        self._res_fb.setText(",".join(str(x) for x in res.get("frozen_backbone", [False, True])))
 
         self.trials_spin.setValue(int(opt.get("n_trials", 10)))
 
@@ -363,9 +385,9 @@ class OptunaTab(BaseTab):
                     "learning_rate": [self._p0_lr_min.value(), self._p0_lr_max.value()],
                     "weight_decay": [self._p0_wd_min.value(), self._p0_wd_max.value()],
                     "epochs": [self._p0_ep_min.value(), self._p0_ep_max.value()],
-                    "batch_size": self._parse_int_list(
-                        self._p0_bs.text(), [16, 32, 64]
-                    ),
+                    "batch_size": self._parse_int_list(self._p0_bs.text(), [16, 32, 64]),
+                    "temperature": [self._p0_temp_min.value(), self._p0_temp_max.value()],
+                    "warmup_epochs": [self._p0_wp_min.value(), self._p0_wp_max.value()],
                 }
             )
             eff_ss = (
@@ -375,42 +397,32 @@ class OptunaTab(BaseTab):
             )
             eff_ss.update(
                 {
-                    "learning_rate": [
-                        self._eff_lr_min.value(),
-                        self._eff_lr_max.value(),
-                    ],
-                    "weight_decay": [
-                        self._eff_wd_min.value(),
-                        self._eff_wd_max.value(),
-                    ],
+                    "learning_rate": [self._eff_lr_min.value(), self._eff_lr_max.value()],
+                    "weight_decay": [self._eff_wd_min.value(), self._eff_wd_max.value()],
                     "epochs": [self._eff_ep_min.value(), self._eff_ep_max.value()],
                     "dropout": [self._eff_do_min.value(), self._eff_do_max.value()],
-                    "batch_size": self._parse_int_list(
-                        self._eff_bs.text(), [16, 32, 64]
-                    ),
+                    "batch_size": self._parse_int_list(self._eff_bs.text(), [16, 32, 64]),
                     "hidden_dim": self._parse_int_list(self._eff_hd.text(), [128, 256]),
+                    "label_smoothing": [self._eff_ls_min.value(), self._eff_ls_max.value()],
+                    "warmup_epochs": [self._eff_wp_min.value(), self._eff_wp_max.value()],
+                    "class_weights": self._parse_str_list(self._eff_cw.text(), ["none", "balanced"]),
+                    "frozen_backbone": self._parse_bool_list(self._eff_fb.text(), [False, True]),
                 }
             )
             res_ss = opt["phase2"]["search_space"].setdefault("resnet50", {})
             res_ss.update(
                 {
-                    "learning_rate": [
-                        self._res_lr_min.value(),
-                        self._res_lr_max.value(),
-                    ],
-                    "weight_decay": [
-                        self._res_wd_min.value(),
-                        self._res_wd_max.value(),
-                    ],
+                    "learning_rate": [self._res_lr_min.value(), self._res_lr_max.value()],
+                    "weight_decay": [self._res_wd_min.value(), self._res_wd_max.value()],
                     "epochs": [self._res_ep_min.value(), self._res_ep_max.value()],
                     "dropout": [self._res_do_min.value(), self._res_do_max.value()],
-                    "batch_size": self._parse_int_list(
-                        self._res_bs.text(), [16, 32, 64]
-                    ),
+                    "batch_size": self._parse_int_list(self._res_bs.text(), [16, 32, 64]),
                     "hidden_dim": self._parse_int_list(self._res_hd.text(), [256, 512]),
-                    "mid_dim": self._parse_int_list(
-                        self._res_md.text(), [256, 512, 1024]
-                    ),
+                    "mid_dim": self._parse_int_list(self._res_md.text(), [256, 512, 1024]),
+                    "label_smoothing": [self._res_ls_min.value(), self._res_ls_max.value()],
+                    "warmup_epochs": [self._res_wp_min.value(), self._res_wp_max.value()],
+                    "class_weights": self._parse_str_list(self._res_cw.text(), ["none", "balanced"]),
+                    "frozen_backbone": self._parse_bool_list(self._res_fb.text(), [False, True]),
                 }
             )
 
@@ -467,6 +479,14 @@ class OptunaTab(BaseTab):
         self._p0_ep_max = self._spin(ep[1], 1, 200)
         self._p0_bs = self._bsedit(ss.get("batch_size", [16, 32, 64]))
 
+        temp = ss.get("temperature", [0.05, 0.5])
+        self._p0_temp_min = self._dspin(temp[0], 0.01, 1.0, 3)
+        self._p0_temp_max = self._dspin(temp[1], 0.01, 1.0, 3)
+
+        wp = ss.get("warmup_epochs", [0, 5])
+        self._p0_wp_min = self._spin(wp[0], 0, 20)
+        self._p0_wp_max = self._spin(wp[1], 0, 20)
+
         f.addRow("LR min", self._p0_lr_min)
         f.addRow("LR max", self._p0_lr_max)
         f.addRow("WD min", self._p0_wd_min)
@@ -474,6 +494,10 @@ class OptunaTab(BaseTab):
         f.addRow("Epochs min", self._p0_ep_min)
         f.addRow("Epochs max", self._p0_ep_max)
         f.addRow("Batch sizes (csv)", self._p0_bs)
+        f.addRow("Temp min", self._p0_temp_min)
+        f.addRow("Temp max", self._p0_temp_max)
+        f.addRow("Warmup min", self._p0_wp_min)
+        f.addRow("Warmup max", self._p0_wp_max)
         return g
 
     def _build_phase2_eff_group(self) -> QGroupBox:
@@ -502,6 +526,17 @@ class OptunaTab(BaseTab):
         self._eff_bs = self._bsedit(ss.get("batch_size", [16, 32, 64]))
         self._eff_hd = self._bsedit(ss.get("hidden_dim", [128, 256]))
 
+        ls = ss.get("label_smoothing", [0.0, 0.2])
+        self._eff_ls_min = self._dspin(ls[0], 0.0, 0.5, 2)
+        self._eff_ls_max = self._dspin(ls[1], 0.0, 0.5, 2)
+
+        wp2 = ss.get("warmup_epochs", [0, 5])
+        self._eff_wp_min = self._spin(wp2[0], 0, 20)
+        self._eff_wp_max = self._spin(wp2[1], 0, 20)
+
+        self._eff_cw = self._bsedit(ss.get("class_weights", ["none", "balanced"]))
+        self._eff_fb = self._bsedit(ss.get("frozen_backbone", [False, True]))
+
         f.addRow("LR min", self._eff_lr_min)
         f.addRow("LR max", self._eff_lr_max)
         f.addRow("WD min", self._eff_wd_min)
@@ -512,6 +547,12 @@ class OptunaTab(BaseTab):
         f.addRow("Dropout max", self._eff_do_max)
         f.addRow("Batch sizes (csv)", self._eff_bs)
         f.addRow("Hidden dims (csv)", self._eff_hd)
+        f.addRow("Label Smooth min", self._eff_ls_min)
+        f.addRow("Label Smooth max", self._eff_ls_max)
+        f.addRow("Warmup min", self._eff_wp_min)
+        f.addRow("Warmup max", self._eff_wp_max)
+        f.addRow("Class Weights (csv)", self._eff_cw)
+        f.addRow("Frozen Backbone (csv)", self._eff_fb)
         return g
 
     def _build_phase2_res_group(self) -> QGroupBox:
@@ -541,6 +582,17 @@ class OptunaTab(BaseTab):
         self._res_hd = self._bsedit(ss.get("hidden_dim", [256, 512]))
         self._res_md = self._bsedit(ss.get("mid_dim", [256, 512, 1024]))
 
+        ls_r = ss.get("label_smoothing", [0.0, 0.2])
+        self._res_ls_min = self._dspin(ls_r[0], 0.0, 0.5, 2)
+        self._res_ls_max = self._dspin(ls_r[1], 0.0, 0.5, 2)
+
+        wp2r = ss.get("warmup_epochs", [0, 5])
+        self._res_wp_min = self._spin(wp2r[0], 0, 20)
+        self._res_wp_max = self._spin(wp2r[1], 0, 20)
+
+        self._res_cw = self._bsedit(ss.get("class_weights", ["none", "balanced"]))
+        self._res_fb = self._bsedit(ss.get("frozen_backbone", [False, True]))
+
         f.addRow("LR min", self._res_lr_min)
         f.addRow("LR max", self._res_lr_max)
         f.addRow("WD min", self._res_wd_min)
@@ -552,6 +604,12 @@ class OptunaTab(BaseTab):
         f.addRow("Batch sizes (csv)", self._res_bs)
         f.addRow("Hidden dims (csv)", self._res_hd)
         f.addRow("Mid dims (csv)", self._res_md)
+        f.addRow("Label Smooth min", self._res_ls_min)
+        f.addRow("Label Smooth max", self._res_ls_max)
+        f.addRow("Warmup min", self._res_wp_min)
+        f.addRow("Warmup max", self._res_wp_max)
+        f.addRow("Class Weights (csv)", self._res_cw)
+        f.addRow("Frozen Backbone (csv)", self._res_fb)
         return g
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -591,6 +649,23 @@ class OptunaTab(BaseTab):
         w = QLineEdit(",".join(str(x) for x in items))
         w.setMaximumWidth(_BS_W)
         return w
+
+    @staticmethod
+    def _parse_str_list(text: str, default: list) -> list:
+        try:
+            result = [x.strip() for x in text.split(",") if x.strip()]
+            return result if result else default
+        except Exception:
+            return default
+
+    @staticmethod
+    def _parse_bool_list(text: str, default: list) -> list:
+        try:
+            mapping = {"true": True, "false": False, "1": True, "0": False}
+            result = [mapping.get(x.strip().lower(), x.strip()) for x in text.split(",") if x.strip()]
+            return result if result else default
+        except Exception:
+            return default
 
     @staticmethod
     def _parse_int_list(text: str, default: list) -> list:

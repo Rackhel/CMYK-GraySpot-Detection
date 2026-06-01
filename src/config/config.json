@@ -215,64 +215,30 @@
       "search_space": {
         "resnet50": {
           "_comment": "단계적 압축 head 전용 — regularization 강하게 / Heavy regularization for staged head",
-          "learning_rate": [
-            0.0001,
-            0.0005
-          ],
-          "weight_decay": [
-            0.001,
-            0.01
-          ],
-          "dropout": [
-            0.3,
-            0.5
-          ],
-          "mid_dim": [
-            256,
-            512,
-            1024
-          ],
-          "hidden_dim": [
-            256,
-            512
-          ],
-          "batch_size": [
-            16,
-            32,
-            64
-          ],
-          "epochs": [
-            10,
-            30
-          ]
+          "learning_rate": [0.0001, 0.0005],
+          "weight_decay": [0.001, 0.01],
+          "dropout": [0.3, 0.5],
+          "mid_dim": [256, 512, 1024],
+          "hidden_dim": [256, 512],
+          "batch_size": [16, 32, 64],
+          "epochs": [10, 30],
+          "label_smoothing": [0.0, 0.2],
+          "warmup_epochs": [0, 5],
+          "class_weights": ["none", "balanced"],
+          "frozen_backbone": [false, true]
         },
         "efficientnet_b0": {
           "_comment": "직접 압축 head 전용 — SE 선별 이후 compact / Post-SE compact head",
-          "learning_rate": [
-            5e-05,
-            0.0003
-          ],
-          "weight_decay": [
-            0.0001,
-            0.001
-          ],
-          "dropout": [
-            0.1,
-            0.3
-          ],
-          "hidden_dim": [
-            128,
-            256
-          ],
-          "batch_size": [
-            16,
-            32,
-            64
-          ],
-          "epochs": [
-            10,
-            30
-          ]
+          "learning_rate": [5e-05, 0.0003],
+          "weight_decay": [0.0001, 0.001],
+          "dropout": [0.1, 0.3],
+          "hidden_dim": [128, 256],
+          "batch_size": [16, 32, 64],
+          "epochs": [10, 30],
+          "label_smoothing": [0.0, 0.2],
+          "warmup_epochs": [0, 5],
+          "class_weights": ["none", "balanced"],
+          "frozen_backbone": [false, true]
         }
       }
     },
@@ -280,23 +246,12 @@
       "_comment": "Phase 0 SimCLR Contrastive Learning 하이퍼파라미터 탐색 / Phase 0 contrastive HP search",
       "direction": "minimize",
       "search_space": {
-        "learning_rate": [
-          0.0001,
-          0.01
-        ],
-        "weight_decay": [
-          1e-06,
-          0.0001
-        ],
-        "batch_size": [
-          16,
-          32,
-          64
-        ],
-        "epochs": [
-          5,
-          15
-        ]
+        "learning_rate": [0.0001, 0.01],
+        "weight_decay": [1e-06, 0.0001],
+        "batch_size": [16, 32, 64],
+        "epochs": [5, 15],
+        "temperature": [0.05, 0.5],
+        "warmup_epochs": [0, 5]
       }
     }
   },
