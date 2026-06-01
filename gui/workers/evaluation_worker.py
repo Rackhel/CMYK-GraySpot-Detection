@@ -18,6 +18,8 @@ for _p in (str(_ROOT), str(_ROOT / "src")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+_REPORTS_ROOT = _ROOT
+
 
 class EvaluationWorker(BaseWorker):
     """Run evaluation/report preparation away from the main GUI thread.
@@ -54,7 +56,7 @@ class EvaluationWorker(BaseWorker):
 
             ckpt = Path(self.checkpoint_path) if self.checkpoint_path else None
             storage = self.cfg.get("storage", {})
-            reports_dir = Path(storage.get("reports_dir", "outputs/reports"))
+            reports_dir = (_REPORTS_ROOT / storage.get("reports_dir", "outputs/reports")).resolve()
 
             self.emit_progress(20, f"[{self.channel}] 모델 로드 중 / Loading model...")
             report_path = run_evaluate(

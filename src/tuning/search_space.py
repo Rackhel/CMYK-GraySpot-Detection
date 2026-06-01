@@ -30,6 +30,8 @@ def get_phase0_search_space(trial: optuna.Trial, cfg: dict = None) -> dict:
     wd_range = ss.get("weight_decay", [1e-6, 1e-4])
     bs_opts = ss.get("batch_size", [16, 32, 64])
     ep_range = ss.get("epochs", [5, 15])
+    temp_range = ss.get("temperature", [0.05, 0.5])
+    wp_range = ss.get("warmup_epochs", [0, 5])
 
     return {
         "learning_rate": trial.suggest_float(
@@ -40,6 +42,8 @@ def get_phase0_search_space(trial: optuna.Trial, cfg: dict = None) -> dict:
         ),
         "batch_size": trial.suggest_categorical("batch_size", bs_opts),
         "epochs": trial.suggest_int("epochs", ep_range[0], ep_range[1]),
+        "temperature": trial.suggest_float("temperature", temp_range[0], temp_range[1]),
+        "warmup_epochs": trial.suggest_int("warmup_epochs", wp_range[0], wp_range[1]),
     }
 
 
@@ -83,6 +87,10 @@ def get_phase2_search_space(trial: optuna.Trial, cfg: dict = None) -> dict:
     ep_range = ss.get("epochs", [1, 10, 30])
     do_range = ss.get("dropout", [0.0, 0.5])
     hd_opts = ss.get("hidden_dim", [128, 256])
+    ls_range = ss.get("label_smoothing", [0.0, 0.2])
+    wp_range = ss.get("warmup_epochs", [0, 5])
+    cw_opts = ss.get("class_weights", ["none", "balanced"])
+    fb_opts = ss.get("frozen_backbone", [False, True])
 
     params = {
         "learning_rate": trial.suggest_float(
@@ -95,6 +103,12 @@ def get_phase2_search_space(trial: optuna.Trial, cfg: dict = None) -> dict:
         "epochs": trial.suggest_int("epochs", ep_range[0], ep_range[1]),
         "dropout": trial.suggest_float("dropout", do_range[0], do_range[1]),
         "hidden_dim": trial.suggest_categorical("hidden_dim", hd_opts),
+        "label_smoothing": trial.suggest_float(
+            "label_smoothing", ls_range[0], ls_range[1]
+        ),
+        "warmup_epochs": trial.suggest_int("warmup_epochs", wp_range[0], wp_range[1]),
+        "class_weights": trial.suggest_categorical("class_weights", cw_opts),
+        "frozen_backbone": trial.suggest_categorical("frozen_backbone", fb_opts),
     }
 
     # ResNet-50 전용: 중간 압축 차원 탐색 / ResNet-50 only: intermediate compression dim

@@ -41,8 +41,6 @@ class TuningWorker(BaseWorker):
 
     def run(self) -> None:
         try:
-            from src.tuning.optuna_tuner import run_optuna
-
             ch_lower = self.channel.lower()
             self.emit_progress(
                 0,
@@ -53,7 +51,12 @@ class TuningWorker(BaseWorker):
                 self.log_emitted.emit("Tuning cancelled before start")
                 return
 
-            run_optuna(n_trials=self.n_trials, channel=ch_lower)
+            if self.phase == 0:
+                from src.tuning.optuna_tuner import run_phase0_optuna
+                run_phase0_optuna(n_trials=self.n_trials, channel=ch_lower)
+            else:
+                from src.tuning.optuna_tuner import run_optuna
+                run_optuna(n_trials=self.n_trials, channel=ch_lower)
 
             if self.is_cancelled():
                 self.log_emitted.emit("Tuning interrupted")

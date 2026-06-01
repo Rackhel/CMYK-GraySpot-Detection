@@ -169,6 +169,10 @@ def apply_phase0_params(cfg: dict, params: dict) -> dict:
     cfg["phase0"]["weight_decay"] = params["weight_decay"]
     cfg["phase0"]["batch_size"] = params["batch_size"]
     cfg["phase0"]["epochs"] = params["epochs"]
+    if "temperature" in params:
+        cfg["phase0"]["temperature"] = params["temperature"]
+    if "warmup_epochs" in params:
+        cfg["phase0"]["warmup_epochs"] = params["warmup_epochs"]
 
     return cfg
 
@@ -220,6 +224,14 @@ def apply_phase2_params(cfg: dict, params: dict) -> dict:
 
     if "mid_dim" in params:
         cfg["phase2"]["heads"][backbone_name]["mid_dim"] = params["mid_dim"]
+    if "label_smoothing" in params:
+        cfg["phase2"]["label_smoothing"] = params["label_smoothing"]
+    if "warmup_epochs" in params:
+        cfg["phase2"]["warmup_epochs"] = params["warmup_epochs"]
+    if "class_weights" in params:
+        cfg["phase2"]["class_weights"] = params["class_weights"]
+    if "frozen_backbone" in params:
+        cfg["model"]["frozen_backbone"] = params["frozen_backbone"]
 
     return cfg
 
