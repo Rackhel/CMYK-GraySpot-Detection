@@ -42,9 +42,7 @@ def get_phase0_search_space(trial: optuna.Trial, cfg: dict = None) -> dict:
         ),
         "batch_size": trial.suggest_categorical("batch_size", bs_opts),
         "epochs": trial.suggest_int("epochs", ep_range[0], ep_range[1]),
-        "temperature": trial.suggest_float(
-            "temperature", temp_range[0], temp_range[1]
-        ),
+        "temperature": trial.suggest_float("temperature", temp_range[0], temp_range[1]),
         "warmup_epochs": trial.suggest_int("warmup_epochs", wp_range[0], wp_range[1]),
     }
 
