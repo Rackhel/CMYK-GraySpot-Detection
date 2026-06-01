@@ -95,15 +95,17 @@ def generate_interpolation(
     """
     rng = np.random.default_rng(seed)
 
-    low_dir  = channel_dir / str(source_level_low)
+    low_dir = channel_dir / str(source_level_low)
     high_dir = channel_dir / str(source_level_high)
-    out_dir  = channel_dir / str(target_level)
+    out_dir = channel_dir / str(target_level)
 
-    low_imgs  = _load_images(low_dir)
+    low_imgs = _load_images(low_dir)
     high_imgs = _load_images(high_dir)
 
     if not low_imgs or not high_imgs:
-        print(f"  [SKIP] Not enough source images for level {target_level} interpolation")
+        print(
+            f"  [SKIP] Not enough source images for level {target_level} interpolation"
+        )
         return 0
 
     # alpha: 타겟 레벨 기준으로 결함 강도 결정
@@ -118,7 +120,7 @@ def generate_interpolation(
 
     for i in range(count):
         alpha = float(np.clip(rng.normal(alpha_center, alpha_std), 0.05, 0.95))
-        low_img  = cv2.resize(rng.choice(low_imgs),  (image_size, image_size))
+        low_img = cv2.resize(rng.choice(low_imgs), (image_size, image_size))
         high_img = cv2.resize(rng.choice(high_imgs), (image_size, image_size))
 
         synthetic = cv2.addWeighted(low_img, 1.0 - alpha, high_img, alpha, 0)
@@ -159,8 +161,8 @@ def generate_img2img(
     requires: pip install diffusers transformers accelerate
     """
     try:
-        from diffusers import StableDiffusionImg2ImgPipeline
         import torch
+        from diffusers import StableDiffusionImg2ImgPipeline
         from PIL import Image
     except ImportError:
         print(
@@ -178,8 +180,10 @@ def generate_img2img(
         print("  [SKIP] No Level-0 source images found")
         return 0
 
-    device = "mps" if torch.backends.mps.is_available() else (
-        "cuda" if torch.cuda.is_available() else "cpu"
+    device = (
+        "mps"
+        if torch.backends.mps.is_available()
+        else ("cuda" if torch.cuda.is_available() else "cpu")
     )
     pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
         "runwayml/stable-diffusion-v1-5",
@@ -194,7 +198,9 @@ def generate_img2img(
         4: "severe ink bleeding, major print defect, cmyk patch",
         5: "extreme ink overflow, critical print defect, cmyk patch",
     }
-    prompt = severity_prompts.get(target_level, f"level {target_level} print defect, cmyk patch")
+    prompt = severity_prompts.get(
+        target_level, f"level {target_level} print defect, cmyk patch"
+    )
 
     out_dir.mkdir(parents=True, exist_ok=True)
     existing = len(list(out_dir.glob("synthetic_*.png")))
@@ -232,16 +238,33 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Generate synthetic images for rare defect levels"
     )
-    parser.add_argument("--method", choices=["interpolation", "img2img"],
-                        default="interpolation")
-    parser.add_argument("--channel", choices=_CHANNELS + ["all"], default="all",
-                        help="Target channel (default: all)")
-    parser.add_argument("--level", type=int, default=None,
-                        help="Target level to generate (default: auto-detect rare levels)")
-    parser.add_argument("--count", type=int, default=100,
-                        help="Number of images to generate per level (default: 100)")
-    parser.add_argument("--min-samples", type=int, default=50,
-                        help="Only generate if existing count < this threshold (default: 50)")
+    parser.add_argument(
+        "--method", choices=["interpolation", "img2img"], default="interpolation"
+    )
+    parser.add_argument(
+        "--channel",
+        choices=_CHANNELS + ["all"],
+        default="all",
+        help="Target channel (default: all)",
+    )
+    parser.add_argument(
+        "--level",
+        type=int,
+        default=None,
+        help="Target level to generate (default: auto-detect rare levels)",
+    )
+    parser.add_argument(
+        "--count",
+        type=int,
+        default=100,
+        help="Number of images to generate per level (default: 100)",
+    )
+    parser.add_argument(
+        "--min-samples",
+        type=int,
+        default=50,
+        help="Only generate if existing count < this threshold (default: 50)",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--config", type=str, default=None)
@@ -249,13 +272,16 @@ def main(argv=None):
 
     try:
         from utils.utils_config import load_config
+
         cfg = load_config(args.config)
     except Exception:
         cfg = {}
 
-    labeled_dir = _ROOT / Path(cfg.get("storage", {}).get("labeled_dir", "data_set/labeled"))
-    image_size  = cfg.get("data", {}).get("image_size", 128)
-    num_levels  = cfg.get("data", {}).get("num_levels", 6)
+    labeled_dir = _ROOT / Path(
+        cfg.get("storage", {}).get("labeled_dir", "data_set/labeled")
+    )
+    image_size = cfg.get("data", {}).get("image_size", 128)
+    num_levels = cfg.get("data", {}).get("num_levels", 6)
 
     channels = _CHANNELS if args.channel == "all" else [args.channel]
 
@@ -288,7 +314,8 @@ def main(argv=None):
                     target_levels.append(lv)
                     continue
                 real_count = sum(
-                    1 for p in lv_dir.glob("*")
+                    1
+                    for p in lv_dir.glob("*")
                     if p.suffix.lower() in _EXTS and not p.stem.startswith("synthetic_")
                 )
                 if real_count < args.min_samples:

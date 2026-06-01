@@ -77,9 +77,7 @@ def prepare_holdout(
             if not lv_labeled.exists():
                 continue
 
-            files = sorted(
-                p for p in lv_labeled.glob("*") if p.suffix.lower() in _EXTS
-            )
+            files = sorted(p for p in lv_labeled.glob("*") if p.suffix.lower() in _EXTS)
             if not files:
                 continue
 
@@ -110,26 +108,33 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Split holdout test set from labeled data (run ONCE before training)"
     )
-    parser.add_argument("--ratio", type=float, default=0.15,
-                        help="Holdout ratio (default: 0.15)")
-    parser.add_argument("--seed", type=int, default=42,
-                        help="Random seed (default: 42)")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Show what would be moved without actually moving")
-    parser.add_argument("--config", type=str, default=None,
-                        help="Path to config.json (optional)")
+    parser.add_argument(
+        "--ratio", type=float, default=0.15, help="Holdout ratio (default: 0.15)"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=42, help="Random seed (default: 42)"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be moved without actually moving",
+    )
+    parser.add_argument(
+        "--config", type=str, default=None, help="Path to config.json (optional)"
+    )
     args = parser.parse_args(argv)
 
     try:
         from utils.utils_config import load_config
+
         cfg = load_config(args.config)
     except Exception:
         cfg = {}
 
     labeled_dir = Path(cfg.get("storage", {}).get("labeled_dir", "data_set/labeled"))
     holdout_dir = Path(cfg.get("storage", {}).get("holdout_dir", "data_set/holdout"))
-    num_levels  = cfg.get("data", {}).get("num_levels", 6)
-    seed        = cfg.get("train", {}).get("seed", args.seed)
+    num_levels = cfg.get("data", {}).get("num_levels", 6)
+    seed = cfg.get("train", {}).get("seed", args.seed)
 
     # 경로를 project root 기준으로 / Resolve relative to project root
     if not labeled_dir.is_absolute():
@@ -162,12 +167,8 @@ def main(argv=None):
         dry_run=args.dry_run,
     )
 
-    total_moved = sum(
-        v["moved"] for ch in stats.values() for v in ch.values()
-    )
-    total_all   = sum(
-        v["total"] for ch in stats.values() for v in ch.values()
-    )
+    total_moved = sum(v["moved"] for ch in stats.values() for v in ch.values())
+    total_all = sum(v["total"] for ch in stats.values() for v in ch.values())
     print(f"\n{'='*60}")
     print(f"  Done — moved {total_moved}/{total_all} files to holdout/")
     print(f"{'='*60}\n")

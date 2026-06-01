@@ -271,6 +271,7 @@ class Phase2Trainer:
 
         # per-channel override를 cfg에 병합 / Merge per-channel overrides into cfg copy
         import copy
+
         self.cfg = copy.deepcopy(cfg)
         per = cfg.get("phase2", {}).get("per_channel", {}).get(channel, {})
         if per:
@@ -278,7 +279,9 @@ class Phase2Trainer:
                 if k != "augmentation":
                     self.cfg["phase2"][k] = v
             if "augmentation" in per:
-                self.cfg["phase2"].setdefault("augmentation", {}).update(per["augmentation"])
+                self.cfg["phase2"].setdefault("augmentation", {}).update(
+                    per["augmentation"]
+                )
             logger.info(f"  [per-channel] Applying overrides for [{channel}]: {per}")
 
         # frozen_backbone 적용 / Apply frozen_backbone
@@ -303,7 +306,10 @@ class Phase2Trainer:
             cfg=self.cfg,
         )
         self.scheduler = _build_scheduler(
-            self.optimizer, epochs=self.cfg["phase2"]["epochs"], cfg=self.cfg, phase="phase2"
+            self.optimizer,
+            epochs=self.cfg["phase2"]["epochs"],
+            cfg=self.cfg,
+            phase="phase2",
         )
 
     def train(
@@ -348,13 +354,14 @@ class Phase2Trainer:
         aug2_cfg = self.cfg.get("phase2", {}).get("augmentation", {})
         mixup_alpha = float(aug2_cfg.get("mixup_alpha", 0.0))
         cutmix_prob = float(aug2_cfg.get("cutmix_prob", 0.0))
-        num_classes  = int(self.cfg.get("data", {}).get("num_levels", 6))
-        use_mixup  = mixup_alpha > 0
+        num_classes = int(self.cfg.get("data", {}).get("num_levels", 6))
+        use_mixup = mixup_alpha > 0
         use_cutmix = cutmix_prob > 0
 
         import random as _random
+
         if use_mixup or use_cutmix:
-            from data.augmentation import mixup_batch, cutmix_batch
+            from data.augmentation import cutmix_batch, mixup_batch
 
         for epoch in range(1, epochs + 1):
             t0 = time.time()
@@ -370,23 +377,29 @@ class Phase2Trainer:
                 # MixUp / CutMix 적용 (배치 레벨) / Apply batch-level augmentation
                 mixed_labels = None
                 if use_cutmix and _random.random() < cutmix_prob:
-                    x, mixed_labels = cutmix_batch(x, labels, alpha=1.0, num_classes=num_classes)
+                    x, mixed_labels = cutmix_batch(
+                        x, labels, alpha=1.0, num_classes=num_classes
+                    )
                 elif use_mixup:
-                    x, mixed_labels = mixup_batch(x, labels, alpha=mixup_alpha, num_classes=num_classes)
+                    x, mixed_labels = mixup_batch(
+                        x, labels, alpha=mixup_alpha, num_classes=num_classes
+                    )
 
                 if use_amp:
                     with torch.autocast(device_type=self.device.type):
                         logits = self.model(x)
                         if mixed_labels is not None:
                             import torch.nn.functional as _F
-                            loss = (_F.cross_entropy(logits, mixed_labels) / grad_accum)
+
+                            loss = _F.cross_entropy(logits, mixed_labels) / grad_accum
                         else:
                             loss = self.criterion(logits, labels) / grad_accum
                 else:
                     logits = self.model(x)
                     if mixed_labels is not None:
                         import torch.nn.functional as _F
-                        loss = (_F.cross_entropy(logits, mixed_labels) / grad_accum)
+
+                        loss = _F.cross_entropy(logits, mixed_labels) / grad_accum
                     else:
                         loss = self.criterion(logits, labels) / grad_accum
 
@@ -414,7 +427,9 @@ class Phase2Trainer:
                 train_loss += loss.item() * grad_accum
                 if mixed_labels is not None:
                     # soft label: argmax로 dominant class 비교
-                    train_correct += (logits.argmax(1) == mixed_labels.argmax(1)).sum().item()
+                    train_correct += (
+                        (logits.argmax(1) == mixed_labels.argmax(1)).sum().item()
+                    )
                 else:
                     train_correct += (logits.argmax(1) == labels).sum().item()
                 train_total += len(labels)

@@ -26,14 +26,14 @@ def get_phase0_search_space(trial: optuna.Trial, cfg: dict = None) -> dict:
 
     ss = cfg.get("optuna", {}).get("phase0", {}).get("search_space", {})
 
-    lr_range   = ss.get("learning_rate", [1e-4, 1e-2])
-    wd_range   = ss.get("weight_decay",  [1e-6, 1e-4])
-    bs_opts    = ss.get("batch_size",    [16, 32, 64])
-    ep_range   = ss.get("epochs",        [5, 15])
-    temp_range = ss.get("temperature",   [0.05, 0.5])
-    wp_range   = ss.get("warmup_epochs", [0, 5])
-    hd_opts    = ss.get("hidden_dim",    None)      # None = 탐색 안 함 / None = skip
-    pd_opts    = ss.get("projection_dim", None)
+    lr_range = ss.get("learning_rate", [1e-4, 1e-2])
+    wd_range = ss.get("weight_decay", [1e-6, 1e-4])
+    bs_opts = ss.get("batch_size", [16, 32, 64])
+    ep_range = ss.get("epochs", [5, 15])
+    temp_range = ss.get("temperature", [0.05, 0.5])
+    wp_range = ss.get("warmup_epochs", [0, 5])
+    hd_opts = ss.get("hidden_dim", None)  # None = 탐색 안 함 / None = skip
+    pd_opts = ss.get("projection_dim", None)
 
     params = {
         "learning_rate": trial.suggest_float(
@@ -44,9 +44,7 @@ def get_phase0_search_space(trial: optuna.Trial, cfg: dict = None) -> dict:
         ),
         "batch_size": trial.suggest_categorical("batch_size", bs_opts),
         "epochs": trial.suggest_int("epochs", ep_range[0], ep_range[1]),
-        "temperature": trial.suggest_float(
-            "temperature", temp_range[0], temp_range[1]
-        ),
+        "temperature": trial.suggest_float("temperature", temp_range[0], temp_range[1]),
         "warmup_epochs": trial.suggest_int("warmup_epochs", wp_range[0], wp_range[1]),
     }
 
