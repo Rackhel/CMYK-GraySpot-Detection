@@ -40,12 +40,13 @@ def preprocess(image: np.ndarray, image_size: int = 128) -> np.ndarray:
         normalized float32 image in range [0, 1]
     """
 
-    # 입력 이미지를 고정 크기로 변환
-    # Resize image to target resolution
+    # BGR → RGB: cv2.imread reads BGR; pretrained EfficientNet/ResNet expect RGB
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # 입력 이미지를 고정 크기로 변환 / Resize image to target resolution
     image = cv2.resize(image, (image_size, image_size))
 
-    # float32 변환 후 정규화
-    # Convert to float32 and normalize
+    # float32 변환 후 정규화 / Convert to float32 and normalize
     image = image.astype(np.float32) / 255.0
 
     return image

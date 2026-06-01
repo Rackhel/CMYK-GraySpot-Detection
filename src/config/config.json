@@ -35,6 +35,7 @@
   "storage": {
     "data_root": "data_set",
     "labeled_dir": "data_set/labeled",
+    "holdout_dir": "data_set/holdout",
     "models_dir": "data_set/models",
     "reports_dir": "outputs/reports",
     "logs_dir": "outputs/logs"
@@ -88,10 +89,46 @@
     },
     "augmentation": {
       "flip_prob": 0.5,
+      "vflip_prob": 0.0,
       "brightness_prob": 0.5,
       "brightness_range": 30,
       "noise_prob": 0.5,
-      "noise_range": 10
+      "noise_range": 10,
+      "rotation_prob": 0.3,
+      "rotation_max": 15,
+      "policy": "light",
+      "mixup_alpha": 0.0,
+      "cutmix_prob": 0.0
+    },
+    "per_channel": {
+      "K": {
+        "frozen_backbone": true,
+        "dropout": 0.5,
+        "epochs": 10,
+        "patience": 3,
+        "oversample": true,
+        "augmentation": { "policy": "strong" }
+      },
+      "Y": {
+        "frozen_backbone": true,
+        "dropout": 0.5,
+        "epochs": 15,
+        "patience": 5,
+        "oversample": true,
+        "augmentation": { "policy": "strong" }
+      },
+      "C": {
+        "frozen_backbone": false,
+        "dropout": 0.3,
+        "epochs": 30,
+        "patience": 7
+      },
+      "M": {
+        "frozen_backbone": false,
+        "dropout": 0.2,
+        "epochs": 50,
+        "patience": 10
+      }
     },
     "heads": {
       "resnet50": {
@@ -251,7 +288,10 @@
         "batch_size": [16, 32, 64],
         "epochs": [5, 15],
         "temperature": [0.05, 0.5],
-        "warmup_epochs": [0, 5]
+        "warmup_epochs": [0, 5],
+        "_comment_tier3": "hidden_dim/projection_dim은 기본 null — GUI에서 목록 입력 시 탐색 활성화",
+        "hidden_dim": null,
+        "projection_dim": null
       }
     }
   },

@@ -132,7 +132,19 @@ class TrainingTab(BaseTab):
         self._p0_wd.setValue(float(p0.get("weight_decay", 1e-5)))
         self._p0_warmup.setValue(int(p0.get("warmup_epochs", 2)))
         self._p0_temp.setValue(float(p0.get("temperature", 0.1)))
+        self._p0_hidden.setValue(int(p0.get("hidden_dim", 256)))
         self._p0_proj.setValue(int(p0.get("projection_dim", 128)))
+
+        # per_channel 오버라이드 읽기 / Load per-channel overrides
+        _PC_DEF = {"Y": (True,0.5,15,5), "M": (False,0.2,50,10),
+                   "C": (False,0.3,30,7), "K": (True,0.5,10,3)}
+        for ch, (def_frz, def_do, def_ep, def_pt) in _PC_DEF.items():
+            per = p2.get("per_channel", {}).get(ch, {})
+            if ch in self._pc_frozen:
+                self._pc_frozen[ch].setChecked(bool(per.get("frozen_backbone", def_frz)))
+                self._pc_dropout[ch].setValue(float(per.get("dropout", def_do)))
+                self._pc_epochs[ch].setValue(int(per.get("epochs", def_ep)))
+                self._pc_patience[ch].setValue(int(per.get("patience", def_pt)))
 
         self._seed.setValue(int(tr.get("seed", 42)))
         self._optimizer.setCurrentText(tr.get("optimizer", "adamw"))
@@ -393,12 +405,21 @@ class TrainingTab(BaseTab):
         self._p0_warmup.setValue(int(p0.get("warmup_epochs", 2)))
         self._p0_warmup.setMaximumWidth(100)
 
+        # ProjectionHead hidden_dim (중간 차원 / intermediate dim)
+        self._p0_hidden = QSpinBox()
+        self._p0_hidden.setRange(64, 1024)
+        self._p0_hidden.setSingleStep(64)
+        self._p0_hidden.setValue(int(p0.get("hidden_dim", 256)))
+        self._p0_hidden.setMaximumWidth(100)
+        self._p0_hidden.setToolTip("ProjectionHead 중간 차원 — backbone → hidden → projection_dim")
+
         f0.addRow("Epochs", self._p0_epochs)
         f0.addRow("Learning Rate", self._p0_lr)
         f0.addRow("Batch Size", self._p0_bs)
         f0.addRow("Weight Decay", self._p0_wd)
         f0.addRow("Warmup Epochs", self._p0_warmup)
         f0.addRow("Temperature", self._p0_temp)
+        f0.addRow("Hidden Dim (Head)", self._p0_hidden)
         f0.addRow("Projection Dim", self._p0_proj)
         tabs.addTab(p0w, "Phase 0")
 
@@ -450,6 +471,65 @@ class TrainingTab(BaseTab):
         fc.addRow("Grad Accum Steps", self._grad_accum)
         fc.addRow("Num Workers", self._num_workers)
         tabs.addTab(cw, "Common")
+
+        # ── Per-Channel Override ──────────────────────────────────────
+        pcw = QWidget()
+        pc_v = QVBoxLayout(pcw)
+        pc_v.setContentsMargins(4, 4, 4, 4)
+        pc_v.setSpacing(6)
+        pc_v.addWidget(QLabel(
+            "<span style='color:#a6adc8; font-size:11px;'>"
+            "채널별 학습 오버라이드 — Phase2Trainer가 자동으로 적용합니다.<br>"
+            "Per-channel overrides applied automatically by Phase2Trainer.</span>"
+        ))
+
+        _PC_CHANNELS = ["Y", "M", "C", "K"]
+        _PC_DEFAULTS = {
+            "K": {"frozen_backbone": True,  "dropout": 0.5, "epochs": 10,  "patience": 3},
+            "Y": {"frozen_backbone": True,  "dropout": 0.5, "epochs": 15,  "patience": 5},
+            "C": {"frozen_backbone": False, "dropout": 0.3, "epochs": 30,  "patience": 7},
+            "M": {"frozen_backbone": False, "dropout": 0.2, "epochs": 50,  "patience": 10},
+        }
+        self._pc_frozen: dict[str, QCheckBox]    = {}
+        self._pc_dropout: dict[str, QDoubleSpinBox] = {}
+        self._pc_epochs: dict[str, QSpinBox]     = {}
+        self._pc_patience: dict[str, QSpinBox]   = {}
+
+        for ch in _PC_CHANNELS:
+            per = self.cfg.get("phase2", {}).get("per_channel", {}).get(ch, _PC_DEFAULTS.get(ch, {}))
+            ch_box = QGroupBox(f"{ch} Channel")
+            ch_f = self._form(ch_box)
+
+            frozen_cb = QCheckBox("frozen_backbone")
+            frozen_cb.setChecked(bool(per.get("frozen_backbone", _PC_DEFAULTS[ch]["frozen_backbone"])))
+            self._pc_frozen[ch] = frozen_cb
+
+            do_sb = QDoubleSpinBox()
+            do_sb.setRange(0.0, 0.9); do_sb.setDecimals(2); do_sb.setSingleStep(0.05)
+            do_sb.setValue(float(per.get("dropout", _PC_DEFAULTS[ch]["dropout"])))
+            do_sb.setMaximumWidth(100)
+            self._pc_dropout[ch] = do_sb
+
+            ep_sb = QSpinBox()
+            ep_sb.setRange(1, 500)
+            ep_sb.setValue(int(per.get("epochs", _PC_DEFAULTS[ch]["epochs"])))
+            ep_sb.setMaximumWidth(100)
+            self._pc_epochs[ch] = ep_sb
+
+            pt_sb = QSpinBox()
+            pt_sb.setRange(1, 100)
+            pt_sb.setValue(int(per.get("patience", _PC_DEFAULTS[ch]["patience"])))
+            pt_sb.setMaximumWidth(100)
+            self._pc_patience[ch] = pt_sb
+
+            ch_f.addRow(frozen_cb)
+            ch_f.addRow("Dropout", do_sb)
+            ch_f.addRow("Epochs", ep_sb)
+            ch_f.addRow("ES Patience", pt_sb)
+            pc_v.addWidget(ch_box)
+
+        pc_v.addStretch()
+        tabs.addTab(pcw, "Per-Ch")
 
         outer.addWidget(tabs)
         return g
@@ -525,6 +605,7 @@ class TrainingTab(BaseTab):
                 "weight_decay": self._p0_wd.value(),
                 "warmup_epochs": self._p0_warmup.value(),
                 "temperature": self._p0_temp.value(),
+                "hidden_dim": self._p0_hidden.value(),
                 "projection_dim": self._p0_proj.value(),
             }
         )
@@ -539,6 +620,17 @@ class TrainingTab(BaseTab):
                 "num_workers": self._num_workers.value(),
             }
         )
+        # per_channel 오버라이드 저장 / Save per-channel overrides
+        for ch in ("Y", "M", "C", "K"):
+            if ch in self._pc_frozen:
+                p2.setdefault("per_channel", {}).setdefault(ch, {}).update(
+                    {
+                        "frozen_backbone": self._pc_frozen[ch].isChecked(),
+                        "dropout": self._pc_dropout[ch].value(),
+                        "epochs": self._pc_epochs[ch].value(),
+                        "patience": self._pc_patience[ch].value(),
+                    }
+                )
 
     def _set_running(self, running: bool) -> None:
         self._start_btn.setEnabled(not running)

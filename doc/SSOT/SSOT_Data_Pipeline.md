@@ -7,33 +7,28 @@ This document is the authoritative reference for data loading, splitting, prepro
 > **목적 / Purpose**: 데이터 파이프라인의 의미(semantic) 정의
 > **역할 / Role**: "What" — 입력 분포, 분할 규칙, 색상 공간 규약 정의
 > **관련 문서 / See also**: [SSOT_Core.md](SSOT_Core.md), [SSOT_Training_Pipeline.md](SSOT_Training_Pipeline.md)
+> **last_updated**: 2026-06-01
 
 ---
 
 ## 0. 데이터 생산 파이프라인 흐름 / Data Production Pipeline Flow
 
-원본 스캔 이미지에서 학습 가능한 데이터셋까지의 전체 흐름.
-End-to-end flow from raw scan images to trainable dataset.
-
 ```
 RAW PDF/JPEG (원본 스캔)
-    ↓ ROI 추출 / ROI Extraction     → data_set/roi/  (CMYK 채널 분리 포함)
+    ↓ ROI 추출 / ROI Extraction     → data_set/roi/
     ↓ 채널별 독립 라벨링 / Per-Channel Independent Labeling
-    │   └─ Y, M, C, K 채널 각각 별도 레벨 부여 (같은 스캔이라도 채널마다 다를 수 있음)
-    ↓ 패치 추출 / Patch Extraction
-    ↓ 스마트 패치 필터링 / Smart Patch Filtering (저분산 제거)
-    ↓                               → data_set/labeled/{ch}/{lv}/*.png
+    ↓ 패치 추출 / Patch Extraction  → data_set/labeled/{ch}/{lv}/*.png
+    ↓ [한 번만 실행] prepare_holdout.py
+    │   └─ labeled/ → holdout/ 15% stratified 분리 (이후 절대 수정 금지)
+    ↓ [선택] generate_synthetic.py
+    │   └─ labeled/{ch}/{lv}/synthetic_*.png 생성 (holdout은 건드리지 않음)
     ↓ CSV 통합 / CSV Unification     → data_set/labels_master.csv
-    ↓ 제어된 증강 / Controlled Aug   (PRD v2 미달 레벨만 / PRD v2 shortage levels only)
-    │   └─ augment_dataset.py  (목표: 채널당 1,520장 / Target: 1,520 per channel)
     ↓ ML 학습 / Training             → CMYKDataset / ContrastiveDataset
+    ↓ [학습 완전 완료 후 딱 한 번] 최종 평가
+        └─ evaluate.py --holdout     → holdout/ 기준 성능 보고
 ```
 
-> 스마트 패치 필터링: 저분산·공백·비인쇄 영역 패치를 제거한다. 자세한 ROI/패치 추출 계약은 [SSOT_ROI_Pipeline.md](SSOT_ROI_Pipeline.md) 참조.
-> Smart patch filtering removes low-variance, blank, and non-print patches. See [SSOT_ROI_Pipeline.md](SSOT_ROI_Pipeline.md) for ROI/patch extraction contracts.
-
-> **⚠️ 채널 독립 라벨링 필수 / Per-Channel Independent Labeling Required**: 동일 스캔의 Y/M/C/K 채널은 각자 다른 결함 레벨을 가질 수 있다. 스캔 파일명의 레벨을 4채널에 동일하게 복사해서는 안 된다.
-> Y/M/C/K channels from the same scan can have different defect levels. Do NOT copy the filename level uniformly to all channels.
+> **⚠️ 채널 독립 라벨링 필수 / Per-Channel Independent Labeling Required**: Y/M/C/K 채널은 각자 독립적으로 라벨링해야 한다.
 
 ---
 
@@ -41,58 +36,51 @@ RAW PDF/JPEG (원본 스캔)
 
 ```
 data_set/
-└── labeled/
+├── labeled/                ← 학습에만 사용 / Training use only
+│   ├── Y/
+│   │   ├── 0/   ← Level 0 (정상 / Normal)
+│   │   │   ├── *.png
+│   │   │   └── synthetic_*.png   ← generate_synthetic.py 생성 (선택)
+│   │   ├── 1/ ~ 5/
+│   ├── M/ / C/ / K/
+└── holdout/                ← 최종 평가 전용 — 학습 중 절대 참조 금지
     ├── Y/
-    │   ├── 0/   ← Level 0 (정상 / Normal)
-    │   │   └── *.png
-    │   ├── 1/   ← Level 1
-    │   ├── 2/   ← Level 2
-    │   ├── 3/   ← Level 3
-    │   ├── 4/   ← Level 4
-    │   └── 5/   ← Level 5 (최대 결함 / Maximum defect)
-    ├── M/
-    ├── C/
-    └── K/
+    │   ├── 0/ ~ 5/
+    ├── M/ / C/ / K/
 ```
 
 ### 1.1 경로 패턴 / Path Pattern
 
 ```
-data_set/labeled/{channel}/{level}/*.png
+data_set/labeled/{channel}/{level}/*.png          ← 학습 / Training
+data_set/labeled/{channel}/{level}/synthetic_*.png ← 합성 (선택) / Synthetic (optional)
+data_set/holdout/{channel}/{level}/*.png           ← 최종 평가 전용 / Final eval only
 ```
-
-| 필드 / Field | 값 / Values | 설명 / Description |
-|---|---|---|
-| `{channel}` | `Y`, `M`, `C`, `K` | CMYK 색상 채널 / Color channel |
-| `{level}` | `0`, `1`, `2`, `3`, `4`, `5` | Grayspot 결함 수준 / Defect level |
 
 ### 1.2 라벨 파일 / Label File
 
-| 파일 / File | 형식 / Format | 컬럼 / Columns | 상태 / Status |
+| 파일 | 형식 | 컬럼 | 상태 |
 |---|---|---|---|
-| `data_set/labels_master.csv` | long-format | `filepath`, `channel`, `level` | ✅ **Canonical (현행 / Current)** |
-| `data_set/labels_v0.csv` | wide-format | `filename`, `C`, `M`, `Y`, `K` | ⚠️ Legacy — 하위 호환만 / Legacy, backward-compat only |
+| `data_set/labels_master.csv` | long-format | `filepath`, `channel`, `level` | ✅ Canonical |
+| `data_set/labels_v0.csv` | wide-format | `filename`, `C`, `M`, `Y`, `K` | ⚠️ Legacy |
 
-`labels_master.csv` 는 이전 `labels_v0.csv` + `labels_cmyk.csv` 를 통합한 단일 정규 라벨 파일이다.
-`labels_master.csv` is the unified canonical label file replacing the former `labels_v0.csv` and `labels_cmyk.csv`.
+### 1.3 관리 스크립트 / Management Scripts
 
-관리 스크립트 / Management scripts:
-
-| 스크립트 / Script | 명령 / Command | 역할 / Role |
-|---|---|---|
-| `src/scripts/prepare_dataset.py` | `python -m src.scripts.prepare_dataset` | ROI 패치 추출 + augment_dataset.py 자동 호출 (전체 파이프라인) |
-| `src/scripts/augment_dataset.py` | `python -m src.scripts.augment_dataset` | PRD v2 미달 레벨 증강 + CSV 갱신 (단독 실행 가능) |
-
-> **Dataset status (2026-05-21)**: ✅ 재구성 완료. `labels_master.csv` 6,080행. 채널당 1,520장 (L0:330 L1:330 L2:330 L3:265 L4:165 L5:100).
-> ✅ Reconstruction complete. `labels_master.csv` has 6,080 rows. 1,520 per channel (L0:330 L1:330 L2:330 L3:265 L4:165 L5:100).
+| 스크립트 | 명령 | 역할 | 실행 횟수 |
+|---|---|---|---|
+| `prepare_dataset.py` | `python -m src.scripts.prepare_dataset` | ROI 패치 추출 + augment_dataset.py 호출 | 반복 가능 |
+| `augment_dataset.py` | `python -m src.scripts.augment_dataset` | PRD v2 미달 레벨 증강 + CSV 갱신 | 반복 가능 |
+| `prepare_holdout.py` | `python -m src.scripts.prepare_holdout` | labeled/ → holdout/ stratified 15% 분리 | **딱 한 번만** |
+| `generate_synthetic.py` | `python -m src.scripts.generate_synthetic` | 희귀 클래스 합성 이미지 생성 | prepare_holdout 이후 반복 가능 |
 
 ### 1.4 config.json 키 / Config Keys
 
-- `storage.labeled_dir` 🟢 — `dataset.py`에서 소비 / consumed in `dataset.py`
-- `data.channels` 🟢 — `run_baseline.py`, `run_phase0.py`에서 소비 / consumed in `run_baseline.py`, `run_phase0.py`
-- `data.num_levels` 🟢 — `grayspot_model.py`에서 소비 (Hard SSOT) / consumed in `grayspot_model.py`
-- `data.image_size` 🟢 — `dataset.py`에서 소비 (Hard SSOT) / consumed in `dataset.py`
-- `data.split_ratios` 🟢 — `dataset.py` stratified split에서 소비 / consumed in `dataset.py` stratified split
+- `storage.labeled_dir` 🟢 — `dataset.py`에서 소비
+- `storage.holdout_dir` 🟢 — `prepare_holdout.py`, `evaluate.py --holdout`에서 소비
+- `data.channels` 🟢 — `run_baseline.py`, `run_phase0.py`에서 소비
+- `data.num_levels` 🟢 — `grayspot_model.py`에서 소비 (Hard SSOT)
+- `data.image_size` 🟢 — `dataset.py`에서 소비 (Hard SSOT)
+- `data.split_ratios` 🟢 — `dataset.py` stratified split에서 소비
 
 ---
 
@@ -100,37 +88,35 @@ data_set/labeled/{channel}/{level}/*.png
 
 ### 2.1 CMYKDataset — Phase 2 (Supervised)
 
-| 속성 / Attribute | 값 / Value | 비고 / Note |
+| 속성 | 값 | 비고 |
 |---|---|---|
-| 입력 소스 / Input | `data_set/labeled/{channel}/{level}/*.png` | BGR → float32 |
-| 출력 형상 / Output shape | `(3, 128, 128)` | C, H, W 순서 / C, H, W order |
-| 레이블 타입 / Label type | `int` [0, 5] | ordinal 6-class |
-| 분할 / Split | `train` / `val` / `test` | stratified (`data.split_ratios` 🟢) |
-| 오버샘플링 / Oversample | `phase2.oversample` 🟢 | 클래스 불균형 보정 / Class imbalance correction |
+| 입력 소스 | `data_set/labeled/{channel}/{level}/*.png` | RGB float32 (D-1 수정 이후) |
+| 출력 형상 | `(3, 128, 128)` | C, H, W 순서 |
+| 레이블 타입 | `int` [0, 5] | ordinal 6-class |
+| 분할 | `train` / `val` / `test` / `holdout` | stratified (`data.split_ratios` 🟢) |
+| 오버샘플링 | `phase2.oversample` 또는 `phase2.per_channel.{ch}.oversample` 🟢 | per-channel 오버라이드 가능 |
+| 합성 제외 | `exclude_synthetic=True` 옵션 | 평가 시 synthetic_* 파일 제외 가능 |
+
+**split 옵션 상세:**
+- `"train"` / `"val"` / `"test"`: `labeled_dir` 안에서 stratified split
+- `"holdout"`: `holdout_dir` 전체 로드 (분할 없음, prepare_holdout.py 실행 후 사용)
 
 ### 2.2 ContrastiveDataset — Phase 0 (SimCLR)
 
-| 속성 / Attribute | 값 / Value | 비고 / Note |
+| 속성 | 값 | 비고 |
 |---|---|---|
-| 입력 소스 / Input | `data_set/labeled/{channel}/{level}/*.png` | 전체 레벨 수집 (라벨 불필요) / All levels collected (label not needed) |
-| 출력 / Output | `(view1, view2)` Tensor pair | augmented positive pair |
-| 레이블 / Label | ❌ 없음 / None | unsupervised |
-| 증강 설정 / Aug config | `phase0.augmentation` 🟢 | `aug_cfg`로 전달 / passed as `aug_cfg` |
+| 입력 소스 | `data_set/labeled/{channel}/{level}/*.png` | 전체 레벨 (라벨 불필요) |
+| 출력 | `(view1, view2)` Tensor pair | augmented positive pair |
+| 레이블 | ❌ 없음 | unsupervised |
 
-### 2.3 _EvalDataset — 평가 전용 / Evaluation-Only
+### 2.3 _EvalDataset — 평가 전용
 
-`src/data/dataset.py` 에서 관리되며 `Evaluator` 내부에서만 사용된다.
-Managed in `src/data/dataset.py`; used exclusively inside `Evaluator`.
-
-| 속성 / Attribute | 값 / Value | 비고 / Note |
+| 속성 | 값 | 비고 |
 |---|---|---|
-| 입력 소스 / Input | `labeled_dir` + `labels_master.csv` (long-format) | 또는 wide-format CSV 자동 감지 / or auto-detect wide-format CSV |
-| 출력 / Output | `(Tensor, int, str)` | 이미지, 레벨, 파일명 / image, level, filename |
-| 색상 공간 / Color Space | BGR (SSOT-CS01) | 학습과 동일 / Same as training |
-| 정규화 / Normalization | ImageNet mean/std (SSOT-NM01) | `data/normalize.py` 사용 / Uses `data/normalize.py` |
-
-> `InferenceMixin.load_labels()` 는 long-format (`filepath`, `channel`, `level`) 과 wide-format (`filename`, `C`, `M`, `Y`, `K`) 을 자동 감지해 long-format으로 변환한다.
-> `InferenceMixin.load_labels()` auto-detects long-format (`filepath`, `channel`, `level`) or wide-format (`filename`, `C`, `M`, `Y`, `K`) and converts to long-format.
+| 입력 소스 | `labeled_dir` + `labels_master.csv` | Evaluator 내부 전용 |
+| 출력 | `(Tensor, int, str)` | 이미지, 레벨, 파일명 |
+| 색상 공간 | **RGB** (D-1 수정 이후) | 학습 경로와 동일 |
+| 정규화 | ImageNet mean/std (SSOT-NM01) | |
 
 ---
 
@@ -138,153 +124,168 @@ Managed in `src/data/dataset.py`; used exclusively inside `Evaluator`.
 
 ### 3.1 처리 순서 / Processing Order
 
-처리 순서: `cv2.imread` (BGR uint8) → resize (128×128) → float32 /255.0 → `augment_supervised` (train split only) → tensor permute (H,W,C → C,H,W) → ImageNet normalize → DataLoader batching
+```
+cv2.imread (BGR uint8)
+  → cv2.cvtColor(BGR2RGB)   ← D-1 수정 (2026-06-01)
+  → resize (128×128)
+  → float32 /255.0
+  → augment_supervised (train split only)
+  → tensor permute (H,W,C → C,H,W)
+  → ImageNet normalize
+  → DataLoader batching
+```
 
 ### 3.2 색상 공간 규약 / Color Space Contract
 
-| 단계 / Stage | 색상 공간 / Color Space | 비고 / Note |
+> ⚠️ **SSOT-CS01 개정 (2026-06-01)**: 기존 BGR 유지 정책에서 **RGB 변환 적용**으로 변경.
+> pretrained EfficientNet-B0 / ResNet-50이 RGB 입력을 가정하므로 학습·평가 모두 RGB 사용.
+> **기존 BGR 기준으로 학습된 모델은 재학습 필요.**
+
+| 단계 | 색상 공간 | 비고 |
 |---|---|---|
-| 파일 로드 / File load | BGR (OpenCV `cv2.imread`) | Hard SSOT |
-| 전처리 후 / After preprocess | BGR float32 [0, 1] | 변환 없음 / No conversion |
-| 텐서 정규화 후 / After normalize | BGR float32, ImageNet-normalized | `mean=[0.485,0.456,0.406]`, `std=[0.229,0.224,0.225]` |
-| 모델 입력 / Model input | BGR float32, ImageNet-normalized | ✅ pretrained backbone 호환 |
-| 추론 / Inference | BGR float32, ImageNet-normalized | **학습과 일치 필수** / Must match training |
+| 파일 로드 | BGR (cv2.imread) | |
+| `preprocess()` 내부 | BGR → **RGB** (cvtColor) | |
+| `preprocess()` 출력 | **RGB** float32 [0, 1] | |
+| 증강 후 | **RGB** float32 [0, 1] | |
+| 텐서 정규화 후 | **RGB** float32, ImageNet-normalized | |
+| 모델 입력 | **RGB** float32, ImageNet-normalized | pretrained backbone 요구사항 충족 |
+| 추론 경로 | **RGB** float32, ImageNet-normalized | 학습과 동일 |
 
-> **⚠️ SSOT-CS01**: 학습과 평가에서 동일 색상 공간(BGR)을 유지해야 한다.
-> Training and evaluation **must** use the same color space (BGR).
-
-### 3.3 `preprocess()` 함수 시그니처 / Function Signature
+### 3.3 `preprocess()` 함수 시그니처
 
 `preprocess(image: np.ndarray, image_size: int = 128) -> np.ndarray`
 
-- Input: BGR uint8 `(H, W, 3)`
-- Output: BGR float32 `(128, 128, 3)` in `[0.0, 1.0]`
+- Input: BGR uint8 `(H, W, 3)` ← cv2.imread 출력
+- Internal: `cv2.cvtColor(BGR2RGB)` → resize → /255.0
+- Output: **RGB** float32 `(128, 128, 3)` in `[0.0, 1.0]`
 
 ---
 
 ## 4. 증강 정책 / Augmentation Policy
 
-### 4.0 데이터셋 증강 목표 / Dataset Augmentation Targets (PRD Section 6.3 v2)
+### 4.1 학습 시 증강 (Runtime Augmentation) — Phase 2
 
-`augment_dataset.py` 가 사용하는 채널당 레벨별 목표 수량.
+`augment_supervised(image, aug_cfg)` — train split 전용
 
-Per-channel, per-level target counts used by `augment_dataset.py`.
+| 변환 | 파라미터 | config 키 | 상태 |
+|---|---|---|---|
+| 수평 뒤집기 | p=0.5 | `phase2.augmentation.flip_prob` | 🟢 |
+| 수직 뒤집기 | p=0.0 (기본 꺼짐) | `phase2.augmentation.vflip_prob` | 🟢 |
+| 랜덤 회전 | p=0.3, ±15° | `phase2.augmentation.rotation_prob`, `rotation_max` | 🟢 |
+| 밝기 조절 | p=0.5, ±30/255 | `phase2.augmentation.brightness_prob`, `brightness_range` | 🟢 |
+| 가산 노이즈 | p=0.5, 0~10/255 | `phase2.augmentation.noise_prob`, `noise_range` | 🟢 |
+| **증강 강도 정책** | `"light"` / `"strong"` | `phase2.augmentation.policy` | 🟢 |
 
-| Level | Target / 목표 (per channel) | v1 |
+> `policy="strong"` 시 모든 확률이 ×1.3 적용 — K/Y 채널 per_channel 설정에서 자동 활성화.
+
+### 4.2 배치 레벨 증강 (Batch-Level Augmentation)
+
+DataLoader 이후 배치 텐서에 적용하는 선택적 증강:
+
+| 함수 | 설명 | import |
 |---|---|---|
-| 0 | 330 | 100 |
-| 1 | 330 | 100 |
-| 2 | 330 | 100 |
-| 3 | 265 | 80 |
-| 4 | 165 | 50 |
-| 5 | 100 | 30 |
-| **합계** | **1,520** | 460 |
+| `mixup_batch(x, y, alpha, num_classes)` | 두 이미지 alpha 비율 혼합, soft label 반환 | `from data.augmentation import mixup_batch` |
+| `cutmix_batch(x, y, alpha, num_classes)` | 직사각형 패치 교체, soft label 반환 | `from data.augmentation import cutmix_batch` |
 
-> 채널당 총 목표 1,400~1,600장. 4개 채널(C/M/Y/K) 모두 동일 목표 적용.
-> Total target 1,400–1,600 per channel. Same targets for all 4 channels.
+### 4.3 채널별 증강 정책 / Per-Channel Augmentation Policy
 
----
+`config.json`의 `phase2.per_channel.{ch}.augmentation.policy`로 채널별 독립 설정:
 
-### 4.1 Supervised 증강 / Supervised Augmentation
+| 채널 | 권장 policy | 이유 |
+|---|---|---|
+| K | `"strong"` | Lv2: 8장 → 과적합 위험 극심 |
+| Y | `"strong"` | Lv5: ~30장 → 과적합 위험 높음 |
+| C | `"light"` | 적당한 불균형 |
+| M | `"light"` | 비교적 균형적 |
 
-Phase 2 학습 전용 (train split only) / For Phase 2 training only (train split only):
+### 4.4 합성 데이터 정책 / Synthetic Data Policy
 
-`augment_supervised(image: np.ndarray, aug_cfg: dict = None) -> np.ndarray` — Input/Output: BGR float32 `(128, 128, 3)` `[0, 1]`. `aug_cfg = cfg["phase2"]["augmentation"]`, auto-passed from `CMYKDataset`.
+`generate_synthetic.py`로 사전 생성, `labeled/`에 저장.
 
-| 변환 / Transform | 파라미터 / Parameters | config 키 / Key | 소비 여부 / Status |
-|---|---|---|---|
-| 수평 뒤집기 / Horizontal flip | p=0.5 | `phase2.augmentation.flip_prob` | 🟢 |
-| 밝기 조절 / Brightness jitter | p=0.5, delta ±30/255 | `phase2.augmentation.brightness_prob`, `brightness_range` | 🟢 |
-| 가산 노이즈 / Additive noise | p=0.5, 0~10/255 | `phase2.augmentation.noise_prob`, `noise_range` | 🟢 |
+| 방법 | 파일명 패턴 | 설명 |
+|---|---|---|
+| Level Interpolation | `synthetic_{N:04d}.png` | Level 0 + Level N 보간 |
+| Stable Diffusion img2img | `synthetic_{N:04d}.png` | 결함 강도 조건부 생성 |
 
-> 모든 Supervised 증강 파라미터가 `phase2.augmentation.*` config에서 소비됨. / All Supervised augmentation params are consumed from `phase2.augmentation.*` config.
-> 모듈 상수(`_SUP_*`)는 fallback 기본값으로만 유지. / Module constants (`_SUP_*`) remain as fallback defaults only.
->
-> All Supervised augmentation params are consumed from `phase2.augmentation.*` config.
-> Module constants (`_SUP_*`) remain as fallback defaults only.
-
-### 4.2 Contrastive 증강 / Contrastive Augmentation
-
-Phase 0 SimCLR용 강한 증강 / Strong augmentation for Phase 0 SimCLR:
-
-`augment_contrastive(image: np.ndarray, image_size: int, aug_cfg: dict) -> np.ndarray` — Two independent calls produce the positive pair `(view1, view2)`. `aug_cfg = cfg["phase0"]["augmentation"]`.
-
-| 변환 / Transform | 파라미터 / Parameters | config 키 / Key | 소비 여부 / Status |
-|---|---|---|---|
-| 수평 뒤집기 / Horizontal flip | p=0.5 | `phase0.augmentation.flip_prob` | 🟢 |
-| 랜덤 크롭 + 리사이즈 / Random crop + resize | p=0.5, scale 0.6~1.0 | `phase0.augmentation.crop_prob`, `crop_scale_min`, `crop_scale_max` | 🟢 |
-| 밝기 조절 / Brightness jitter | p=`blur_prob`, delta ±`color_jitter` | `phase0.augmentation.color_jitter`, `blur_prob` | 🟢 |
-| 대비 조절 / Contrast jitter | p=`blur_prob`, scale 0.8~1.2 | `phase0.augmentation.contrast_scale_min`, `contrast_scale_max` | 🟢 |
-| 가우시안 블러 / Gaussian blur | p=`blur_prob`, kernel [3, 5] | `phase0.augmentation.blur_prob`, `blur_kernels` | 🟢 |
-
-> 모든 Contrastive 증강 파라미터가 `phase0.augmentation.*` config에서 소비됨. / All Contrastive augmentation params are consumed from `phase0.augmentation.*` config.
-> 모듈 상수(`_CON_*`)는 fallback 기본값으로만 유지. / Module constants (`_CON_*`) remain as fallback defaults only.
->
-> All Contrastive augmentation params are consumed from `phase0.augmentation.*` config.
-> Module constants (`_CON_*`) remain as fallback defaults only.
+> **원칙 / Principle**:
+> - `prepare_holdout.py` 실행 이후에만 생성 가능 (holdout은 보강하지 않음)
+> - 평가 시 `exclude_synthetic=True`로 합성 데이터 제외 가능
+> - `synthetic_` prefix로 실제 데이터와 구분
 
 ---
 
 ## 5. 데이터 분할 규칙 / Split Rules
 
-### 5.1 분할 비율 / Split Ratios
+### 5.1 Three-Tier Split Strategy
 
-| 분할 / Split | config 키 / Key | 기본값 / Default | 비고 / Note |
+```
+전체 데이터 (100%)
+├── Holdout Test (15%)  ← prepare_holdout.py로 한 번만 분리, 이후 잠금
+│   └── 학습·검증·HPO 중 절대 사용 금지
+└── Dev Pool (85%)      ← labeled/에 유지
+    ├── Train (~70%)    ← CMYKDataset(split="train")
+    └── Val  (~15%)     ← CMYKDataset(split="val") — early stopping, Optuna
+```
+
+### 5.2 분할 비율 / Split Ratios (Dev Pool 내부)
+
+| 분할 | config 키 | 기본값 | 비고 |
 |---|---|---|---|
-| train | `data.split_ratios.train` 🟢 | 0.70 | dataset.py 소비 / consumed in dataset.py |
-| val | `data.split_ratios.val` 🟢 | 0.15 | dataset.py 소비 / consumed in dataset.py |
-| test | `data.split_ratios.test` 🟢 | 0.15 | dataset.py 소비 / consumed in dataset.py |
+| train | `data.split_ratios.train` 🟢 | 0.70 | labeled/ 기준 |
+| val | `data.split_ratios.val` 🟢 | 0.15 | labeled/ 기준 |
+| test | `data.split_ratios.test` 🟢 | 0.15 | labeled/ 기준 (중간 평가용) |
 
-### 5.2 분할 방식 / Split Method
+### 5.3 분할 방식
 
-- Stratified split (클래스 비율 유지 / Class proportion preserved) — 코드에서 항상 적용 / always applied in code
-- Seed: `train.seed` 🟢 (기본값 / default 42) — 재현성 보장 / Reproducibility guaranteed
+- Stratified split (클래스 비율 유지)
+- Seed: `train.seed` 🟢 (기본값 42) — **seeded `random.Random` 인스턴스** 사용 (D-2 수정)
+- Oversampling RNG도 동일 seeded 인스턴스 사용으로 재현성 보장
 
 > **⚠️ SSOT-SD01**: 동일 seed에서 항상 동일한 분할이 생성되어야 한다.
-> The same seed must always produce the same split.
 
 ---
 
-## 6. DataLoader 설정 / DataLoader Settings
+## 6. DataLoader 설정
 
-컨텍스트별 DataLoader 파라미터가 다르며, 특히 `batch_size`와 `num_workers`의 출처가 다르다.
-DataLoader parameters differ by context — note the difference in `batch_size` and `num_workers` sources.
-
-| 항목 / Item | `run_phase2.py` (학습 / Training) | `Evaluator` (평가 / Evaluation) | `GrayspotPredictor` (추론 / Inference) |
+| 항목 | 학습 | 평가 | 추론 |
 |---|---|---|---|
-| `batch_size` | `phase2.batch_size` 🟢 (config) | `inference.batch_size` 🟢 (config, 기본 32) | 호출자 지정 / caller-specified |
-| `shuffle` | train=True, val/test=False | False | False |
-| `num_workers` | `train.num_workers` 🟢 (min, cpu_count) | 0 🟡 하드코딩 / Hardcoded | 0 🟡 하드코딩 / Hardcoded |
-| `pin_memory` | `train.pin_memory` 🟢 (config) | device==cuda 🟡 하드코딩 / Hardcoded | — |
-| `drop_last` | `train.drop_last` 🟢 (config, 기본 false / default false) | — | — |
-| `persistent_workers` | `train.persistent_workers` 🟢 | — | — |
-
-> 평가·추론의 `num_workers=0` 하드코딩은 성능 최적화 여지가 있으나 현재 의도적 기본값이다.
-> Hardcoded `num_workers=0` in evaluation/inference leaves performance on the table but is the current intentional default.
+| `batch_size` | `phase2.batch_size` 🟢 | `inference.batch_size` 🟢 | caller 지정 |
+| `shuffle` | train=True, else=False | False | False |
+| `num_workers` | `train.num_workers` 🟢 | 0 | 0 |
 
 ---
 
 ## 7. 인터페이스 계약 / Interface Contracts
 
-| 계약 / Contract | 타입 / Type | 형상 / Shape | 값 범위 / Range |
+| 계약 | 타입 | 형상 | 값 범위 |
 |---|---|---|---|
-| Dataset 출력 / Output (Phase 2) | `(Tensor, int)` | `(3, 128, 128)`, scalar | ImageNet-normalized float32, label [0, 5] |
-| Dataset 출력 / Output (Phase 0) | `(Tensor, Tensor)` | `(3, 128, 128)`, `(3, 128, 128)` | ImageNet-normalized float32 |
-| 모델 입력 / Model input | `Tensor` | `(B, 3, 128, 128)` | ImageNet-normalized float32 |
-| 평가 입력 / Eval input | `np.ndarray` | `(N,)` | int [0, 5] |
+| Dataset 출력 (Phase 2) | `(Tensor, int)` | `(3, 128, 128)`, scalar | ImageNet-normalized RGB float32, [0,5] |
+| Dataset 출력 (Phase 0) | `(Tensor, Tensor)` | `(3, 128, 128)` × 2 | ImageNet-normalized RGB float32 |
+| MixUp 출력 | `(Tensor, Tensor)` | `(B,3,128,128)`, `(B, num_classes)` | mixed image, soft label |
+| 모델 입력 | `Tensor` | `(B, 3, 128, 128)` | ImageNet-normalized RGB float32 |
 
 ---
 
-## 8. Fail-Fast 규칙 / Fail-Fast Rules
+## 8. Fail-Fast 규칙
 
-데이터 파이프라인에서 발동되는 SSOT 검증 코드 목록. 자세한 정의는 [SSOT_Validation_Codes.md](SSOT_Validation_Codes.md) 참조.
-SSOT validation codes triggered within the data pipeline. See [SSOT_Validation_Codes.md](SSOT_Validation_Codes.md) for full definitions.
-
-| 조건 / Condition | SSOT 코드 / Code | 등급 / Level | 동작 / Action |
+| 조건 | SSOT 코드 | 등급 | 동작 |
 |---|---|---|---|
-| 데이터 디렉토리 미존재 / Data directory not found | `SSOT-FF01` | Level 1 — Error | 학습 중단 / Abort training |
-| 학습(BGR) ↔ 추론(RGB) 색상 공간 불일치 / Color space mismatch | `SSOT-CS01` | Level 1 — Error | 결과 신뢰 불가 / Results unreliable |
-| ImageNet 정규화 미적용 / ImageNet normalization missing | `SSOT-NM01` | Level 2 — Warning | 경고 출력 + 계속 / Warn and continue |
-| 동일 seed에서 다른 데이터 분할 / Non-deterministic split | `SSOT-SD01` | Level 2 — Warning | 경고 출력 / Log warning |
+| 데이터 디렉토리 미존재 | `SSOT-FF01` | Level 1 | 학습 중단 |
+| 학습(RGB) ↔ 추론(BGR) 색상 공간 불일치 | `SSOT-CS01` | Level 1 | 결과 신뢰 불가 |
+| ImageNet 정규화 미적용 | `SSOT-NM01` | Level 2 | 경고 + 계속 |
+| 동일 seed에서 다른 데이터 분할 | `SSOT-SD01` | Level 2 | 경고 |
+| holdout/ 학습 중 참조 시도 | `SSOT-HO01` | Level 1 | 즉시 중단 |
+
+> **SSOT-HO01 (신규)**: holdout 디렉토리는 `evaluate.py --holdout` 실행 외 모든 경로에서 참조 금지.
 
 ---
+
+## 변경 이력 / Changelog
+
+| 날짜 | 변경 내용 |
+|---|---|
+| 2026-06-01 | **D-1**: SSOT-CS01 개정 — BGR 유지 → RGB 변환 적용으로 변경 (pretrained 호환성 수정) |
+| 2026-06-01 | **D-2**: oversampling RNG를 전역 random → seeded 인스턴스로 교체 |
+| 2026-06-01 | **A-1/A-2**: holdout 분리 전략 추가 (prepare_holdout.py, split="holdout") |
+| 2026-06-01 | **B-1**: 합성 데이터 생성 정책 추가 (generate_synthetic.py, synthetic_* prefix) |
+| 2026-06-01 | **C-3**: 증강 강화 — 수직 뒤집기, 랜덤 회전, policy 옵션, MixUp/CutMix 추가 |

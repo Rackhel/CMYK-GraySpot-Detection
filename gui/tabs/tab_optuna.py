@@ -215,6 +215,8 @@ class OptunaTab(BaseTab):
         p0_wp = p0_ss.get("warmup_epochs", [0, 5])
         self._p0_wp_min.setValue(int(p0_wp[0]))
         self._p0_wp_max.setValue(int(p0_wp[1]))
+        self._p0_hd.setText(",".join(str(x) for x in p0_ss.get("hidden_dim", [128, 256, 512])))
+        self._p0_pd.setText(",".join(str(x) for x in p0_ss.get("projection_dim", [64, 128, 256])))
 
         p2_ss = opt.get("phase2", {}).get("search_space", {})
         eff = p2_ss.get("efficientnet_b0", {})
@@ -388,6 +390,8 @@ class OptunaTab(BaseTab):
                     "batch_size": self._parse_int_list(self._p0_bs.text(), [16, 32, 64]),
                     "temperature": [self._p0_temp_min.value(), self._p0_temp_max.value()],
                     "warmup_epochs": [self._p0_wp_min.value(), self._p0_wp_max.value()],
+                    "hidden_dim": self._parse_int_list(self._p0_hd.text(), [128, 256, 512]),
+                    "projection_dim": self._parse_int_list(self._p0_pd.text(), [64, 128, 256]),
                 }
             )
             eff_ss = (
@@ -487,6 +491,11 @@ class OptunaTab(BaseTab):
         self._p0_wp_min = self._spin(wp[0], 0, 20)
         self._p0_wp_max = self._spin(wp[1], 0, 20)
 
+        # ProjectionHead hidden_dim (Tier 3)
+        self._p0_hd = self._bsedit(ss.get("hidden_dim", [128, 256, 512]))
+        # ProjectionHead projection_dim (Tier 3)
+        self._p0_pd = self._bsedit(ss.get("projection_dim", [64, 128, 256]))
+
         f.addRow("LR min", self._p0_lr_min)
         f.addRow("LR max", self._p0_lr_max)
         f.addRow("WD min", self._p0_wd_min)
@@ -498,6 +507,8 @@ class OptunaTab(BaseTab):
         f.addRow("Temp max", self._p0_temp_max)
         f.addRow("Warmup min", self._p0_wp_min)
         f.addRow("Warmup max", self._p0_wp_max)
+        f.addRow("Hidden Dims (csv)", self._p0_hd)
+        f.addRow("Proj Dims (csv)", self._p0_pd)
         return g
 
     def _build_phase2_eff_group(self) -> QGroupBox:

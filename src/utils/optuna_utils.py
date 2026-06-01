@@ -173,6 +173,10 @@ def apply_phase0_params(cfg: dict, params: dict) -> dict:
         cfg["phase0"]["temperature"] = params["temperature"]
     if "warmup_epochs" in params:
         cfg["phase0"]["warmup_epochs"] = params["warmup_epochs"]
+    if "hidden_dim" in params:
+        cfg["phase0"]["hidden_dim"] = params["hidden_dim"]
+    if "projection_dim" in params:
+        cfg["phase0"]["projection_dim"] = params["projection_dim"]
 
     return cfg
 

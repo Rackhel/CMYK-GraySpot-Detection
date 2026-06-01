@@ -18,10 +18,11 @@ class EvaluationService:
         cfg: dict[str, Any],
         channel: str,
         checkpoint_path: str,
+        use_holdout: bool = False,
     ) -> EvaluationWorker:
         """Create an evaluation worker."""
 
-        self._worker = EvaluationWorker(cfg, channel, checkpoint_path)
+        self._worker = EvaluationWorker(cfg, channel, checkpoint_path, use_holdout=use_holdout)
         return self._worker
 
     def stop_evaluation(self) -> None:

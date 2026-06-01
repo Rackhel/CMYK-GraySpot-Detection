@@ -70,6 +70,17 @@ class SidebarWidget(QWidget):
         self._settings_group = self._build_settings_group()
         v.addWidget(self._settings_group)
 
+        # 모델 경로 안내 레이블 / Model path info label
+        models_dir = _ROOT / "data_set" / "models"
+        self._path_info_lbl = QLabel(
+            f"<span style='font-size:10px; color:#585b70;'>"
+            f"모델 위치 / Models dir:<br>"
+            f"<b style='color:#a6adc8;'>{models_dir}</b><br>"
+            f"예상 파일 / Expected: best_Y.pt, best_M.pt, best_C.pt, best_K.pt</span>"
+        )
+        self._path_info_lbl.setWordWrap(True)
+        v.addWidget(self._path_info_lbl)
+
         self._apply_btn = QPushButton(t("btn_apply"))
         self._apply_btn.setFixedHeight(34)
         self._apply_btn.setStyleSheet(
