@@ -37,7 +37,7 @@ pytest>=7.4.0
 pytest-cov>=7.1.0
 
 # ── Dimension Reduction / 차원 축소 ─────────────────────────────────────────
-umap-learn>=0.5.4
+umap-learn>=0.5.12
 
 # ── GUI & Web Interface / GUI 및 웹 인터페이스 ────────────────────────────────
 # streamlit>=1.28.0  # optional (web GUI — legacy; project uses PyQt6 desktop GUI)
