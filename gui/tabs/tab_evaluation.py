@@ -26,6 +26,7 @@ from gui.components.log_panel import LogPanel
 from gui.components.metric_card import MetricCard
 from gui.components.plotly_widget import PlotlyWidget
 from gui.components.progress_panel import ProgressPanel
+from gui.i18n import t
 from gui.services.evaluation_service import EvaluationService
 from gui.tabs.base_tab import BaseTab
 from gui.workers._ckpt_utils import auto_find_checkpoint
@@ -45,8 +46,8 @@ class EvaluationTab(BaseTab):
         self._results: dict[str, dict] = {}  # channel → metrics dict
 
         # ── 상단 컨트롤 / Top controls ────────────────────────────────────
-        ctrl_group = QGroupBox("평가 실행 / Run Evaluation")
-        ctrl_v = QVBoxLayout(ctrl_group)
+        self._grp_ctrl = QGroupBox(t("grp_run_eval"))
+        ctrl_v = QVBoxLayout(self._grp_ctrl)
 
         self.channel_box = QComboBox()
         self.channel_box.addItems(["Y", "M", "C", "K", "전체 (All)"])
@@ -58,14 +59,14 @@ class EvaluationTab(BaseTab):
             "Use after prepare_holdout.py — for final performance reporting only."
         )
 
-        self._run_btn = QPushButton("▶  평가 실행 / Run Evaluation")
-        self._stop_btn = QPushButton("■  중지 / Stop")
+        self._run_btn = QPushButton(t("btn_run_eval"))
+        self._stop_btn = QPushButton(t("btn_stop"))
         self._run_btn.clicked.connect(self.start_evaluation)
         self._stop_btn.clicked.connect(self.stop_evaluation)
         self._stop_btn.setEnabled(False)
 
         ctrl_row = QHBoxLayout()
-        ctrl_row.addWidget(QLabel("채널 / Channel:"))
+        ctrl_row.addWidget(QLabel(t("lbl_channel") + " / Channel:"))
         ctrl_row.addWidget(self.channel_box)
         ctrl_row.addWidget(self._holdout_chk)
         ctrl_row.addWidget(self._run_btn)
@@ -86,7 +87,7 @@ class EvaluationTab(BaseTab):
         # ── 채널별 비교 테이블 / Per-channel comparison table ─────────────
         self._ch_table = QTableWidget(len(_CHANNELS), 4)
         self._ch_table.setHorizontalHeaderLabels(
-            ["Channel", "Accuracy", "Macro F1", "MAE"]
+            [t("lbl_channel"), "Accuracy", "Macro F1", "MAE"]
         )
         self._ch_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._ch_table.setMaximumHeight(160)
@@ -112,7 +113,7 @@ class EvaluationTab(BaseTab):
         top_v = QVBoxLayout(top_widget)
         top_v.setSpacing(8)
         top_v.setContentsMargins(0, 0, 0, 0)
-        top_v.addWidget(ctrl_group)
+        top_v.addWidget(self._grp_ctrl)
         top_v.addLayout(card_row)
 
         # ── 하단 좌: 채널 테이블 + 로그 / Bottom-left: table + log ──────────
@@ -120,7 +121,7 @@ class EvaluationTab(BaseTab):
         left_v = QVBoxLayout(left_widget)
         left_v.setSpacing(6)
         left_v.setContentsMargins(0, 0, 0, 0)
-        left_v.addWidget(QLabel("<b>채널별 비교 / Per-Channel Summary</b>"))
+        left_v.addWidget(QLabel(f"<b>{t('lbl_per_channel_summary')}</b>"))
         left_v.addWidget(self._ch_table)
         left_v.addWidget(self.progress)
         left_v.addWidget(self.log)
@@ -156,6 +157,11 @@ class EvaluationTab(BaseTab):
 
     def refresh(self) -> None:
         pass
+
+    def retranslate_ui(self, lang: str) -> None:
+        self._grp_ctrl.setTitle(t("grp_run_eval"))
+        self._run_btn.setText(t("btn_run_eval"))
+        self._stop_btn.setText(t("btn_stop"))
 
     def on_worker_finished(self, result: dict[str, Any]) -> None:
         ch = result.get("channel", "?")
@@ -195,7 +201,9 @@ class EvaluationTab(BaseTab):
         ch = self._pending.pop(0)
         ckpt = auto_find_checkpoint(self.cfg, ch)
         use_holdout = self._holdout_chk.isChecked()
-        self.eval_worker = self.service.start_evaluation(self.cfg, ch, ckpt, use_holdout=use_holdout)
+        self.eval_worker = self.service.start_evaluation(
+            self.cfg, ch, ckpt, use_holdout=use_holdout
+        )
         self.eval_worker.progress_updated.connect(self.progress.set_progress)
         self.eval_worker.log_emitted.connect(self.progress.append_log)
         self.eval_worker.finished.connect(self._on_ch_done)

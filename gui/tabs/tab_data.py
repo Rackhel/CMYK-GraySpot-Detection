@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
 
 from gui.components.image_viewer import ImageViewer
 from gui.components.log_panel import LogPanel
+from gui.i18n import t
 from gui.tabs.base_tab import BaseTab
 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -52,17 +53,17 @@ class DataTab(BaseTab):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.cellClicked.connect(self._on_cell_clicked)
 
-        scan_btn = QPushButton("🔍  데이터셋 스캔 / Scan Dataset")
-        browse_btn = QPushButton("📂  이미지 선택… / Browse Image…")
-        scan_btn.clicked.connect(self.refresh)
-        browse_btn.clicked.connect(self._browse_image)
+        self._scan_btn = QPushButton(t("btn_scan"))
+        self._browse_btn = QPushButton(t("btn_browse_img"))
+        self._scan_btn.clicked.connect(self.refresh)
+        self._browse_btn.clicked.connect(self._browse_image)
 
         self._status_lbl = QLabel("")
         self._status_lbl.setWordWrap(True)
 
         scan_row = QHBoxLayout()
-        scan_row.addWidget(scan_btn)
-        scan_row.addWidget(browse_btn)
+        scan_row.addWidget(self._scan_btn)
+        scan_row.addWidget(self._browse_btn)
         scan_row.addStretch()
 
         # ── 이미지 미리보기 / Image preview ───────────────────────────────
@@ -79,7 +80,9 @@ class DataTab(BaseTab):
         content = QWidget()
         v = QVBoxLayout(content)
         v.setSpacing(10)
-        v.addWidget(QLabel("<b>데이터셋 현황 — 채널 × 레벨 샘플 수</b>"))
+        self._overview_lbl = QLabel(f"<b>{t('lbl_ds_overview')}</b>")
+        self._overview_lbl.setTextFormat(Qt.TextFormat.RichText)
+        v.addWidget(self._overview_lbl)
         v.addLayout(scan_row)
         v.addWidget(self._status_lbl)
         v.addWidget(self.table)
@@ -101,6 +104,16 @@ class DataTab(BaseTab):
 
     def on_worker_finished(self, result: dict[str, Any]) -> None:
         pass
+
+    def retranslate_ui(self, lang: str) -> None:
+        self._overview_lbl.setText(f"<b>{t('lbl_ds_overview')}</b>")
+        self._save_btn.setText(t("btn_save_parameters"))
+        self._scan_btn.setText(t("btn_scan"))
+        self._browse_btn.setText(t("btn_browse_img"))
+        self._holdout_btn.setText(t("btn_holdout"))
+        self._syn_btn.setText(t("btn_generate_synthetic"))
+        self._grp_pipeline.setTitle(t("grp_data_pipeline"))
+        self._grp_preprocess.setTitle(t("grp_preprocess_params"))
 
     def refresh(self) -> None:
         """채널×레벨 샘플 수 재스캔."""
@@ -146,8 +159,8 @@ class DataTab(BaseTab):
     # ── Private — build UI ────────────────────────────────────────────────────
 
     def _build_preprocess_group(self) -> QGroupBox:
-        g = QGroupBox("전처리 파라미터 / Preprocessing Parameters")
-        f = QFormLayout(g)
+        self._grp_preprocess = QGroupBox(t("grp_preprocess_params"))
+        f = QFormLayout(self._grp_preprocess)
         f.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         f.setHorizontalSpacing(12)
         f.setVerticalSpacing(6)
@@ -198,32 +211,34 @@ class DataTab(BaseTab):
         dir_row.addWidget(self._labeled_dir_edit)
         dir_row.addWidget(browse_dir_btn)
 
-        save_btn = QPushButton("💾  파라미터 저장 / Save Parameters")
-        save_btn.clicked.connect(self._save_preprocess)
+        self._save_btn = QPushButton(t("btn_save_parameters"))
+        self._save_btn.clicked.connect(self._save_preprocess)
 
-        f.addRow("학습 데이터 위치", dir_row)
-        f.addRow("Image Size (px)", self._img_size)
-        f.addRow("Normalize Mean", self._mean_edit)
-        f.addRow("Normalize Std", self._std_edit)
+        f.addRow(t("lbl_train_data_location"), dir_row)
+        f.addRow(t("lbl_image_size_px"), self._img_size)
+        f.addRow(t("lbl_normalize_mean"), self._mean_edit)
+        f.addRow(t("lbl_normalize_std"), self._std_edit)
 
         split_row = QHBoxLayout()
-        split_row.addWidget(QLabel("Train"))
+        split_row.addWidget(QLabel(t("lbl_train")))
         split_row.addWidget(self._train_split)
-        split_row.addWidget(QLabel("Val"))
+        split_row.addWidget(QLabel(t("lbl_val")))
         split_row.addWidget(self._val_split)
-        split_row.addWidget(QLabel("Test"))
+        split_row.addWidget(QLabel(t("lbl_test")))
         split_row.addWidget(self._test_split)
         split_row.addStretch()
-        f.addRow("Split Ratio", split_row)
-        f.addRow(save_btn)
+        f.addRow(t("lbl_split_ratio"), split_row)
+        f.addRow(self._save_btn)
 
-        return g
+        return self._grp_preprocess
 
     def _build_pipeline_group(self) -> QGroupBox:
         """Holdout 분리 + 합성 데이터 생성 버튼 그룹."""
-        from PyQt6.QtWidgets import QSpinBox as _QSpinBox, QComboBox as _QComboBox
-        g = QGroupBox("데이터 파이프라인 / Data Pipeline Scripts")
-        v = QVBoxLayout(g)
+        from PyQt6.QtWidgets import QComboBox as _QComboBox
+        from PyQt6.QtWidgets import QSpinBox as _QSpinBox
+
+        self._grp_pipeline = QGroupBox(t("grp_data_pipeline"))
+        v = QVBoxLayout(self._grp_pipeline)
         v.setSpacing(6)
         v.setContentsMargins(8, 10, 8, 8)
 
@@ -232,12 +247,12 @@ class DataTab(BaseTab):
             "<b>① Holdout 분리</b> — 학습 전 한 번만 실행 / Run ONCE before training"
         )
         holdout_lbl.setStyleSheet("color:#f38ba8;")
-        holdout_btn = QPushButton("🔒  Holdout 분리 실행 / Prepare Holdout (dry-run)")
-        holdout_btn.setToolTip(
+        self._holdout_btn = QPushButton(t("btn_holdout"))
+        self._holdout_btn.setToolTip(
             "prepare_holdout.py --dry-run 실행 — 실제 파일을 이동하지 않습니다.\n"
             "CLI에서 --no-dry-run 플래그로 실제 실행하세요."
         )
-        holdout_btn.clicked.connect(self._run_prepare_holdout)
+        self._holdout_btn.clicked.connect(self._run_prepare_holdout)
 
         # ── 합성 데이터 생성 ──────────────────────────────────────────
         syn_lbl = QLabel(
@@ -253,21 +268,21 @@ class DataTab(BaseTab):
         self._syn_count.setRange(10, 500)
         self._syn_count.setValue(100)
         self._syn_count.setMaximumWidth(80)
-        syn_btn = QPushButton("🧪  합성 이미지 생성 / Generate Synthetic")
-        syn_btn.clicked.connect(self._run_generate_synthetic)
+        self._syn_btn = QPushButton(t("btn_generate_synthetic"))
+        self._syn_btn.clicked.connect(self._run_generate_synthetic)
 
-        syn_row.addWidget(QLabel("Channel:"))
+        syn_row.addWidget(QLabel(t("lbl_channel")))
         syn_row.addWidget(self._syn_channel)
-        syn_row.addWidget(QLabel("Count:"))
+        syn_row.addWidget(QLabel(t("lbl_count")))
         syn_row.addWidget(self._syn_count)
-        syn_row.addWidget(syn_btn)
+        syn_row.addWidget(self._syn_btn)
         syn_row.addStretch()
 
         v.addWidget(holdout_lbl)
-        v.addWidget(holdout_btn)
+        v.addWidget(self._holdout_btn)
         v.addWidget(syn_lbl)
         v.addLayout(syn_row)
-        return g
+        return self._grp_pipeline
 
     # ── Private — actions ─────────────────────────────────────────────────────
 
@@ -304,14 +319,21 @@ class DataTab(BaseTab):
 
     def _run_prepare_holdout(self) -> None:
         """prepare_holdout.py --dry-run 실행."""
-        import subprocess, sys
+        import subprocess
+        import sys
+
         try:
             result = subprocess.run(
                 [sys.executable, "-m", "src.scripts.prepare_holdout", "--dry-run"],
-                capture_output=True, text=True, cwd=str(_ROOT)
+                capture_output=True,
+                text=True,
+                cwd=str(_ROOT),
             )
             out = (result.stdout + result.stderr).strip()
-            self._log.append("📋 prepare_holdout --dry-run:\n" + (out[:600] if out else "(no output)"))
+            self._log.append(
+                "📋 prepare_holdout --dry-run:\n"
+                + (out[:600] if out else "(no output)")
+            )
             self._log.append(
                 "⚠️  실제 분리는 CLI에서: python -m src.scripts.prepare_holdout\n"
                 "    (파일이 이동됩니다 / files will be MOVED)"
@@ -321,18 +343,32 @@ class DataTab(BaseTab):
 
     def _run_generate_synthetic(self) -> None:
         """generate_synthetic.py 실행 (dry-run)."""
-        import subprocess, sys
+        import subprocess
+        import sys
+
         channel = self._syn_channel.currentText()
         count = str(self._syn_count.value())
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "src.scripts.generate_synthetic",
-                 "--channel", channel, "--count", count, "--dry-run"],
-                capture_output=True, text=True, cwd=str(_ROOT)
+                [
+                    sys.executable,
+                    "-m",
+                    "src.scripts.generate_synthetic",
+                    "--channel",
+                    channel,
+                    "--count",
+                    count,
+                    "--dry-run",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(_ROOT),
             )
             out = (result.stdout + result.stderr).strip()
-            self._log.append(f"🧪 generate_synthetic (dry-run) ch={channel} count={count}:\n"
-                             + (out[:600] if out else "(no output)"))
+            self._log.append(
+                f"🧪 generate_synthetic (dry-run) ch={channel} count={count}:\n"
+                + (out[:600] if out else "(no output)")
+            )
             self._log.append(
                 "⚠️  실제 생성은 CLI에서: python -m src.scripts.generate_synthetic "
                 f"--channel {channel} --count {count}"

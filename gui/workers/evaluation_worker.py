@@ -58,19 +58,27 @@ class EvaluationWorker(BaseWorker):
 
             ckpt = Path(self.checkpoint_path) if self.checkpoint_path else None
             storage = self.cfg.get("storage", {})
-            reports_dir = (_REPORTS_ROOT / storage.get("reports_dir", "outputs/reports")).resolve()
+            reports_dir = (
+                _REPORTS_ROOT / storage.get("reports_dir", "outputs/reports")
+            ).resolve()
 
             # holdout 모드: labeled_dir을 holdout_dir로 교체
             eval_cfg = self.cfg
             if self.use_holdout:
                 import copy
+
                 eval_cfg = copy.deepcopy(self.cfg)
                 holdout_dir = storage.get(
                     "holdout_dir",
-                    str(Path(storage.get("labeled_dir", "data_set/labeled")).parent / "holdout")
+                    str(
+                        Path(storage.get("labeled_dir", "data_set/labeled")).parent
+                        / "holdout"
+                    ),
                 )
                 eval_cfg.setdefault("storage", {})["labeled_dir"] = holdout_dir
-                self.emit_progress(5, f"[{self.channel}] Holdout 평가 모드 — {holdout_dir}")
+                self.emit_progress(
+                    5, f"[{self.channel}] Holdout 평가 모드 — {holdout_dir}"
+                )
 
             self.emit_progress(20, f"[{self.channel}] 모델 로드 중 / Loading model...")
             report_path = run_evaluate(

@@ -22,7 +22,9 @@ class EvaluationService:
     ) -> EvaluationWorker:
         """Create an evaluation worker."""
 
-        self._worker = EvaluationWorker(cfg, channel, checkpoint_path, use_holdout=use_holdout)
+        self._worker = EvaluationWorker(
+            cfg, channel, checkpoint_path, use_holdout=use_holdout
+        )
         return self._worker
 
     def stop_evaluation(self) -> None:

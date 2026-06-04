@@ -53,9 +53,11 @@ class TuningWorker(BaseWorker):
 
             if self.phase == 0:
                 from src.tuning.optuna_tuner import run_phase0_optuna
+
                 run_phase0_optuna(n_trials=self.n_trials, channel=ch_lower)
             else:
                 from src.tuning.optuna_tuner import run_optuna
+
                 run_optuna(n_trials=self.n_trials, channel=ch_lower)
 
             if self.is_cancelled():

@@ -6,9 +6,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtWidgets import QApplication, QMainWindow, QStatusBar, QTabWidget
+_ROOT = Path(__file__).resolve().parents[1]
+for _p in (str(_ROOT), str(_ROOT / "src")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
-from gui.i18n import set_lang, t
+from PyQt6.QtGui import QAction
+from PyQt6.QtWidgets import QApplication, QMainWindow, QStatusBar, QTabWidget, QToolBar
+
+from gui.i18n import get_lang, set_lang, t
 from gui.tabs import (
     DataTab,
     EmbeddingTab,
@@ -18,11 +24,6 @@ from gui.tabs import (
     SettingsTab,
     TrainingTab,
 )
-
-_ROOT = Path(__file__).resolve().parents[1]
-for _p in (str(_ROOT), str(_ROOT / "src")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
 
 _ASSETS = Path(__file__).resolve().parent / "assets"
 _STYLES = Path(__file__).resolve().parent / "styles"
@@ -71,8 +72,16 @@ class MainWindow(QMainWindow):
         self.status = QStatusBar()
         self.setStatusBar(self.status)
 
+        self._toolbar = QToolBar("Appearance")
+        self._toolbar.setMovable(False)
+        self.addToolBar(self._toolbar)
+        self._lang_action = QAction("English", self)
+        self._lang_action.triggered.connect(self._toggle_lang)
+        self._toolbar.addAction(self._lang_action)
+
         self._add_tabs()
         self._connect_appearance_signals()
+        self._update_lang_action_text(get_lang())
         self.status.showMessage("Ready")
 
     # ── Tab setup ──────────────────────────────────────────────────────────────
@@ -137,7 +146,19 @@ class MainWindow(QMainWindow):
         set_lang(lang)
         self._retranslate_tab_labels()
         self._retranslate_all(lang)
+        self._update_lang_action_text(lang)
         self.status.showMessage(f"Language: {'한국어' if lang == 'ko' else 'English'}")
+
+    def _toggle_lang(self) -> None:
+        new_lang = "en" if get_lang() == "ko" else "ko"
+        self._lang_action.setEnabled(False)
+        try:
+            self._apply_lang(new_lang)
+        finally:
+            self._lang_action.setEnabled(True)
+
+    def _update_lang_action_text(self, lang: str) -> None:
+        self._lang_action.setText("한국어" if lang == "en" else "English")
 
     def _retranslate_tab_labels(self) -> None:
         keys = [

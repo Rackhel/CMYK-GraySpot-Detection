@@ -30,6 +30,7 @@ from gui.components.log_panel import LogPanel
 from gui.components.metric_card import MetricCard
 from gui.components.progress_panel import ProgressPanel
 from gui.components.training_chart import TrainingChart
+from gui.i18n import t
 from gui.services.training_service import TrainingService
 from gui.tabs.base_tab import BaseTab
 from gui.workers.training_worker import TrainingWorker
@@ -136,12 +137,18 @@ class TrainingTab(BaseTab):
         self._p0_proj.setValue(int(p0.get("projection_dim", 128)))
 
         # per_channel 오버라이드 읽기 / Load per-channel overrides
-        _PC_DEF = {"Y": (True,0.5,15,5), "M": (False,0.2,50,10),
-                   "C": (False,0.3,30,7), "K": (True,0.5,10,3)}
+        _PC_DEF = {
+            "Y": (True, 0.5, 15, 5),
+            "M": (False, 0.2, 50, 10),
+            "C": (False, 0.3, 30, 7),
+            "K": (True, 0.5, 10, 3),
+        }
         for ch, (def_frz, def_do, def_ep, def_pt) in _PC_DEF.items():
             per = p2.get("per_channel", {}).get(ch, {})
             if ch in self._pc_frozen:
-                self._pc_frozen[ch].setChecked(bool(per.get("frozen_backbone", def_frz)))
+                self._pc_frozen[ch].setChecked(
+                    bool(per.get("frozen_backbone", def_frz))
+                )
                 self._pc_dropout[ch].setValue(float(per.get("dropout", def_do)))
                 self._pc_epochs[ch].setValue(int(per.get("epochs", def_ep)))
                 self._pc_patience[ch].setValue(int(per.get("patience", def_pt)))
@@ -169,6 +176,15 @@ class TrainingTab(BaseTab):
         ckpt = result.get("checkpoint_path", result.get("checkpoint", ""))
         self.progress.append_log(f"✅ 완료 — {Path(ckpt).name if ckpt else '—'}")
         self._set_running(False)
+
+    def retranslate_ui(self, lang: str) -> None:
+        self._grp_backbone.setTitle(t("grp_backbone"))
+        self._grp_head.setTitle(t("grp_head"))
+        self._grp_phase.setTitle(t("grp_phase_hp"))
+        self._grp_run.setTitle(t("grp_run_train"))
+        self._start_btn.setText(t("btn_start_training"))
+        self._stop_btn.setText(t("btn_stop"))
+        self._save_btn.setText(t("btn_save_model"))
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -212,8 +228,8 @@ class TrainingTab(BaseTab):
     # ── Private — build UI ────────────────────────────────────────────────────
 
     def _build_backbone_group(self) -> QGroupBox:
-        g = QGroupBox("Backbone 설정")
-        f = self._form(g)
+        self._grp_backbone = QGroupBox(t("grp_backbone"))
+        f = self._form(self._grp_backbone)
 
         self._backbone = QComboBox()
         self._backbone.addItems(["efficientnet_b0", "resnet50"])
@@ -227,18 +243,18 @@ class TrainingTab(BaseTab):
             bool(self.cfg.get("model", {}).get("frozen_backbone", False))
         )
 
-        save_btn = QPushButton("💾  설정 저장")
-        save_btn.setMaximumWidth(140)
-        save_btn.clicked.connect(self.save_config)
+        self._save_btn = QPushButton(t("btn_save_model"))
+        self._save_btn.setMaximumWidth(140)
+        self._save_btn.clicked.connect(self.save_config)
 
         f.addRow("Backbone", self._backbone)
         f.addRow(self._frozen)
-        f.addRow(save_btn)
-        return g
+        f.addRow(self._save_btn)
+        return self._grp_backbone
 
     def _build_head_group(self) -> QGroupBox:
-        g = QGroupBox("Head 설정 / Classification Head")
-        f = self._form(g)
+        self._grp_head = QGroupBox(t("grp_head"))
+        f = self._form(self._grp_head)
 
         d = self.cfg.get("data", {})
         p2 = self.cfg.get("phase2", {})
@@ -257,12 +273,12 @@ class TrainingTab(BaseTab):
 
         f.addRow("Num Levels (클래스 수)", self._num_levels)
         f.addRow("Dropout Rate", self._dropout)
-        return g
+        return self._grp_head
 
     def _build_phase_tabs(self) -> QGroupBox:
         """Phase 2 / Phase 0 / Common 파라미터를 내부 탭으로 구성 — 수직 높이 최소화."""
-        g = QGroupBox("Phase 하이퍼파라미터")
-        outer = QVBoxLayout(g)
+        self._grp_phase = QGroupBox(t("grp_phase_hp"))
+        outer = QVBoxLayout(self._grp_phase)
         outer.setContentsMargins(4, 8, 4, 4)
 
         tabs = QTabWidget()
@@ -411,7 +427,9 @@ class TrainingTab(BaseTab):
         self._p0_hidden.setSingleStep(64)
         self._p0_hidden.setValue(int(p0.get("hidden_dim", 256)))
         self._p0_hidden.setMaximumWidth(100)
-        self._p0_hidden.setToolTip("ProjectionHead 중간 차원 — backbone → hidden → projection_dim")
+        self._p0_hidden.setToolTip(
+            "ProjectionHead 중간 차원 — backbone → hidden → projection_dim"
+        )
 
         f0.addRow("Epochs", self._p0_epochs)
         f0.addRow("Learning Rate", self._p0_lr)
@@ -477,35 +495,55 @@ class TrainingTab(BaseTab):
         pc_v = QVBoxLayout(pcw)
         pc_v.setContentsMargins(4, 4, 4, 4)
         pc_v.setSpacing(6)
-        pc_v.addWidget(QLabel(
-            "<span style='color:#a6adc8; font-size:11px;'>"
-            "채널별 학습 오버라이드 — Phase2Trainer가 자동으로 적용합니다.<br>"
-            "Per-channel overrides applied automatically by Phase2Trainer.</span>"
-        ))
+        pc_v.addWidget(
+            QLabel(
+                "<span style='color:#a6adc8; font-size:11px;'>"
+                "채널별 학습 오버라이드 — Phase2Trainer가 자동으로 적용합니다.<br>"
+                "Per-channel overrides applied automatically by Phase2Trainer.</span>"
+            )
+        )
 
         _PC_CHANNELS = ["Y", "M", "C", "K"]
         _PC_DEFAULTS = {
-            "K": {"frozen_backbone": True,  "dropout": 0.5, "epochs": 10,  "patience": 3},
-            "Y": {"frozen_backbone": True,  "dropout": 0.5, "epochs": 15,  "patience": 5},
-            "C": {"frozen_backbone": False, "dropout": 0.3, "epochs": 30,  "patience": 7},
-            "M": {"frozen_backbone": False, "dropout": 0.2, "epochs": 50,  "patience": 10},
+            "K": {"frozen_backbone": True, "dropout": 0.5, "epochs": 10, "patience": 3},
+            "Y": {"frozen_backbone": True, "dropout": 0.5, "epochs": 15, "patience": 5},
+            "C": {
+                "frozen_backbone": False,
+                "dropout": 0.3,
+                "epochs": 30,
+                "patience": 7,
+            },
+            "M": {
+                "frozen_backbone": False,
+                "dropout": 0.2,
+                "epochs": 50,
+                "patience": 10,
+            },
         }
-        self._pc_frozen: dict[str, QCheckBox]    = {}
+        self._pc_frozen: dict[str, QCheckBox] = {}
         self._pc_dropout: dict[str, QDoubleSpinBox] = {}
-        self._pc_epochs: dict[str, QSpinBox]     = {}
-        self._pc_patience: dict[str, QSpinBox]   = {}
+        self._pc_epochs: dict[str, QSpinBox] = {}
+        self._pc_patience: dict[str, QSpinBox] = {}
 
         for ch in _PC_CHANNELS:
-            per = self.cfg.get("phase2", {}).get("per_channel", {}).get(ch, _PC_DEFAULTS.get(ch, {}))
+            per = (
+                self.cfg.get("phase2", {})
+                .get("per_channel", {})
+                .get(ch, _PC_DEFAULTS.get(ch, {}))
+            )
             ch_box = QGroupBox(f"{ch} Channel")
             ch_f = self._form(ch_box)
 
             frozen_cb = QCheckBox("frozen_backbone")
-            frozen_cb.setChecked(bool(per.get("frozen_backbone", _PC_DEFAULTS[ch]["frozen_backbone"])))
+            frozen_cb.setChecked(
+                bool(per.get("frozen_backbone", _PC_DEFAULTS[ch]["frozen_backbone"]))
+            )
             self._pc_frozen[ch] = frozen_cb
 
             do_sb = QDoubleSpinBox()
-            do_sb.setRange(0.0, 0.9); do_sb.setDecimals(2); do_sb.setSingleStep(0.05)
+            do_sb.setRange(0.0, 0.9)
+            do_sb.setDecimals(2)
+            do_sb.setSingleStep(0.05)
             do_sb.setValue(float(per.get("dropout", _PC_DEFAULTS[ch]["dropout"])))
             do_sb.setMaximumWidth(100)
             self._pc_dropout[ch] = do_sb
@@ -532,11 +570,11 @@ class TrainingTab(BaseTab):
         tabs.addTab(pcw, "Per-Ch")
 
         outer.addWidget(tabs)
-        return g
+        return self._grp_phase
 
     def _build_run_group(self) -> QGroupBox:
-        g = QGroupBox("학습 실행 / Run Training")
-        v = QVBoxLayout(g)
+        self._grp_run = QGroupBox(t("grp_run_train"))
+        v = QVBoxLayout(self._grp_run)
 
         self._phase_box = QComboBox()
         self._phase_box.addItem("Phase 2 — Supervised", 2)
@@ -547,22 +585,22 @@ class TrainingTab(BaseTab):
         self._channel_box.addItems(["Y", "M", "C", "K"])
         self._channel_box.setMaximumWidth(80)
 
-        self._start_btn = QPushButton("▶  학습 시작 / Start Training")
-        self._stop_btn = QPushButton("■  중지 / Stop")
+        self._start_btn = QPushButton(t("btn_start_training"))
+        self._stop_btn = QPushButton(t("btn_stop"))
         self._start_btn.clicked.connect(self.start_training)
         self._stop_btn.clicked.connect(self.stop_training)
         self._stop_btn.setEnabled(False)
 
         row = QHBoxLayout()
-        row.addWidget(QLabel("Phase"))
+        row.addWidget(QLabel(t("lbl_phase")))
         row.addWidget(self._phase_box)
-        row.addWidget(QLabel("Channel"))
+        row.addWidget(QLabel(t("lbl_channel")))
         row.addWidget(self._channel_box)
         row.addWidget(self._start_btn)
         row.addWidget(self._stop_btn)
         row.addStretch()
         v.addLayout(row)
-        return g
+        return self._grp_run
 
     # ── Private — helpers ─────────────────────────────────────────────────────
 

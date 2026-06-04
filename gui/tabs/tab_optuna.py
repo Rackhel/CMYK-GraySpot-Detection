@@ -29,6 +29,7 @@ from gui.components.log_panel import LogPanel
 from gui.components.metric_card import MetricCard
 from gui.components.plotly_widget import PlotlyWidget
 from gui.components.progress_panel import ProgressPanel
+from gui.i18n import t
 from gui.services.tuning_service import TuningService
 from gui.tabs.base_tab import BaseTab
 from gui.workers.tuning_worker import TuningWorker
@@ -64,10 +65,10 @@ class OptunaTab(BaseTab):
         self.trials_spin.setValue(self.cfg.get("optuna", {}).get("n_trials", 10))
         self.trials_spin.setMaximumWidth(80)
 
-        start_btn = QPushButton("▶  Start HPO")
-        stop_btn = QPushButton("■  Stop")
-        start_btn.clicked.connect(self.start_tuning)
-        stop_btn.clicked.connect(self.stop_tuning)
+        self._start_btn = QPushButton(t("btn_start_hpo"))
+        self._stop_btn = QPushButton(t("btn_stop"))
+        self._start_btn.clicked.connect(self.start_tuning)
+        self._stop_btn.clicked.connect(self.stop_tuning)
 
         ctrl_row = QHBoxLayout()
         ctrl_row.addWidget(QLabel("Channel"))
@@ -76,8 +77,8 @@ class OptunaTab(BaseTab):
         ctrl_row.addWidget(self.phase_box)
         ctrl_row.addWidget(QLabel("Trials"))
         ctrl_row.addWidget(self.trials_spin)
-        ctrl_row.addWidget(start_btn)
-        ctrl_row.addWidget(stop_btn)
+        ctrl_row.addWidget(self._start_btn)
+        ctrl_row.addWidget(self._stop_btn)
         ctrl_row.addStretch()
 
         # ── 결과 메트릭 카드 행 / Result metric cards ─────────────────────
@@ -105,16 +106,16 @@ class OptunaTab(BaseTab):
         self._before_lbl.setWordWrap(True)
         self._after_lbl.setWordWrap(True)
 
-        snap_btn = QPushButton("📸  현재 설정 스냅샷 저장")
-        snap_btn.clicked.connect(self._take_snapshot)
+        self._snapshot_btn = QPushButton(t("btn_snapshot"))
+        self._snapshot_btn.clicked.connect(self._take_snapshot)
 
-        compare_box = QGroupBox("Before / After 비교")
-        c_h = QHBoxLayout(compare_box)
+        self._compare_box = QGroupBox(t("grp_before_after"))
+        c_h = QHBoxLayout(self._compare_box)
         left_w = QWidget()
         left_v = QVBoxLayout(left_w)
         left_v.addWidget(QLabel("<b>수정 전 (Before)</b>"))
         left_v.addWidget(self._before_lbl)
-        left_v.addWidget(snap_btn)
+        left_v.addWidget(self._snapshot_btn)
         right_w = QWidget()
         right_v = QVBoxLayout(right_w)
         right_v.addWidget(QLabel("<b>수정 후 / HPO 결과 (After)</b>"))
@@ -146,21 +147,22 @@ class OptunaTab(BaseTab):
         # ── 저장 버튼 / Save / Reset ──────────────────────────────────────
         self.log_panel = LogPanel()
         self.log_panel.setMaximumHeight(80)
-        save_btn = QPushButton("Save Search Space → config.json")
-        reset_btn = QPushButton("Reset to Current Config")
-        save_btn.clicked.connect(self.save_search_space)
-        reset_btn.clicked.connect(self.refresh)
+        self._save_btn = QPushButton(t("btn_save_ss"))
+        self._reset_btn = QPushButton(t("btn_reset"))
+        self._save_btn.clicked.connect(self.save_search_space)
+        self._reset_btn.clicked.connect(self.refresh)
 
         btn_row = QHBoxLayout()
-        btn_row.addWidget(save_btn)
-        btn_row.addWidget(reset_btn)
+        btn_row.addWidget(self._save_btn)
+        btn_row.addWidget(self._reset_btn)
 
         # ── 탐색공간 편집기 패널 (스크롤 + 버튼 + 로그) / Editor panel ───
         editor_panel = QWidget()
         editor_v = QVBoxLayout(editor_panel)
         editor_v.setContentsMargins(0, 0, 0, 0)
         editor_v.setSpacing(4)
-        editor_v.addWidget(QLabel("  Search Space Editor"))
+        self._editor_label = QLabel(t("grp_ss_editor"))
+        editor_v.addWidget(self._editor_label)
         editor_v.addWidget(scroll, stretch=1)
         editor_v.addLayout(btn_row)
         editor_v.addWidget(self.log_panel)
@@ -172,7 +174,7 @@ class OptunaTab(BaseTab):
         run_v.setSpacing(6)
         run_v.addLayout(ctrl_row)
         run_v.addLayout(cards_row)
-        run_v.addWidget(compare_box)
+        run_v.addWidget(self._compare_box)
         run_v.addWidget(self._compare_chart)
         run_v.addWidget(self.progress, stretch=1)
 
@@ -206,17 +208,15 @@ class OptunaTab(BaseTab):
         self._p0_wd_max.setValue(float(p0_ss.get("weight_decay", [1e-6, 1e-4])[1]))
         self._p0_ep_min.setValue(int(p0_ss.get("epochs", [5, 15])[0]))
         self._p0_ep_max.setValue(int(p0_ss.get("epochs", [5, 15])[1]))
-        self._p0_bs.setText(
-            ",".join(str(x) for x in p0_ss.get("batch_size", [16, 32, 64]))
-        )
+        self._p0_bs.setText(self._csv_text(p0_ss.get("batch_size", [16, 32, 64])))
         p0_temp = p0_ss.get("temperature", [0.05, 0.5])
         self._p0_temp_min.setValue(float(p0_temp[0]))
         self._p0_temp_max.setValue(float(p0_temp[1]))
         p0_wp = p0_ss.get("warmup_epochs", [0, 5])
         self._p0_wp_min.setValue(int(p0_wp[0]))
         self._p0_wp_max.setValue(int(p0_wp[1]))
-        self._p0_hd.setText(",".join(str(x) for x in p0_ss.get("hidden_dim", [128, 256, 512])))
-        self._p0_pd.setText(",".join(str(x) for x in p0_ss.get("projection_dim", [64, 128, 256])))
+        self._p0_hd.setText(self._csv_text(p0_ss.get("hidden_dim", [128, 256, 512])))
+        self._p0_pd.setText(self._csv_text(p0_ss.get("projection_dim", [64, 128, 256])))
 
         p2_ss = opt.get("phase2", {}).get("search_space", {})
         eff = p2_ss.get("efficientnet_b0", {})
@@ -228,20 +228,18 @@ class OptunaTab(BaseTab):
         self._eff_ep_max.setValue(int(eff.get("epochs", [10, 30])[1]))
         self._eff_do_min.setValue(float(eff.get("dropout", [0.1, 0.3])[0]))
         self._eff_do_max.setValue(float(eff.get("dropout", [0.1, 0.3])[1]))
-        self._eff_bs.setText(
-            ",".join(str(x) for x in eff.get("batch_size", [16, 32, 64]))
-        )
-        self._eff_hd.setText(
-            ",".join(str(x) for x in eff.get("hidden_dim", [128, 256]))
-        )
+        self._eff_bs.setText(self._csv_text(eff.get("batch_size", [16, 32, 64])))
+        self._eff_hd.setText(self._csv_text(eff.get("hidden_dim", [128, 256])))
         eff_ls = eff.get("label_smoothing", [0.0, 0.2])
         self._eff_ls_min.setValue(float(eff_ls[0]))
         self._eff_ls_max.setValue(float(eff_ls[1]))
         eff_wp = eff.get("warmup_epochs", [0, 5])
         self._eff_wp_min.setValue(int(eff_wp[0]))
         self._eff_wp_max.setValue(int(eff_wp[1]))
-        self._eff_cw.setText(",".join(str(x) for x in eff.get("class_weights", ["none", "balanced"])))
-        self._eff_fb.setText(",".join(str(x) for x in eff.get("frozen_backbone", [False, True])))
+        self._eff_cw.setText(
+            self._csv_text(eff.get("class_weights", ["none", "balanced"]))
+        )
+        self._eff_fb.setText(self._csv_text(eff.get("frozen_backbone", [False, True])))
 
         res = p2_ss.get("resnet50", {})
         self._res_lr_min.setValue(float(res.get("learning_rate", [1e-4, 5e-4])[0]))
@@ -252,25 +250,41 @@ class OptunaTab(BaseTab):
         self._res_ep_max.setValue(int(res.get("epochs", [10, 30])[1]))
         self._res_do_min.setValue(float(res.get("dropout", [0.3, 0.5])[0]))
         self._res_do_max.setValue(float(res.get("dropout", [0.3, 0.5])[1]))
-        self._res_bs.setText(
-            ",".join(str(x) for x in res.get("batch_size", [16, 32, 64]))
-        )
-        self._res_hd.setText(
-            ",".join(str(x) for x in res.get("hidden_dim", [256, 512]))
-        )
-        self._res_md.setText(
-            ",".join(str(x) for x in res.get("mid_dim", [256, 512, 1024]))
-        )
+        self._res_bs.setText(self._csv_text(res.get("batch_size", [16, 32, 64])))
+        self._res_hd.setText(self._csv_text(res.get("hidden_dim", [256, 512])))
+        self._res_md.setText(self._csv_text(res.get("mid_dim", [256, 512, 1024])))
         res_ls = res.get("label_smoothing", [0.0, 0.2])
         self._res_ls_min.setValue(float(res_ls[0]))
         self._res_ls_max.setValue(float(res_ls[1]))
         res_wp = res.get("warmup_epochs", [0, 5])
         self._res_wp_min.setValue(int(res_wp[0]))
         self._res_wp_max.setValue(int(res_wp[1]))
-        self._res_cw.setText(",".join(str(x) for x in res.get("class_weights", ["none", "balanced"])))
-        self._res_fb.setText(",".join(str(x) for x in res.get("frozen_backbone", [False, True])))
+        self._res_cw.setText(
+            self._csv_text(res.get("class_weights", ["none", "balanced"]))
+        )
+        self._res_fb.setText(self._csv_text(res.get("frozen_backbone", [False, True])))
 
         self.trials_spin.setValue(int(opt.get("n_trials", 10)))
+
+    @staticmethod
+    def _csv_text(items: Any) -> str:
+        if items is None:
+            return ""
+        if isinstance(items, str):
+            return items
+        try:
+            return ",".join(str(x) for x in items)
+        except Exception:
+            return str(items)
+
+    def retranslate_ui(self, lang: str) -> None:
+        self._start_btn.setText(t("btn_start_hpo"))
+        self._stop_btn.setText(t("btn_stop"))
+        self._save_btn.setText(t("btn_save_ss"))
+        self._reset_btn.setText(t("btn_reset"))
+        self._snapshot_btn.setText(t("btn_snapshot"))
+        self._compare_box.setTitle(t("grp_before_after"))
+        self._editor_label.setText(t("grp_ss_editor"))
 
     def on_worker_finished(self, result: dict[str, Any]) -> None:
         bv = result.get("best_value", 0)
@@ -387,11 +401,20 @@ class OptunaTab(BaseTab):
                     "learning_rate": [self._p0_lr_min.value(), self._p0_lr_max.value()],
                     "weight_decay": [self._p0_wd_min.value(), self._p0_wd_max.value()],
                     "epochs": [self._p0_ep_min.value(), self._p0_ep_max.value()],
-                    "batch_size": self._parse_int_list(self._p0_bs.text(), [16, 32, 64]),
-                    "temperature": [self._p0_temp_min.value(), self._p0_temp_max.value()],
+                    "batch_size": self._parse_int_list(
+                        self._p0_bs.text(), [16, 32, 64]
+                    ),
+                    "temperature": [
+                        self._p0_temp_min.value(),
+                        self._p0_temp_max.value(),
+                    ],
                     "warmup_epochs": [self._p0_wp_min.value(), self._p0_wp_max.value()],
-                    "hidden_dim": self._parse_int_list(self._p0_hd.text(), [128, 256, 512]),
-                    "projection_dim": self._parse_int_list(self._p0_pd.text(), [64, 128, 256]),
+                    "hidden_dim": self._parse_int_list(
+                        self._p0_hd.text(), [128, 256, 512]
+                    ),
+                    "projection_dim": self._parse_int_list(
+                        self._p0_pd.text(), [64, 128, 256]
+                    ),
                 }
             )
             eff_ss = (
@@ -401,32 +424,70 @@ class OptunaTab(BaseTab):
             )
             eff_ss.update(
                 {
-                    "learning_rate": [self._eff_lr_min.value(), self._eff_lr_max.value()],
-                    "weight_decay": [self._eff_wd_min.value(), self._eff_wd_max.value()],
+                    "learning_rate": [
+                        self._eff_lr_min.value(),
+                        self._eff_lr_max.value(),
+                    ],
+                    "weight_decay": [
+                        self._eff_wd_min.value(),
+                        self._eff_wd_max.value(),
+                    ],
                     "epochs": [self._eff_ep_min.value(), self._eff_ep_max.value()],
                     "dropout": [self._eff_do_min.value(), self._eff_do_max.value()],
-                    "batch_size": self._parse_int_list(self._eff_bs.text(), [16, 32, 64]),
+                    "batch_size": self._parse_int_list(
+                        self._eff_bs.text(), [16, 32, 64]
+                    ),
                     "hidden_dim": self._parse_int_list(self._eff_hd.text(), [128, 256]),
-                    "label_smoothing": [self._eff_ls_min.value(), self._eff_ls_max.value()],
-                    "warmup_epochs": [self._eff_wp_min.value(), self._eff_wp_max.value()],
-                    "class_weights": self._parse_str_list(self._eff_cw.text(), ["none", "balanced"]),
-                    "frozen_backbone": self._parse_bool_list(self._eff_fb.text(), [False, True]),
+                    "label_smoothing": [
+                        self._eff_ls_min.value(),
+                        self._eff_ls_max.value(),
+                    ],
+                    "warmup_epochs": [
+                        self._eff_wp_min.value(),
+                        self._eff_wp_max.value(),
+                    ],
+                    "class_weights": self._parse_str_list(
+                        self._eff_cw.text(), ["none", "balanced"]
+                    ),
+                    "frozen_backbone": self._parse_bool_list(
+                        self._eff_fb.text(), [False, True]
+                    ),
                 }
             )
             res_ss = opt["phase2"]["search_space"].setdefault("resnet50", {})
             res_ss.update(
                 {
-                    "learning_rate": [self._res_lr_min.value(), self._res_lr_max.value()],
-                    "weight_decay": [self._res_wd_min.value(), self._res_wd_max.value()],
+                    "learning_rate": [
+                        self._res_lr_min.value(),
+                        self._res_lr_max.value(),
+                    ],
+                    "weight_decay": [
+                        self._res_wd_min.value(),
+                        self._res_wd_max.value(),
+                    ],
                     "epochs": [self._res_ep_min.value(), self._res_ep_max.value()],
                     "dropout": [self._res_do_min.value(), self._res_do_max.value()],
-                    "batch_size": self._parse_int_list(self._res_bs.text(), [16, 32, 64]),
+                    "batch_size": self._parse_int_list(
+                        self._res_bs.text(), [16, 32, 64]
+                    ),
                     "hidden_dim": self._parse_int_list(self._res_hd.text(), [256, 512]),
-                    "mid_dim": self._parse_int_list(self._res_md.text(), [256, 512, 1024]),
-                    "label_smoothing": [self._res_ls_min.value(), self._res_ls_max.value()],
-                    "warmup_epochs": [self._res_wp_min.value(), self._res_wp_max.value()],
-                    "class_weights": self._parse_str_list(self._res_cw.text(), ["none", "balanced"]),
-                    "frozen_backbone": self._parse_bool_list(self._res_fb.text(), [False, True]),
+                    "mid_dim": self._parse_int_list(
+                        self._res_md.text(), [256, 512, 1024]
+                    ),
+                    "label_smoothing": [
+                        self._res_ls_min.value(),
+                        self._res_ls_max.value(),
+                    ],
+                    "warmup_epochs": [
+                        self._res_wp_min.value(),
+                        self._res_wp_max.value(),
+                    ],
+                    "class_weights": self._parse_str_list(
+                        self._res_cw.text(), ["none", "balanced"]
+                    ),
+                    "frozen_backbone": self._parse_bool_list(
+                        self._res_fb.text(), [False, True]
+                    ),
                 }
             )
 
@@ -442,7 +503,7 @@ class OptunaTab(BaseTab):
     # ── Section builders ──────────────────────────────────────────────────────
 
     def _build_global_group(self) -> QGroupBox:
-        g = QGroupBox("Global Optuna Settings")
+        g = QGroupBox(t("grp_optuna_global"))
         f = self._make_form(g)
         opt = self.cfg.get("optuna", {})
         pruner = opt.get("pruner", {})
@@ -467,7 +528,7 @@ class OptunaTab(BaseTab):
         return g
 
     def _build_phase0_ss_group(self) -> QGroupBox:
-        g = QGroupBox("Phase 0 — SimCLR Search Space")
+        g = QGroupBox(t("grp_phase0"))
         f = self._make_form(g)
         ss = self.cfg.get("optuna", {}).get("phase0", {}).get("search_space", {})
 
@@ -512,7 +573,7 @@ class OptunaTab(BaseTab):
         return g
 
     def _build_phase2_eff_group(self) -> QGroupBox:
-        g = QGroupBox("Phase 2 — EfficientNet-B0 Search Space")
+        g = QGroupBox(t("grp_phase2"))
         f = self._make_form(g)
         ss = (
             self.cfg.get("optuna", {})
@@ -567,7 +628,7 @@ class OptunaTab(BaseTab):
         return g
 
     def _build_phase2_res_group(self) -> QGroupBox:
-        g = QGroupBox("Phase 2 — ResNet-50 Search Space")
+        g = QGroupBox(t("grp_phase2"))
         f = self._make_form(g)
         ss = (
             self.cfg.get("optuna", {})
@@ -656,8 +717,18 @@ class OptunaTab(BaseTab):
         return w
 
     @staticmethod
-    def _bsedit(items: list) -> QLineEdit:
-        w = QLineEdit(",".join(str(x) for x in items))
+    def _bsedit(items) -> QLineEdit:
+        if items is None:
+            text = ""
+        elif isinstance(items, str):
+            text = items
+        else:
+            try:
+                text = ",".join(str(x) for x in items)
+            except TypeError:
+                text = str(items)
+
+        w = QLineEdit(text)
         w.setMaximumWidth(_BS_W)
         return w
 
@@ -673,7 +744,11 @@ class OptunaTab(BaseTab):
     def _parse_bool_list(text: str, default: list) -> list:
         try:
             mapping = {"true": True, "false": False, "1": True, "0": False}
-            result = [mapping.get(x.strip().lower(), x.strip()) for x in text.split(",") if x.strip()]
+            result = [
+                mapping.get(x.strip().lower(), x.strip())
+                for x in text.split(",")
+                if x.strip()
+            ]
             return result if result else default
         except Exception:
             return default

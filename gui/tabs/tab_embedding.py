@@ -28,6 +28,7 @@ from gui.components.image_viewer import ImageViewer
 from gui.components.log_panel import LogPanel
 from gui.components.plotly_widget import PlotlyWidget
 from gui.components.progress_panel import ProgressPanel
+from gui.i18n import t
 from gui.services.embedding_service import EmbeddingService
 from gui.workers.embedding_worker import EmbeddingWorker
 
@@ -59,21 +60,21 @@ class EmbeddingTab(BaseTab):
         self._all_channel_data: dict[str, dict] = {}  # ch → {points, labels, paths}
 
         # ── 컨트롤 바 / Control bar ───────────────────────────────────────
-        ctrl_group = QGroupBox("임베딩 추출 / Extract Embeddings")
-        ctrl_v = QVBoxLayout(ctrl_group)
+        self._grp_ctrl = QGroupBox(t("grp_extract_embeddings"))
+        ctrl_v = QVBoxLayout(self._grp_ctrl)
 
         self.channel_box = QComboBox()
         self.channel_box.addItems(["Y", "M", "C", "K", "전체 비교 (All)"])
         self.channel_box.setMaximumWidth(200)
 
-        self._run_btn = QPushButton("▶  임베딩 추출 / Extract")
-        self._stop_btn = QPushButton("■  중지 / Stop")
+        self._run_btn = QPushButton(t("btn_extract_emb"))
+        self._stop_btn = QPushButton(t("btn_stop"))
         self._run_btn.clicked.connect(self.start_embedding)
         self._stop_btn.clicked.connect(self.stop_embedding)
         self._stop_btn.setEnabled(False)
 
         ctrl_row = QHBoxLayout()
-        ctrl_row.addWidget(QLabel("채널:"))
+        ctrl_row.addWidget(QLabel(t("lbl_channel") + ":"))
         ctrl_row.addWidget(self.channel_box)
         ctrl_row.addWidget(self._run_btn)
         ctrl_row.addWidget(self._stop_btn)
@@ -82,10 +83,10 @@ class EmbeddingTab(BaseTab):
 
         # ── 내부 탭: Scatter / Purity / Similar ──────────────────────────
         self._inner_tabs = QTabWidget()
-        self._inner_tabs.addTab(self._build_scatter_tab(), "🗺️  t-SNE 산점도")
-        self._inner_tabs.addTab(self._build_purity_tab(), "📊  레벨 순도")
-        self._inner_tabs.addTab(self._build_similar_tab(), "🔍  유사 이미지")
-        self._inner_tabs.addTab(self._build_correction_tab(), "✏️  라벨 교정")
+        self._inner_tabs.addTab(self._build_scatter_tab(), t("tab_scatter"))
+        self._inner_tabs.addTab(self._build_purity_tab(), t("tab_purity"))
+        self._inner_tabs.addTab(self._build_similar_tab(), t("tab_similar"))
+        self._inner_tabs.addTab(self._build_correction_tab(), t("tab_correction"))
 
         # ── 진행 / Progress ───────────────────────────────────────────────
         self.progress = ProgressPanel()
@@ -96,7 +97,7 @@ class EmbeddingTab(BaseTab):
         # ── 레이아웃 / Layout ─────────────────────────────────────────────
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
-        layout.addWidget(ctrl_group)
+        layout.addWidget(self._grp_ctrl)
         layout.addWidget(self._inner_tabs, stretch=1)
         layout.addWidget(self.progress)
         layout.addWidget(self.log)
@@ -105,6 +106,11 @@ class EmbeddingTab(BaseTab):
 
     def refresh(self) -> None:
         pass
+
+    def retranslate_ui(self, lang: str) -> None:
+        self._grp_ctrl.setTitle(t("grp_extract_embeddings"))
+        self._run_btn.setText(t("btn_extract_emb"))
+        self._stop_btn.setText(t("btn_stop"))
 
     def on_worker_finished(self, result: dict[str, Any]) -> None:
         ch = result.get("channel", "?")
