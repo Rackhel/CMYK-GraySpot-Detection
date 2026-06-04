@@ -12,6 +12,7 @@ Dataset classes are located in data/dataset.py.
 """
 
 import csv
+import json
 import time
 from pathlib import Path
 
@@ -28,10 +29,33 @@ except ImportError:
     from src.utils.utils_model import backbone_tag
 
 from data.dataset import CMYKDataset, ContrastiveDataset  # noqa: F401 — re-export
+from data.normalize import _IMAGENET_NORMALIZE
 from models.grayspot_model import GrayspotModel
 from training.losses import get_loss
 
 logger = get_logger(__name__)
+
+
+def _save_normalize_meta(ckpt_path: Path, cfg: dict, channel: str) -> None:
+    """체크포인트와 함께 정규화 메타데이터를 JSON으로 저장한다.
+    Saves normalization metadata alongside the checkpoint as JSON.
+
+    추론 시 동일한 정규화를 적용하기 위해 사용된다.
+    Used to apply the exact same normalization during inference.
+
+    저장 경로 / Save path: best_Y.pt → best_Y.meta.json
+    """
+    mean = list(_IMAGENET_NORMALIZE.mean)
+    std = list(_IMAGENET_NORMALIZE.std)
+    meta = {
+        "normalize_mean": mean,
+        "normalize_std": std,
+        "image_size": int(cfg.get("data", {}).get("image_size", 128)),
+        "channel": channel,
+        "backbone": cfg.get("model", {}).get("backbone", "efficientnet_b0"),
+    }
+    meta_path = ckpt_path.parent / (ckpt_path.stem + ".meta.json")
+    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -472,6 +496,7 @@ class Phase2Trainer:
                 best_val_acc, best_epoch = val_acc, epoch
                 no_improve = 0
                 torch.save(self.model.state_dict(), best_path)
+                _save_normalize_meta(best_path, self.cfg, self.channel)
             else:
                 no_improve += 1
 
