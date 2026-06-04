@@ -95,6 +95,9 @@ class GrayspotPredictor(DeviceMixin, ModelLoaderMixin, InferenceMixin):
         # 모델 캐시 초기화 — ModelLoaderMixin에서 사용
         self.models: Dict[str, Any] = {}
         self.model_paths: Dict[str, Path] = {}
+        # 채널별 정규화 변환 캐시 — .meta.json에서 로드, 없으면 ImageNet 기본값
+        # Per-channel normalization cache — loaded from .meta.json, fallback to ImageNet
+        self.normalizers: Dict[str, Any] = {}
 
         # SSOT 상수 (config 우선, SSOT 기본값 fallback)
         self.channels = self.cfg.get("data", {}).get("channels") or ["Y", "M", "C", "K"]

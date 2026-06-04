@@ -20,8 +20,34 @@ from typing import Any, Dict, Optional
 
 import torch
 
-from models.grayspot_model import GrayspotModel
 from utils.logger import LoggerMixin
+from utils.utils_model import build_model
+
+
+def _load_normalizer_for_checkpoint(model_path: Path):
+    """체크포인트 옆 .meta.json에서 정규화 변환을 로드한다.
+    Loads normalization transform from .meta.json beside the checkpoint.
+
+    .meta.json이 없으면 ImageNet 기본값을 반환한다.
+    Returns ImageNet defaults if .meta.json is not found.
+    """
+    import json
+
+    from torchvision import transforms as T
+
+    from data.normalize import _IMAGENET_NORMALIZE
+
+    meta_path = model_path.parent / (model_path.stem + ".meta.json")
+    if meta_path.exists():
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            return T.Normalize(
+                mean=meta["normalize_mean"],
+                std=meta["normalize_std"],
+            )
+        except Exception:
+            pass
+    return _IMAGENET_NORMALIZE
 
 
 class ModelLoaderMixin(LoggerMixin):
@@ -73,19 +99,24 @@ class ModelLoaderMixin(LoggerMixin):
 
         self.logger.info(f"[Loader] Loading [{channel}] from {resolved_path}")
 
-        model = GrayspotModel(self.cfg, phase=2)
-        checkpoint = torch.load(
-            str(resolved_path), map_location="cpu", weights_only=True
-        )
-        if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
-            checkpoint = checkpoint["model_state_dict"]
-
-        model.load_state_dict(checkpoint, strict=False)
-        model = model.to(self.device).eval()
+        # build_model: 체크포인트 weight shape에서 architecture 자동감지 (Optuna 튜닝 후에도 안전)
+        # build_model: auto-detects architecture from weight shapes (safe after Optuna tuning)
+        model = build_model(self.cfg, resolved_path, self.device)
 
         self.models[channel] = model
         self.model_paths[channel] = resolved_path
-        self.logger.info(f"  ✓ [{channel}] loaded successfully")
+
+        # 체크포인트 옆 .meta.json에서 정규화 변환 로드 (없으면 ImageNet 기본값)
+        # Load normalization from .meta.json beside checkpoint (fallback: ImageNet defaults)
+        normalizer = _load_normalizer_for_checkpoint(resolved_path)
+        if not hasattr(self, "normalizers"):
+            self.normalizers: Dict[str, Any] = {}
+        self.normalizers[channel] = normalizer
+        meta_exists = (resolved_path.parent / (resolved_path.stem + ".meta.json")).exists()
+        self.logger.info(
+            f"  ✓ [{channel}] loaded | normalizer: "
+            f"{'meta.json' if meta_exists else 'ImageNet fallback'}"
+        )
 
     def clear_cache(self, channel: Optional[str] = None) -> None:
         """

@@ -6,5 +6,5 @@
     "K": "/Users/yangjin-hyeong/Desktop/CMYK_MAIN/data_set/models/best_K.pt"
   },
   "device": "mps",
-  "channel_mode": "all"
+  "channel_mode": "K"
 }

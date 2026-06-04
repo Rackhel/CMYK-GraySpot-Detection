@@ -22,7 +22,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 
-from data.normalize import _IMAGENET_NORMALIZE  # SSOT-NM01: 단일 출처 사용
+from data.normalize import _IMAGENET_NORMALIZE  # SSOT-NM01: fallback용 기본값
 from utils.logger import LoggerMixin
 
 
@@ -78,7 +78,10 @@ class InferenceMixin(LoggerMixin):
                 f"[Inference] images must be numpy.ndarray, got {type(images)}"
             )
 
-        img_tensor = self._preprocess_images(images)
+        # 채널별 normalizer: load_model() 시 .meta.json에서 로드, 없으면 ImageNet 기본값
+        # Per-channel normalizer loaded from .meta.json; fallback to ImageNet defaults
+        normalizer = getattr(self, "normalizers", {}).get(channel, _IMAGENET_NORMALIZE)
+        img_tensor = self._preprocess_images(images, normalizer=normalizer)
         loader = DataLoader(
             TensorDataset(img_tensor), batch_size=batch_size, shuffle=False
         )
@@ -144,17 +147,21 @@ class InferenceMixin(LoggerMixin):
     # 내부 헬퍼 / Internal helper
     # ------------------------------------------------------------------
 
-    def _preprocess_images(self, images: np.ndarray) -> torch.Tensor:
+    def _preprocess_images(self, images: np.ndarray, normalizer=None) -> torch.Tensor:
         """
-        numpy 이미지 배열을 ImageNet-normalized 텐서로 변환한다.
-        Converts numpy image array to ImageNet-normalized tensor.
+        numpy 이미지 배열을 정규화된 텐서로 변환한다.
+        Converts numpy image array to a normalized tensor.
 
-        SSOT_Data_Pipeline.md §3 처리 순서 / Processing order per SSOT_Data_Pipeline.md §3:
-            1. (N,H,W) → (N,H,W,3) 채널 확장 / Channel expansion if greyscale
-            2. float32 변환 및 [0, 1] 정규화 / float32 cast and [0,1] normalization
-            3. (N,H,W,C) → (N,C,H,W) 축 전치 / Axis permutation
-            4. ImageNet mean/std 정규화 (SSOT-NM01 준수) / ImageNet normalization
+        SSOT_Data_Pipeline.md §3 처리 순서 / Processing order:
+            1. (N,H,W) → (N,H,W,3) 채널 확장
+            2. float32 변환 및 [0, 1] 정규화
+            3. (N,H,W,C) → (N,C,H,W) 축 전치
+            4. 채널별 normalizer 적용 (학습 시 저장된 mean/std 사용)
+               Per-channel normalizer from .meta.json; fallback = ImageNet defaults
         """
+        if normalizer is None:
+            normalizer = _IMAGENET_NORMALIZE
+
         # 1. 형상 보정: (N,H,W) → (N,H,W,3)
         if images.ndim == 3:
             images = np.stack([images, images, images], axis=-1)
@@ -172,11 +179,10 @@ class InferenceMixin(LoggerMixin):
         # 3. (N,H,W,C) → (N,C,H,W)
         img_tensor = torch.from_numpy(img_float).permute(0, 3, 1, 2)
 
-        # 4. ImageNet 정규화 — SSOT-NM01 준수 / SSOT-NM01 compliance
-        #    학습(dataset.py _IMAGENET_NORMALIZE)과 동일한 변환 적용
-        #    Same transform as training (dataset.py _IMAGENET_NORMALIZE)
+        # 4. 채널별 정규화 적용 (학습당시 사용한 mean/std)
+        #    Apply per-channel normalization (mean/std from training time)
         img_tensor = torch.stack(
-            [_IMAGENET_NORMALIZE(img_tensor[i]) for i in range(img_tensor.size(0))]
+            [normalizer(img_tensor[i]) for i in range(img_tensor.size(0))]
         )
 
         return img_tensor

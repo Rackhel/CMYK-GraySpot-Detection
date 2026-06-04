@@ -215,8 +215,8 @@ class OptunaTab(BaseTab):
         p0_wp = p0_ss.get("warmup_epochs", [0, 5])
         self._p0_wp_min.setValue(int(p0_wp[0]))
         self._p0_wp_max.setValue(int(p0_wp[1]))
-        self._p0_hd.setText(self._csv_text(p0_ss.get("hidden_dim", [128, 256, 512])))
-        self._p0_pd.setText(self._csv_text(p0_ss.get("projection_dim", [64, 128, 256])))
+        self._p0_hd.setText(self._csv_text(p0_ss.get("hidden_dim") or [128, 256, 512]))
+        self._p0_pd.setText(self._csv_text(p0_ss.get("projection_dim") or [64, 128, 256]))
 
         p2_ss = opt.get("phase2", {}).get("search_space", {})
         eff = p2_ss.get("efficientnet_b0", {})
@@ -229,7 +229,7 @@ class OptunaTab(BaseTab):
         self._eff_do_min.setValue(float(eff.get("dropout", [0.1, 0.3])[0]))
         self._eff_do_max.setValue(float(eff.get("dropout", [0.1, 0.3])[1]))
         self._eff_bs.setText(self._csv_text(eff.get("batch_size", [16, 32, 64])))
-        self._eff_hd.setText(self._csv_text(eff.get("hidden_dim", [128, 256])))
+        self._eff_hd.setText(self._csv_text(eff.get("hidden_dim") or [128, 256]))
         eff_ls = eff.get("label_smoothing", [0.0, 0.2])
         self._eff_ls_min.setValue(float(eff_ls[0]))
         self._eff_ls_max.setValue(float(eff_ls[1]))
@@ -251,7 +251,7 @@ class OptunaTab(BaseTab):
         self._res_do_min.setValue(float(res.get("dropout", [0.3, 0.5])[0]))
         self._res_do_max.setValue(float(res.get("dropout", [0.3, 0.5])[1]))
         self._res_bs.setText(self._csv_text(res.get("batch_size", [16, 32, 64])))
-        self._res_hd.setText(self._csv_text(res.get("hidden_dim", [256, 512])))
+        self._res_hd.setText(self._csv_text(res.get("hidden_dim") or [256, 512]))
         self._res_md.setText(self._csv_text(res.get("mid_dim", [256, 512, 1024])))
         res_ls = res.get("label_smoothing", [0.0, 0.2])
         self._res_ls_min.setValue(float(res_ls[0]))
@@ -552,10 +552,11 @@ class OptunaTab(BaseTab):
         self._p0_wp_min = self._spin(wp[0], 0, 20)
         self._p0_wp_max = self._spin(wp[1], 0, 20)
 
-        # ProjectionHead hidden_dim (Tier 3)
-        self._p0_hd = self._bsedit(ss.get("hidden_dim", [128, 256, 512]))
+        # ProjectionHead hidden_dim (Tier 3) — config에서 null일 수 있으므로 or fallback
+        # ProjectionHead hidden_dim (Tier 3) — may be null in config, use or fallback
+        self._p0_hd = self._bsedit(ss.get("hidden_dim") or [128, 256, 512])
         # ProjectionHead projection_dim (Tier 3)
-        self._p0_pd = self._bsedit(ss.get("projection_dim", [64, 128, 256]))
+        self._p0_pd = self._bsedit(ss.get("projection_dim") or [64, 128, 256])
 
         f.addRow("LR min", self._p0_lr_min)
         f.addRow("LR max", self._p0_lr_max)
@@ -596,7 +597,7 @@ class OptunaTab(BaseTab):
         self._eff_do_min = self._dspin(do[0], 0.0, 0.9, 2)
         self._eff_do_max = self._dspin(do[1], 0.0, 0.9, 2)
         self._eff_bs = self._bsedit(ss.get("batch_size", [16, 32, 64]))
-        self._eff_hd = self._bsedit(ss.get("hidden_dim", [128, 256]))
+        self._eff_hd = self._bsedit(ss.get("hidden_dim") or [128, 256])
 
         ls = ss.get("label_smoothing", [0.0, 0.2])
         self._eff_ls_min = self._dspin(ls[0], 0.0, 0.5, 2)
@@ -651,7 +652,7 @@ class OptunaTab(BaseTab):
         self._res_do_min = self._dspin(do[0], 0.0, 0.9, 2)
         self._res_do_max = self._dspin(do[1], 0.0, 0.9, 2)
         self._res_bs = self._bsedit(ss.get("batch_size", [16, 32, 64]))
-        self._res_hd = self._bsedit(ss.get("hidden_dim", [256, 512]))
+        self._res_hd = self._bsedit(ss.get("hidden_dim") or [256, 512])
         self._res_md = self._bsedit(ss.get("mid_dim", [256, 512, 1024]))
 
         ls_r = ss.get("label_smoothing", [0.0, 0.2])
