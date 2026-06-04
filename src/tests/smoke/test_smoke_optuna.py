@@ -36,6 +36,10 @@ def test_search_space_has_required_params():
             "epochs": 1,
             "dropout": 0.2,
             "hidden_dim": 128,
+            "label_smoothing": 0.1,
+            "warmup_epochs": 1,
+            "class_weights": "balanced",
+            "frozen_backbone": False,
         }
     )
     params = get_phase2_search_space(trial)
@@ -61,6 +65,10 @@ def test_search_space_value_types():
             "epochs": 1,
             "dropout": 0.2,
             "hidden_dim": 128,
+            "label_smoothing": 0.1,
+            "warmup_epochs": 1,
+            "class_weights": "balanced",
+            "frozen_backbone": False,
         }
     )
     params = get_phase2_search_space(trial)
