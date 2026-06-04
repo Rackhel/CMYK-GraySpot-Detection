@@ -36,7 +36,7 @@ _SUP_BRIGHTNESS_PROB = 0.5
 _SUP_BRIGHTNESS_RANGE = 30
 _SUP_NOISE_PROB = 0.5
 _SUP_NOISE_RANGE = 10
-_SUP_ROTATION_PROB = 0.3
+_SUP_ROTATION_PROB = 0.0
 _SUP_ROTATION_MAX = 15  # degrees
 
 # Contrastive augmentation (Phase 0)
@@ -90,6 +90,20 @@ def augment_supervised(image: np.ndarray, aug_cfg: Optional[dict] = None) -> np.
     noise_range = int(aug_cfg.get("noise_range", _SUP_NOISE_RANGE))
     rotation_prob = _p("rotation_prob", _SUP_ROTATION_PROB)
     rotation_max = float(aug_cfg.get("rotation_max", _SUP_ROTATION_MAX))
+
+    # If all augmentation probabilities are zero, return the image unchanged
+    # (preserve dtype and avoid accidental in-place changes).
+    if all(
+        float(p) == 0.0
+        for p in (
+            flip_prob,
+            vflip_prob,
+            brightness_prob,
+            noise_prob,
+            rotation_prob,
+        )
+    ):
+        return image.copy().astype(np.float32)
 
     if random.random() < flip_prob:
         image = cv2.flip(image, 1)
