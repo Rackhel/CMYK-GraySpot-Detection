@@ -112,7 +112,9 @@ class ModelLoaderMixin(LoggerMixin):
         if not hasattr(self, "normalizers"):
             self.normalizers: Dict[str, Any] = {}
         self.normalizers[channel] = normalizer
-        meta_exists = (resolved_path.parent / (resolved_path.stem + ".meta.json")).exists()
+        meta_exists = (
+            resolved_path.parent / (resolved_path.stem + ".meta.json")
+        ).exists()
         self.logger.info(
             f"  ✓ [{channel}] loaded | normalizer: "
             f"{'meta.json' if meta_exists else 'ImageNet fallback'}"

@@ -55,7 +55,9 @@ def _save_normalize_meta(ckpt_path: Path, cfg: dict, channel: str) -> None:
         "backbone": cfg.get("model", {}).get("backbone", "efficientnet_b0"),
     }
     meta_path = ckpt_path.parent / (ckpt_path.stem + ".meta.json")
-    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    meta_path.write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
 
 # ──────────────────────────────────────────────────────────────
