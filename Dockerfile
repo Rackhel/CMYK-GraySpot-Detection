@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim as base
+FROM python:3.11-slim AS base
 
 ARG TORCH_VERSION=cpu
 ARG CACHE_BUST=20250610  # Cache Buster, Use date format
