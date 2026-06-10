@@ -2,6 +2,7 @@
 FROM python:3.11-slim as base
 
 ARG TORCH_VERSION=cpu
+ARG CACHE_BUST=20250610  # Cache Buster, Use date format
 WORKDIR /app
 
 RUN apt-get update \
