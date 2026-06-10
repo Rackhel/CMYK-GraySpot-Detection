@@ -14,6 +14,8 @@ RUN apt-get update \
         libx11-xcb1 \
         libxext6 \
         libxi6 \
+        gcc \
+        g++ \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python -m pip install --upgrade pip setuptools wheel
