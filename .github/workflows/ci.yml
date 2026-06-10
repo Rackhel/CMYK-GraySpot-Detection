@@ -88,7 +88,7 @@ jobs:
         python -m pytest src/tests/smoke -m smoke || true
 
     - name: Upload coverage reports
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v7
       with:
         files: ./coverage.xml
         flags: unittests
