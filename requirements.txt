@@ -13,7 +13,7 @@ pandas>=3.0.3
 opencv-python>=4.8.0
 Pillow>=12.2.0
 scikit-learn>=1.9.0
-scipy>=1.11.0
+scipy>=1.17.1
 albumentations>=2.0.8 # only needed for advanced data augmentation
 
 # ── Hyperparameter Tuning / 하이퍼파라미터 튜닝 ──────────────────────────────
